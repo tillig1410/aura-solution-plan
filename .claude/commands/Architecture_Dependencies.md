@@ -220,7 +220,7 @@ NODE_ENV=
 ## 5. Structure des dossiers
 
 ```
-plan-app/
+aura-app/
 ├── src/
 │   ├── app/                          # Next.js App Router
 │   │   ├── (auth)/                   # Routes auth (login, register)

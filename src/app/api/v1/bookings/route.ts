@@ -5,6 +5,114 @@ import { bookingLog, logger, securityLog } from "@/lib/logger";
 import { createBookingSchema } from "@/lib/validations/booking";
 import { apiError } from "@/lib/api-error";
 
+const VALID_STATUSES = ["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"] as const;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-\d{2}$/;
+
+/**
+ * GET /api/v1/bookings — List bookings with optional filters
+ * Query params:
+ *   date        — ISO date (YYYY-MM-DD) — filter by day
+ *   week_start  — ISO date (YYYY-MM-DD) — filter Mon–Sun week
+ *   month       — YYYY-MM — filter by calendar month
+ *   practitioner_id — UUID — filter by practitioner
+ *   status      — booking status enum
+ */
+export async function GET(request: NextRequest) {
+  const traceId = request.headers.get("x-trace-id") ?? undefined;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return apiError("Unauthorized", 401, { traceId });
+  }
+
+  const { data: merchant } = await supabase
+    .from("merchants")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!merchant) {
+    return apiError("Merchant not found", 404, { traceId });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const date = searchParams.get("date");
+  const weekStart = searchParams.get("week_start");
+  const month = searchParams.get("month");
+  const practitionerId = searchParams.get("practitioner_id");
+  const status = searchParams.get("status");
+
+  // Validate inputs
+  if (date && !DATE_RE.test(date)) {
+    return apiError("Invalid date format, expected YYYY-MM-DD", 400, { traceId });
+  }
+  if (weekStart && !DATE_RE.test(weekStart)) {
+    return apiError("Invalid week_start format, expected YYYY-MM-DD", 400, { traceId });
+  }
+  if (month && !MONTH_RE.test(month)) {
+    return apiError("Invalid month format, expected YYYY-MM", 400, { traceId });
+  }
+  if (status && !(VALID_STATUSES as readonly string[]).includes(status)) {
+    return apiError("Invalid status value", 400, { traceId });
+  }
+
+  let query = supabase
+    .from("bookings")
+    .select(
+      `
+      *,
+      client:clients(id, name, phone, preferred_language),
+      practitioner:practitioners(id, name, color),
+      service:services(id, name, duration_minutes, price_cents)
+      `,
+    )
+    .eq("merchant_id", merchant.id)
+    .order("starts_at", { ascending: true });
+
+  if (date) {
+    query = query
+      .gte("starts_at", `${date}T00:00:00`)
+      .lte("starts_at", `${date}T23:59:59`);
+  } else if (weekStart) {
+    const start = new Date(weekStart);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    query = query
+      .gte("starts_at", start.toISOString())
+      .lte("starts_at", `${end.toISOString().slice(0, 10)}T23:59:59`);
+  } else if (month) {
+    const [year, mon] = month.split("-").map(Number);
+    const firstDay = `${month}-01`;
+    const lastDay = new Date(year, mon, 0).getDate();
+    const lastDayStr = `${month}-${String(lastDay).padStart(2, "0")}`;
+    query = query
+      .gte("starts_at", `${firstDay}T00:00:00`)
+      .lte("starts_at", `${lastDayStr}T23:59:59`);
+  }
+
+  if (practitionerId) {
+    query = query.eq("practitioner_id", practitionerId);
+  }
+
+  if (status) {
+    query = query.eq("status", status as "pending" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show");
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    logger.error("bookings.list_failed", { error: error.message, traceId });
+    return apiError("Failed to fetch bookings", 500, { traceId });
+  }
+
+  return NextResponse.json(data ?? []);
+}
+
 /**
  * POST /api/v1/bookings — Create a booking
  * Uses optimistic locking via unique index on (merchant_id, practitioner_id, starts_at)

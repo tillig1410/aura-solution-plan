@@ -5,6 +5,51 @@
 
 ---
 
+## [0.8.0] — 2026-03-29 — Phase 5 : Catalogue Services & Configuration (T052–T060)
+
+### API Routes
+- `[FEAT] T052` — `GET/POST /api/v1/services` — liste avec join practitioner_ids, création avec validation Zod (name min 2, duration 5-480, price_cents ≥ 0, auto sort_order) — `src/app/api/v1/services/route.ts`
+- `[FEAT] T053` — `PATCH/DELETE /api/v1/services/:id` — mise à jour partielle + soft delete (is_active=false), cross-tenant check — `src/app/api/v1/services/[id]/route.ts`
+- `[FEAT] T055` — `GET/POST /api/v1/practitioners` — liste avec join services + availability, création avec couleur #hex et spécialités — `src/app/api/v1/practitioners/route.ts`
+- `[FEAT] T056` — `PATCH /api/v1/practitioners/:id` — champs optionnels, cross-tenant check — `src/app/api/v1/practitioners/[id]/route.ts`
+- `[FEAT] T057` — `GET/PUT /api/v1/practitioners/:id/availability` — horaires récurrents (DELETE+INSERT strategy) + exceptions — `src/app/api/v1/practitioners/[id]/availability/route.ts`
+
+### Pages Dashboard
+- `[FEAT] T054` — Page Services avec 4 onglets (Services, Praticiens, Horaires, Fermetures) — liste, Dialog CRUD, durée/prix, dots praticiens — `src/app/(dashboard)/services/page.tsx`
+- `[FEAT] T058` — Page Paramètres avec 7 onglets (Mon salon, IA & Canaux, Paiements, Mon site, Fidélité, Équipe, Mon abonnement) — formulaire salon + stubs futurs — `src/app/(dashboard)/settings/page.tsx`
+
+### Composants
+- `[FEAT] T059` — Composant PractitionerManager — cartes praticiens avec avatars colorés, Dialog création/édition (nom, email, 12 couleurs prédéfinies, spécialités, services assignés, horaires 7 jours) — `src/components/settings/practitioner-manager.tsx`
+- `[FEAT] T060` — Composant AiConfig — personnalité IA (nom, ton friendly/formal/casual), langues (fr/en/es/ar/pt avec flags), canaux, délai annulation (0-2880 min) — `src/components/settings/ai-config.tsx`
+
+### Validation
+- ✅ `tsc --noEmit` — 0 erreur TypeScript
+- ✅ 9/9 tâches Phase 5 complétées (T052–T060)
+
+---
+
+## [0.7.0] — 2026-03-29 — Phase 4 : Dashboard Agenda & Gestion (T038–T051b)
+
+### Ajouté
+- `[FEAT] T040` — API `GET /api/v1/bookings` — filtrage par date/semaine/mois/praticien/statut
+- `[FEAT] T041` — Composant vue jour agenda — colonnes par praticien, 1px/min, ligne horaire courante
+- `[FEAT] T042` — Composant vue semaine — grille 7 jours, jour actuel surligné, dimanche "Fermé"
+- `[FEAT] T043` — Composant vue mois — calendrier 6×7, dots colorés par praticien
+- `[FEAT] T044` — Page Agenda — switch jour/semaine/mois, navigation, filtre praticiens
+- `[FEAT] T045` — Formulaire booking — Dialog useReducer, auto calcul fin depuis durée service
+- `[FEAT] T046-T047b` — API Clients CRUD — GET paginé/recherche, POST, PATCH, fiche complète
+- `[FEAT] T048` — Page Clients — table, debounce 300ms, filtres rapides, Dialog nouveau client
+- `[FEAT] T049` — Composant fiche client — slide-over, badge fidélité, historique, forfaits, notes
+- `[FEAT] T050` — Page Messages — 3 colonnes, filtres canaux, indicateur IA active
+- `[FEAT] T051` — Composant conversation — bulles chat, Realtime Supabase, "Reprendre en main"
+- `[FEAT] T051b` — Notification client fire-and-forget sur modif/annulation booking
+
+### Tests
+- `[TEST] T038` — Test intégration API bookings GET avec filtres
+- `[TEST] T039` — Test unitaire agenda day-view (grouping, couleurs, positions)
+
+---
+
 ## [0.6.0] — 2026-03-29 — Audit OWASP final ✅
 
 ### Sécurité (corrigé)
@@ -121,33 +166,3 @@
 - `[SECURITY]` Validation HMAC sur webhooks entrants (Stripe, WhatsApp, Telnyx)
 - `[SECURITY]` Idempotency keys sur PaymentIntents Stripe
 - `[SECURITY]` Configuration Infisical vault pour les secrets
-
----
-
-## Template pour les prochaines entrées
-
-```
-## [X.Y.Z] — YYYY-MM-DD — Titre de la release
-
-### Ajouté
-- `[FEAT]` Description — fichier(s)
-
-### Modifié
-- `[UPDATE]` Description — fichier(s)
-
-### Corrigé
-- `[FIX]` Description — fichier(s)
-
-### Sécurité
-- `[SECURITY]` Description — fichier(s)
-
-### Supprimé
-- `[REMOVE]` Description — fichier(s)
-```
-
----
-
-> **Comment l'utiliser avec Claude Code :**
-> Après chaque session, dis à Claude Code :
-> `"Mets à jour CHANGELOG.md avec les modifications de cette session"`
-> Il ajoutera automatiquement une nouvelle entrée en haut du fichier.

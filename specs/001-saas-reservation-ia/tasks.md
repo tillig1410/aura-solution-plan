@@ -98,25 +98,25 @@
 
 ### Tests User Story 2
 
-- [ ] T038 [P] [US2] Écrire le test d'intégration API bookings GET dans `tests/integration/api-bookings.test.ts` — liste filtrée par jour/semaine/mois/praticien
-- [ ] T039 [P] [US2] Écrire le test unitaire composant agenda dans `tests/unit/agenda-day-view.test.ts` — rendu correct des bookings par praticien avec couleurs
+- [X] T038 [P] [US2] Écrire le test d'intégration API bookings GET dans `tests/integration/api-bookings.test.ts` — liste filtrée par jour/semaine/mois/praticien
+- [X] T039 [P] [US2] Écrire le test unitaire composant agenda dans `tests/unit/agenda-day-view.test.ts` — rendu correct des bookings par praticien avec couleurs
 
 ### Implementation User Story 2
 
-- [ ] T040 [US2] Implémenter la route GET /api/v1/bookings dans `src/app/api/v1/bookings/route.ts` — filtrage par date/semaine/mois/praticien/statut
-- [ ] T041 [US2] Implémenter le composant vue jour de l'agenda dans `src/components/agenda/day-view.tsx` — colonnes par praticien, couleurs, créneaux horaires
-- [ ] T042 [P] [US2] Implémenter le composant vue semaine dans `src/components/agenda/week-view.tsx` — grille 7 jours × praticiens
-- [ ] T043 [P] [US2] Implémenter le composant vue mois dans `src/components/agenda/month-view.tsx` — calendrier mensuel avec indicateurs de RDV
-- [ ] T044 [US2] Implémenter la page Agenda dans `src/app/(dashboard)/agenda/page.tsx` — switch jour/semaine/mois, navigation date, filtre praticien
-- [ ] T045 [US2] Implémenter le formulaire de création/édition de RDV dans `src/components/agenda/booking-form.tsx` — sélection client, praticien, service, créneau avec vérification disponibilité
-- [ ] T046 [US2] Implémenter la route GET /api/v1/clients dans `src/app/api/v1/clients/route.ts` — liste paginée avec recherche par nom/téléphone
-- [ ] T047 [US2] Implémenter la route GET /api/v1/clients/:id dans `src/app/api/v1/clients/[id]/route.ts` — fiche complète avec historique bookings, fidélité, forfaits
-- [ ] T047b [US2] Implémenter les routes POST /api/v1/clients et PATCH /api/v1/clients/:id dans `src/app/api/v1/clients/route.ts` et `src/app/api/v1/clients/[id]/route.ts` — création manuelle de client, mise à jour (nom, téléphone, notes, déblocage no-show)
-- [ ] T048 [US2] Implémenter la page Clients dans `src/app/(dashboard)/clients/page.tsx` — liste + recherche + clic vers fiche client
-- [ ] T049 [US2] Implémenter le composant fiche client dans `src/components/clients/client-detail.tsx` — historique visites, préférences, fidélité, forfaits, notes
-- [ ] T050 [US2] Implémenter la page Messages dans `src/app/(dashboard)/messages/page.tsx` — liste conversations + vue détail avec historique multi-canal
-- [ ] T051 [US2] Implémenter le composant conversation dans `src/components/messages/conversation-view.tsx` — affichage messages IA/client, tag canal, transcriptions vocales
-- [ ] T051b [US2] Implémenter la notification client sur modification/annulation de RDV depuis le dashboard — envoi automatique sur le canal d'origine via `src/lib/channels/send.ts` lors d'un PATCH booking
+- [X] T040 [US2] Implémenter la route GET /api/v1/bookings dans `src/app/api/v1/bookings/route.ts` — filtrage par date/semaine/mois/praticien/statut
+- [X] T041 [US2] Implémenter le composant vue jour de l'agenda dans `src/components/agenda/day-view.tsx` — colonnes par praticien, couleurs, créneaux horaires
+- [X] T042 [P] [US2] Implémenter le composant vue semaine dans `src/components/agenda/week-view.tsx` — grille 7 jours × praticiens
+- [X] T043 [P] [US2] Implémenter le composant vue mois dans `src/components/agenda/month-view.tsx` — calendrier mensuel avec indicateurs de RDV
+- [X] T044 [US2] Implémenter la page Agenda dans `src/app/(dashboard)/agenda/page.tsx` — switch jour/semaine/mois, navigation date, filtre praticien
+- [X] T045 [US2] Implémenter le formulaire de création/édition de RDV dans `src/components/agenda/booking-form.tsx` — sélection client, praticien, service, créneau avec vérification disponibilité
+- [X] T046 [US2] Implémenter la route GET /api/v1/clients dans `src/app/api/v1/clients/route.ts` — liste paginée avec recherche par nom/téléphone
+- [X] T047 [US2] Implémenter la route GET /api/v1/clients/:id dans `src/app/api/v1/clients/[id]/route.ts` — fiche complète avec historique bookings, fidélité, forfaits
+- [X] T047b [US2] Implémenter les routes POST /api/v1/clients et PATCH /api/v1/clients/:id dans `src/app/api/v1/clients/route.ts` et `src/app/api/v1/clients/[id]/route.ts` — création manuelle de client, mise à jour (nom, téléphone, notes, déblocage no-show)
+- [X] T048 [US2] Implémenter la page Clients dans `src/app/(dashboard)/clients/page.tsx` — liste + recherche + clic vers fiche client
+- [X] T049 [US2] Implémenter le composant fiche client dans `src/components/clients/client-detail.tsx` — historique visites, préférences, fidélité, forfaits, notes
+- [X] T050 [US2] Implémenter la page Messages dans `src/app/(dashboard)/messages/page.tsx` — liste conversations + vue détail avec historique multi-canal
+- [X] T051 [US2] Implémenter le composant conversation dans `src/components/messages/conversation-view.tsx` — affichage messages IA/client, tag canal, transcriptions vocales
+- [X] T051b [US2] Implémenter la notification client sur modification/annulation de RDV depuis le dashboard — envoi automatique sur le canal d'origine via `src/lib/channels/send.ts` lors d'un PATCH booking
 
 **Checkpoint**: Dashboard opérationnel. Le commerçant peut gérer ses RDV, consulter ses clients et voir les conversations IA.
 
@@ -130,15 +130,15 @@
 
 ### Implementation User Story 3
 
-- [ ] T052 [US3] Implémenter les routes CRUD /api/v1/services dans `src/app/api/v1/services/route.ts` — GET, POST
-- [ ] T053 [P] [US3] Implémenter les routes /api/v1/services/:id dans `src/app/api/v1/services/[id]/route.ts` — PATCH, DELETE (soft delete)
-- [ ] T054 [US3] Implémenter la page Services dans `src/app/(dashboard)/services/page.tsx` — liste services avec CRUD inline, ajout/suppression
-- [ ] T055 [US3] Implémenter les routes CRUD /api/v1/practitioners dans `src/app/api/v1/practitioners/route.ts` — GET, POST
-- [ ] T056 [P] [US3] Implémenter les routes /api/v1/practitioners/:id dans `src/app/api/v1/practitioners/[id]/route.ts` — PATCH
-- [ ] T057 [US3] Implémenter les routes /api/v1/practitioners/:id/availability dans `src/app/api/v1/practitioners/[id]/availability/route.ts` — GET, PUT (horaires récurrents + exceptions)
-- [ ] T058 [US3] Implémenter la page Paramètres dans `src/app/(dashboard)/settings/page.tsx` — sections : praticiens, horaires salon, configuration IA (nom, ton, langues), délai annulation
-- [ ] T059 [US3] Implémenter le composant gestion praticiens dans `src/components/settings/practitioner-manager.tsx` — CRUD praticiens, couleurs, spécialités, horaires hebdomadaires, congés
-- [ ] T060 [US3] Implémenter le composant configuration IA dans `src/components/settings/ai-config.tsx` — nom, ton (friendly/formal/casual), langues supportées (multiselect)
+- [X] T052 [US3] Implémenter les routes CRUD /api/v1/services dans `src/app/api/v1/services/route.ts` — GET, POST
+- [X] T053 [P] [US3] Implémenter les routes /api/v1/services/:id dans `src/app/api/v1/services/[id]/route.ts` — PATCH, DELETE (soft delete)
+- [X] T054 [US3] Implémenter la page Services dans `src/app/(dashboard)/services/page.tsx` — liste services avec CRUD inline, ajout/suppression
+- [X] T055 [US3] Implémenter les routes CRUD /api/v1/practitioners dans `src/app/api/v1/practitioners/route.ts` — GET, POST
+- [X] T056 [P] [US3] Implémenter les routes /api/v1/practitioners/:id dans `src/app/api/v1/practitioners/[id]/route.ts` — PATCH
+- [X] T057 [US3] Implémenter les routes /api/v1/practitioners/:id/availability dans `src/app/api/v1/practitioners/[id]/availability/route.ts` — GET, PUT (horaires récurrents + exceptions)
+- [X] T058 [US3] Implémenter la page Paramètres dans `src/app/(dashboard)/settings/page.tsx` — sections : praticiens, horaires salon, configuration IA (nom, ton, langues), délai annulation
+- [X] T059 [US3] Implémenter le composant gestion praticiens dans `src/components/settings/practitioner-manager.tsx` — CRUD praticiens, couleurs, spécialités, horaires hebdomadaires, congés
+- [X] T060 [US3] Implémenter le composant configuration IA dans `src/components/settings/ai-config.tsx` — nom, ton (friendly/formal/casual), langues supportées (multiselect)
 
 **Checkpoint**: Le commerçant peut configurer son salon. L'IA utilise cette configuration pour les réservations.
 

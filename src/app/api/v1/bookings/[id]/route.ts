@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { bookingLog, securityLog } from "@/lib/logger";
+import { bookingLog, logger, securityLog } from "@/lib/logger";
 import { updateBookingSchema } from "@/lib/validations/booking";
 import { apiError } from "@/lib/api-error";
+import { sendMessage } from "@/lib/channels/send";
+import type { MessageChannel } from "@/types/supabase";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -37,10 +39,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return apiError("Merchant not found", 404, { traceId });
   }
 
-  // Verify booking belongs to this merchant
+  // Verify booking belongs to this merchant (also fetch fields needed for notification)
   const { data: existingBooking } = await supabase
     .from("bookings")
-    .select("id, merchant_id")
+    .select("id, merchant_id, client_id, practitioner_id, service_id, starts_at, ends_at, status")
     .eq("id", id)
     .single();
 
@@ -113,5 +115,112 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     bookingLog.cancelled(id, sanitized.cancelled_by as string, traceId);
   }
 
+  // T051b: Send client notification on cancellation or rescheduling
+  const shouldNotify =
+    sanitized.status === "cancelled" ||
+    (sanitized.starts_at !== undefined &&
+      existingBooking.starts_at !== sanitized.starts_at);
+
+  if (shouldNotify) {
+    void notifyClient({
+      merchantId: merchant.id,
+      clientId: existingBooking.client_id,
+      booking: data,
+      isCancelled: sanitized.status === "cancelled",
+      traceId,
+    });
+  }
+
   return NextResponse.json(data);
+}
+
+// ---------------------------------------------------------------------------
+// Internal: fire-and-forget client notification
+// ---------------------------------------------------------------------------
+
+interface NotifyClientParams {
+  merchantId: string;
+  clientId: string;
+  booking: {
+    id: string;
+    starts_at: string;
+    service_id: string;
+  };
+  isCancelled: boolean;
+  traceId?: string;
+}
+
+async function notifyClient(params: NotifyClientParams): Promise<void> {
+  const { merchantId, clientId, booking, isCancelled, traceId } = params;
+
+  try {
+    const supabase = await createClient();
+
+    // Get client channel identifiers
+    const { data: client } = await supabase
+      .from("clients")
+      .select("name, phone, whatsapp_id, messenger_id, telegram_id")
+      .eq("id", clientId)
+      .eq("merchant_id", merchantId)
+      .single();
+
+    if (!client) return;
+
+    // Determine the best channel and recipient id
+    let channel: MessageChannel | null = null;
+    let recipientId: string | null = null;
+
+    if (client.whatsapp_id) {
+      channel = "whatsapp";
+      recipientId = client.whatsapp_id;
+    } else if (client.messenger_id) {
+      channel = "messenger";
+      recipientId = client.messenger_id;
+    } else if (client.telegram_id) {
+      channel = "telegram";
+      recipientId = client.telegram_id;
+    } else if (client.phone) {
+      channel = "sms";
+      recipientId = client.phone;
+    }
+
+    if (!channel || !recipientId) return;
+
+    // Fetch service name for the message
+    const { data: service } = await supabase
+      .from("services")
+      .select("name")
+      .eq("id", booking.service_id)
+      .eq("merchant_id", merchantId)
+      .single();
+
+    const clientName = client.name ?? "Client";
+    const serviceName = service?.name ?? "votre prestation";
+    const dateLabel = new Date(booking.starts_at).toLocaleString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const message = isCancelled
+      ? `Bonjour ${clientName}, votre rendez-vous "${serviceName}" a été annulé. N'hésitez pas à reprendre contact pour en planifier un nouveau.`
+      : `Bonjour ${clientName}, votre rendez-vous "${serviceName}" a été modifié et est maintenant prévu le ${dateLabel}.`;
+
+    await sendMessage({ channel, recipientId, message, merchantId });
+
+    logger.info("booking.client_notified", {
+      bookingId: booking.id,
+      channel,
+      isCancelled,
+      traceId,
+    });
+  } catch (err) {
+    logger.error("booking.notification_failed", {
+      bookingId: booking.id,
+      error: err instanceof Error ? err.message : String(err),
+      traceId,
+    });
+  }
 }

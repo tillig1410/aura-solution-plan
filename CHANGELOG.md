@@ -2,6 +2,21 @@
 
 ## [Unreleased] — 2026-03-29
 
+### Phase 5 — US3 Catalogue Services & Configuration (T052–T060)
+
+#### API Routes
+- **Services CRUD** : `GET/POST /api/v1/services` (liste avec join practitioner_ids, validation Zod) + `PATCH/DELETE /api/v1/services/:id` (soft delete)
+- **Practitioners CRUD** : `GET/POST /api/v1/practitioners` (join services+availability) + `PATCH /api/v1/practitioners/:id`
+- **Availability** : `GET/PUT /api/v1/practitioners/:id/availability` (horaires récurrents + exceptions, stratégie DELETE+INSERT)
+
+#### Pages Dashboard
+- **Page Services** : 4 onglets (Services, Praticiens, Horaires, Fermetures) — liste, Dialog CRUD inline, durée/prix, dots praticiens
+- **Page Paramètres** : 7 onglets (Mon salon, IA & Canaux, Paiements, Mon site, Fidélité, Équipe, Mon abonnement)
+
+#### Composants
+- **PractitionerManager** : Cartes praticiens avec avatars colorés, Dialog création/édition (12 couleurs, spécialités, services assignés, horaires 7 jours)
+- **AiConfig** : Personnalité IA (nom, ton, langues fr/en/es/ar/pt), canaux, délai annulation
+
 ### Corrections de bugs (bloquants prod)
 - **Types Supabase** : Corrigé `InsertDto` qui résolvait en `never` — réécrits en types explicites (non auto-référencés) avec `Relationships[]` requis par supabase-js v2.100+. Les champs avec valeurs par défaut en BDD sont maintenant optionnels dans `Insert`. Corrigé aussi `identify.ts` qui passait un `Record<string, string>` au lieu d'un `InsertDto<"clients">`. **0 erreur TypeScript** après correction.
 - **PK practitioner_services** : Ajouté `merchant_id` à la clé primaire composite `(merchant_id, practitioner_id, service_id)` pour garantir l'isolation multi-tenant au niveau BDD.
