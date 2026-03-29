@@ -14,9 +14,9 @@ const OnboardingPage = () => {
   const [salonName, setSalonName] = useState("");
   const [slug, setSlug] = useState("");
   const router = useRouter();
-  const supabase = createClient();
 
   const handleCreateSalon = async () => {
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

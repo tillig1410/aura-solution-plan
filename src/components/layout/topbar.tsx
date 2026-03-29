@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 
 const TopBar = () => {
   const router = useRouter();
-  const supabase = createClient();
 
   const handleSignOut = async () => {
+    const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
   };

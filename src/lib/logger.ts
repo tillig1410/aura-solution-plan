@@ -1,8 +1,9 @@
 /**
  * Structured JSON logger for Plan API.
  *
- * Outputs one JSON object per line to stdout/stderr.
+ * Outputs one JSON object per line via console.log/console.error.
  * Compatible with Vercel Logs, Datadog, CloudWatch, etc.
+ * Compatible Edge Runtime (pas de process.stdout/stderr).
  *
  * Every log entry includes:
  * - timestamp (ISO 8601)
@@ -33,9 +34,9 @@ function emit(level: LogLevel, event: string, context: Record<string, unknown> =
   const line = JSON.stringify(entry);
 
   if (level === "error") {
-    process.stderr.write(line + "\n");
+    console.error(line);
   } else {
-    process.stdout.write(line + "\n");
+    console.log(line);
   }
 }
 
