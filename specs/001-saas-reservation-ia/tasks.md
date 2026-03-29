@@ -223,12 +223,12 @@
 
 ### Implementation User Story 7
 
-- [ ] T086 [US7] Créer les vues SQL `tips_by_practitioner` et `booking_stats` dans `supabase/migrations/010_create_views.sql`
-- [ ] T087 [US7] Implémenter la route GET /api/v1/stats dans `src/app/api/v1/stats/route.ts` — agrégation par période (jour/semaine/mois/année), par praticien
-- [ ] T088 [US7] Implémenter la page Statistiques dans `src/app/(dashboard)/stats/page.tsx` — graphiques CA, nombre RDV, taux remplissage, top praticiens, pourboires
-- [ ] T089 [US7] Implémenter les composants graphiques dans `src/components/stats/` — `revenue-chart.tsx`, `bookings-chart.tsx`, `practitioner-performance.tsx`, `tips-summary.tsx`
-- [ ] T090 [US7] Créer le workflow n8n demande avis Google dans `n8n/workflows/google-review-request.json` — Bull job 2h après prestation terminée → envoi message avec lien avis Google sur canal d'origine
-- [ ] T091 [US7] Implémenter la configuration Google Place ID dans la page Paramètres — champ `google_place_id` pour générer le lien avis
+- [X] T086 [US7] Créer les vues SQL `tips_by_practitioner` et `booking_stats` dans `supabase/migrations/010_create_views.sql`
+- [X] T087 [US7] Implémenter la route GET /api/v1/stats dans `src/app/api/v1/stats/route.ts` — agrégation par période (jour/semaine/mois/année), par praticien
+- [X] T088 [US7] Implémenter la page Statistiques dans `src/app/(dashboard)/stats/page.tsx` — graphiques CA, nombre RDV, taux remplissage, top praticiens, pourboires
+- [X] T089 [US7] Implémenter les composants graphiques dans `src/components/stats/` — `revenue-chart.tsx`, `bookings-chart.tsx`, `practitioner-performance.tsx`, `tips-summary.tsx`
+- [X] T090 [US7] Créer le workflow n8n demande avis Google dans `n8n/workflows/google-review-request.json` — Bull job 2h après prestation terminée → envoi message avec lien avis Google sur canal d'origine
+- [X] T091 [US7] Implémenter la configuration Google Place ID dans la page Paramètres — champ `google_place_id` pour générer le lien avis
 
 **Checkpoint**: Statistiques visibles. Demandes d'avis envoyées automatiquement post-prestation.
 

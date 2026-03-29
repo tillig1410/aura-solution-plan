@@ -1,0 +1,234 @@
+{
+  "name": "Google Review Request",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-review",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "notes": "Check every 5 minutes for completed bookings that need a review request"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_APP_URL }}/api/v1/bookings/pending-reviews",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-secret",
+              "value": "={{ $env.INTERNAL_API_SECRET }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "fetch-pending-reviews",
+      "name": "Fetch Completed Bookings (2h ago, no review sent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "notes": "Get bookings completed ~2h ago that have not yet received a review request notification"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-google-place-id",
+              "leftValue": "={{ $json.merchant_google_place_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-google-place-id",
+      "name": "Has google_place_id?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "notes": "Only proceed if the merchant has a Google Place ID configured"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_APP_URL }}/api/v1/channels/send",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-secret",
+              "value": "={{ $env.INTERNAL_API_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "={{ $json.client_preferred_channel }}"
+            },
+            {
+              "name": "recipient_id",
+              "value": "={{ $json.client_channel_id }}"
+            },
+            {
+              "name": "message",
+              "value": "=Bonjour {{ ($json.client_name || '').replace(/[\"\\\\]/g, '') }} 🌟 Votre visite chez {{ ($json.merchant_name || '').replace(/[\"\\\\]/g, '') }} s'est bien passée ? Vos avis nous aident beaucoup ! Merci de laisser un avis Google en 30 secondes : https://search.google.com/local/writereview?placeid={{ $json.merchant_google_place_id }} — {{ ($json.merchant_ai_name || $json.merchant_name || '').replace(/[\"\\\\]/g, '') }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "send-review-request",
+      "name": "Send Review Request Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 200],
+      "notes": "Send the Google review request via the client's preferred channel (WhatsApp, SMS, etc.)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_APP_URL }}/api/v1/notifications",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-secret",
+              "value": "={{ $env.INTERNAL_API_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "merchant_id", "value": "={{ $json.merchant_id }}" },
+            { "name": "client_id", "value": "={{ $json.client_id }}" },
+            { "name": "booking_id", "value": "={{ $json.booking_id }}" },
+            { "name": "type", "value": "review_request" },
+            { "name": "channel", "value": "={{ $json.client_preferred_channel }}" },
+            { "name": "status", "value": "sent" },
+            { "name": "scheduled_at", "value": "={{ $now.toISO() }}" },
+            { "name": "sent_at", "value": "={{ $now.toISO() }}" }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "mark-notification-sent",
+      "name": "Mark Review Notification as Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 200],
+      "notes": "Insert a notification record of type review_request with status=sent to prevent duplicate sends"
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Completed Bookings (2h ago, no review sent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Completed Bookings (2h ago, no review sent)": {
+      "main": [
+        [
+          {
+            "node": "Has google_place_id?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has google_place_id?": {
+      "main": [
+        [
+          {
+            "node": "Send Review Request Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Review Request Message": {
+      "main": [
+        [
+          {
+            "node": "Mark Review Notification as Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "review",
+      "id": "4"
+    },
+    {
+      "name": "google",
+      "id": "5"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-29T00:00:00.000Z",
+  "versionId": "1"
+}

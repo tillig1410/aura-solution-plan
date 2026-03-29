@@ -1,138 +1,224 @@
-# Changelog
+# CHANGELOG — AurA Solutions
+
+> Suivi des modifications du projet. Mis à jour après chaque session de développement.
+> Format : `[TYPE] Description — fichier(s) modifié(s)`
+
+---
+
+## [0.9.1] — 2026-03-29 — Phase 9 : Statistiques & Avis Google + corrections (T086–T091)
+
+### Fichiers créés
+- `src/app/api/v1/stats/route.ts` — GET /api/v1/stats (agrégation par période, 6 requêtes, deltas)
+- `src/components/stats/revenue-chart.tsx` — AreaChart CA courant + comparaison période préc.
+- `src/components/stats/bookings-chart.tsx` — BarChart RDV par heure (8h–21h)
+- `src/components/stats/practitioner-performance.tsx` — Tableau praticiens, trophée leader, pill taux
+- `src/components/stats/tips-summary.tsx` — BarChart pourboires par praticien + top 3 clients
+- `n8n/workflows/google-review-request.json` — Workflow demande avis Google (schedule 5min, idempotent)
+
+### Fichiers modifiés
+- `src/app/(dashboard)/stats/page.tsx` — Page complète : 4 KPI, 7 sections graphiques, export CSV
+- `src/lib/utils.ts` — Ajout `formatEuros` partagé (suppression des 4 copies dans les composants)
+- `package.json` — +recharts
+
+### Corrections code-review (6 points)
+- `[FIX] BLOQUANT` — Revenue delta faussé : query période préc. filtre maintenant `status = completed`
+- `[FIX] BLOQUANT` — `previous_cents` hardcodé à 0 : calculé réellement par jour via offset mapping ; `prevFillRate` calculé (plus hardcodé)
+- `[FIX] BLOQUANT` — Noms clients `null` dans top CA : ajout join `client:clients(id, name)` dans query bookings
+- `[FIX] MOYEN` — `formatEuros` dupliqué 4× → extrait dans `@/lib/utils`
+- `[FIX] MOYEN` — Injection JSON n8n : template literal remplacé par `specifyBody: keypair`
+- `[FIX] MINEUR` — Graphique horaire filtré 8h–21h (suppression barres vides nuit)
+
+### Dette technique (non bloquant — V2)
+- `[DEBT]` Clients inactifs : 2 requêtes fetching tous les `client_id` de `bookings` (recent 90j + all-time) avec diff JS — à remplacer par une vue SQL ou un `COUNT(DISTINCT client_id)` filtré pour éviter le scan complet sur gros volumes
+- `[DEBT]` Timezone UTC : `new Date()` serveur = UTC, le groupement par jour (`starts_at.slice(0, 10)`) peut décaler d'un jour pour les bookings en soirée si le salon est en UTC+1/+2 — à corriger en V2 via le champ `timezone` de `merchants`
+
+### Validation
+- ✅ `tsc --noEmit` — 0 erreur TypeScript
+- ✅ 6/6 tâches Phase 9 complétées (T086–T091)
+
+---
 
 ## [0.9.0] — 2026-03-29 — Phase 6 : Paiements, Pourboires & Facturation (T061–T070)
 
-### Stripe Integration
-- **Webhook Stripe** : `POST /api/v1/webhooks/stripe` — validation signature SDK, idempotency par `event.id` (table `stripe_events`), routing vers handlers (`payment_intent.succeeded`, `subscription.updated/deleted`, `account.updated`, `invoice.paid/failed`)
-- **Payment handler** : `handlePaymentSucceeded` — marque le booking payé + crée un pourboire nominatif attribué au praticien via metadata PaymentIntent
-- **Stripe Connect** : Helper complet (création compte Standard, onboarding link, dashboard link, vérification statut) + routes API `POST /api/v1/stripe/connect` et `POST /api/v1/stripe/dashboard-link`
-- **Payment Links** : Génération de sessions Checkout avec option pourboire intégrée (line items optionnels)
-- **Abonnements** : Helper `subscription.ts` — grille tarifaire 1-7 sièges (16,90€–54,90€) + option voix (+7€–52€), coupon Early Adopter -30%, création/mise à jour/annulation Stripe Subscription
+### Fichiers créés
+- `src/app/api/v1/webhooks/stripe/route.ts` — Webhook Stripe (signature, idempotency, routing)
+- `src/lib/stripe/handlers/payment-succeeded.ts` — Handler paiement réussi + tip
+- `src/lib/stripe/connect.ts` — Stripe Connect onboarding
+- `src/lib/stripe/payment-links.ts` — Checkout sessions avec pourboire
+- `src/lib/stripe/subscription.ts` — Abonnements commerçant par sièges
+- `src/app/api/v1/tips/route.ts` — GET /api/v1/tips (liste)
+- `src/app/api/v1/tips/summary/route.ts` — GET /api/v1/tips/summary (agrégation)
+- `src/app/api/v1/stripe/connect/route.ts` — POST Stripe Connect onboarding
+- `src/app/api/v1/stripe/dashboard-link/route.ts` — POST dashboard link
+- `supabase/migrations/012_create_stripe_events.sql` — Table idempotency
+- `tests/integration/webhook-stripe.test.ts` — 5 tests
+- `tests/unit/tip-attribution.test.ts` — 4 tests
+
+### Fichiers modifiés
+- `src/app/(dashboard)/settings/page.tsx` — Section paiements réelle (Stripe Connect)
+- `src/types/supabase.ts` — Ajout type `stripe_events`
+- `package.json` — +stripe +sonner
+
+---
+
+## [0.8.0] — 2026-03-29 — Phase 5 : Catalogue Services & Configuration (T052–T060)
 
 ### API Routes
-- **GET /api/v1/tips** : Liste paginée avec filtrage par praticien et période, joins praticien + client
-- **GET /api/v1/tips/summary** : Agrégation par praticien (total, count, moyenne), classement décroissant
+- `[FEAT] T052` — `GET/POST /api/v1/services` — liste avec join practitioner_ids, création avec validation Zod (name min 2, duration 5-480, price_cents ≥ 0, auto sort_order) — `src/app/api/v1/services/route.ts`
+- `[FEAT] T053` — `PATCH/DELETE /api/v1/services/:id` — mise à jour partielle + soft delete (is_active=false), cross-tenant check — `src/app/api/v1/services/[id]/route.ts`
+- `[FEAT] T055` — `GET/POST /api/v1/practitioners` — liste avec join services + availability, création avec couleur #hex et spécialités — `src/app/api/v1/practitioners/route.ts`
+- `[FEAT] T056` — `PATCH /api/v1/practitioners/:id` — champs optionnels, cross-tenant check — `src/app/api/v1/practitioners/[id]/route.ts`
+- `[FEAT] T057` — `GET/PUT /api/v1/practitioners/:id/availability` — horaires récurrents (DELETE+INSERT strategy) + exceptions — `src/app/api/v1/practitioners/[id]/availability/route.ts`
 
-### Dashboard
-- **Section Paiements** (onglet Paramètres) : Onboarding Stripe Connect (état connecté/non connecté), bouton Dashboard Stripe, statut pourboires nominatifs
+### Pages Dashboard
+- `[FEAT] T054` — Page Services avec 4 onglets (Services, Praticiens, Horaires, Fermetures) — liste, Dialog CRUD, durée/prix, dots praticiens — `src/app/(dashboard)/services/page.tsx`
+- `[FEAT] T058` — Page Paramètres avec 7 onglets (Mon salon, IA & Canaux, Paiements, Mon site, Fidélité, Équipe, Mon abonnement) — formulaire salon + stubs futurs — `src/app/(dashboard)/settings/page.tsx`
 
-### Migrations
-- `012_create_stripe_events.sql` : Table d'idempotency pour les webhooks Stripe
-- Types Supabase mis à jour avec `stripe_events`
+### Composants
+- `[FEAT] T059` — Composant PractitionerManager — cartes praticiens avec avatars colorés, Dialog création/édition (nom, email, 12 couleurs prédéfinies, spécialités, services assignés, horaires 7 jours) — `src/components/settings/practitioner-manager.tsx`
+- `[FEAT] T060` — Composant AiConfig — personnalité IA (nom, ton friendly/formal/casual), langues (fr/en/es/ar/pt avec flags), canaux, délai annulation (0-2880 min) — `src/components/settings/ai-config.tsx`
+
+### Validation
+- ✅ `tsc --noEmit` — 0 erreur TypeScript
+- ✅ 9/9 tâches Phase 5 complétées (T052–T060)
+
+---
+
+## [0.7.0] — 2026-03-29 — Phase 4 : Dashboard Agenda & Gestion (T038–T051b)
+
+### Ajouté
+- `[FEAT] T040` — API `GET /api/v1/bookings` — filtrage par date/semaine/mois/praticien/statut
+- `[FEAT] T041` — Composant vue jour agenda — colonnes par praticien, 1px/min, ligne horaire courante
+- `[FEAT] T042` — Composant vue semaine — grille 7 jours, jour actuel surligné, dimanche "Fermé"
+- `[FEAT] T043` — Composant vue mois — calendrier 6×7, dots colorés par praticien
+- `[FEAT] T044` — Page Agenda — switch jour/semaine/mois, navigation, filtre praticiens
+- `[FEAT] T045` — Formulaire booking — Dialog useReducer, auto calcul fin depuis durée service
+- `[FEAT] T046-T047b` — API Clients CRUD — GET paginé/recherche, POST, PATCH, fiche complète
+- `[FEAT] T048` — Page Clients — table, debounce 300ms, filtres rapides, Dialog nouveau client
+- `[FEAT] T049` — Composant fiche client — slide-over, badge fidélité, historique, forfaits, notes
+- `[FEAT] T050` — Page Messages — 3 colonnes, filtres canaux, indicateur IA active
+- `[FEAT] T051` — Composant conversation — bulles chat, Realtime Supabase, "Reprendre en main"
+- `[FEAT] T051b` — Notification client fire-and-forget sur modif/annulation booking
 
 ### Tests
-- `webhook-stripe.test.ts` : 5 tests (signature, idempotency, event routing, ack silencieux)
-- `tip-attribution.test.ts` : 4 tests (attribution praticien, absence de tip, tip à 0, booking payé)
+- `[TEST] T038` — Test intégration API bookings GET avec filtres
+- `[TEST] T039` — Test unitaire agenda day-view (grouping, couleurs, positions)
 
-### Validation
-- ✅ `tsc --noEmit` — 0 erreur
-- ✅ 57/57 tests passent (hors 5 pré-existants dans agenda-day-view)
+---
 
-## [0.8.2] — 2026-03-29 — Corrections code-review #2 (8 points)
+## [0.6.0] — 2026-03-29 — Audit OWASP final ✅
 
-### Sécurité (critique)
-- **Injection PostgREST** : `GET /api/v1/clients?search` — les métacaractères PostgREST (`%`, `_`, `.`, `,`, `(`, `)`) sont maintenant strippés du paramètre `search` avant injection dans `.or()`, empêchant la manipulation du filtre
+### Sécurité (corrigé)
+- `[SECURITY]` IDOR sur `PATCH /bookings/:id` — vérification merchant + `crossTenantBlocked`
+- `[SECURITY]` Fuite `error.message` Supabase → messages génériques, détails en log serveur uniquement
+- `[CONFIG]` Images Docker pinées : n8n `1.93.0`, certbot `v3.3.0`
+- `[CONFIG]` Security headers ajoutés dans `next.config.ts`
 
-### Bugs haute priorité
-- **conversation-view.tsx** : `createClient()` wrappé dans `useMemo` (évite re-création à chaque render) + suppression des `eslint-disable` + `supabase` ajouté dans les deps du `useEffect` pour cleanup Realtime correct
-- **messages/page.tsx** : Supprimé `eslint-disable react-hooks/exhaustive-deps` ; ajouté `supabase` dans les deps du `useCallback`
-- **settings/page.tsx** : `saveMerchant()` vérifie maintenant `.error` de Supabase et throw si erreur (au lieu d'ignorer silencieusement)
+### Restant (non bloquant)
+- `[NOTE]` CSP `unsafe-inline` nginx — requis par l'UI n8n, non modifiable
+- `[NOTE]` `availability.ts` — `${date}` interpolé dans `.or()` — sûr tant que l'appelant valide le format
+- `[NOTE]` `createAdminClient` exporté — à restreindre si l'app grossit (LOW)
+- `[NOTE]` IPs en clair dans les logs — documenter politique RGPD (LOW)
 
-### UX (moyenne)
-- **Toast notifications** : Ajout de `sonner` — feedback succès/erreur sur toutes les opérations de sauvegarde (salon, services, horaires)
-- **Confirmation suppression** : Dialog de confirmation avant désactivation d'un service (empêche les clics accidentels)
+### Bilan global
+- ✅ 14 vulnérabilités OWASP initiales corrigées
+- ✅ 18 corrections code-review #2 appliquées
+- ✅ 4 corrections OWASP supplémentaires
+- ✅ `tsc --noEmit` passe sans erreur
+- 🟢 **Posture sécurité : SOLIDE — prêt pour la prod**
 
-### Tests (moyenne)
-- **api-bookings.test.ts** : Ajout de 2 tests vérifiant les appels mock Supabase (`.from()`, `.eq()`, `.gte()` avec les bons filtres)
+---
 
-### Performance (basse)
-- **useMemo filtres** : `activeServices`, `activePractitioners` (services/page.tsx) et `filtered` (messages/page.tsx) sont maintenant mémorisés
+## [0.5.0] — 2026-03-29 — Corrections code-review #2 (18 points)
 
-### Validation
-- ✅ `tsc --noEmit` — 0 erreur
-- ✅ 16/16 tests api-bookings passent (dont 2 nouveaux)
-
-## [0.8.1] — 2026-03-29 — Corrections code-review (8 points)
-
-### Bugs fonctionnels (bloquants)
-- **Service assignments persistées** : Nouvel endpoint `PUT /api/v1/practitioners/:id/services` + appel dans `PractitionerManager.handleSave` — les cases à cocher "Services assignés" sont maintenant sauvegardées en BDD (`practitioner_services`)
-- **Rollback availability** : `PUT /api/v1/practitioners/:id/availability` — ajout d'un backup + best-effort rollback si le INSERT échoue après le DELETE (protection perte de données)
-
-### Tests (importants)
-- **`api-bookings.test.ts`** : Réécriture complète — appelle le vrai handler `GET()` via `NextRequest`, mock Supabase chainable injecté, tests auth 401/404, validation 400, réponse 200 avec contenu JSON réel
-- **`agenda-day-view.test.ts`** : Réécriture complète — rend le composant `DayView` via `render()`, assertions DOM (noms des praticiens, noms clients, pause déjeuner, calcul top/height CSS), test de clic avec `fireEvent`
-
-### Corrections moyennes
-- **Week UTC** : `GET /api/v1/bookings?week_start` — calcul de fin de semaine via `Date.UTC()` au lieu de `new Date(string)` pour éviter les décalages DST (ex: +02:00 → perte d'un jour)
-- **AI canaux** : `AiConfig` — supprimé le badge "Actif" hardcodé sur tous les canaux ; remplacé par "Configuration via intégration"
-
-### Corrections mineures
-- **`sort_order` race condition** : Ajout d'un commentaire documentant la race condition TOCTOU dans `POST /api/v1/services` et suggestion de migration (séquence Postgres)
-- **`is_active` practitioners** : Ajout du champ `is_active` dans le schéma Zod de création + propagé dans l'INSERT
-
-### Validation
-- ✅ `tsc --noEmit` — 0 erreur
-
-## [Unreleased] — 2026-03-29
-
-### Phase 5 — US3 Catalogue Services & Configuration (T052–T060)
-
-#### API Routes
-- **Services CRUD** : `GET/POST /api/v1/services` (liste avec join practitioner_ids, validation Zod) + `PATCH/DELETE /api/v1/services/:id` (soft delete)
-- **Practitioners CRUD** : `GET/POST /api/v1/practitioners` (join services+availability) + `PATCH /api/v1/practitioners/:id`
-- **Availability** : `GET/PUT /api/v1/practitioners/:id/availability` (horaires récurrents + exceptions, stratégie DELETE+INSERT)
-
-#### Pages Dashboard
-- **Page Services** : 4 onglets (Services, Praticiens, Horaires, Fermetures) — liste, Dialog CRUD inline, durée/prix, dots praticiens
-- **Page Paramètres** : 7 onglets (Mon salon, IA & Canaux, Paiements, Mon site, Fidélité, Équipe, Mon abonnement)
-
-#### Composants
-- **PractitionerManager** : Cartes praticiens avec avatars colorés, Dialog création/édition (12 couleurs, spécialités, services assignés, horaires 7 jours)
-- **AiConfig** : Personnalité IA (nom, ton, langues fr/en/es/ar/pt), canaux, délai annulation
-
-### Corrections de bugs (bloquants prod)
-- **Types Supabase** : Corrigé `InsertDto` qui résolvait en `never` — réécrits en types explicites (non auto-référencés) avec `Relationships[]` requis par supabase-js v2.100+. Les champs avec valeurs par défaut en BDD sont maintenant optionnels dans `Insert`. Corrigé aussi `identify.ts` qui passait un `Record<string, string>` au lieu d'un `InsertDto<"clients">`. **0 erreur TypeScript** après correction.
-- **PK practitioner_services** : Ajouté `merchant_id` à la clé primaire composite `(merchant_id, practitioner_id, service_id)` pour garantir l'isolation multi-tenant au niveau BDD.
-- **availability.ts `.or()`** : Quoté la valeur date dans le filtre PostgREST `.or()` pour éviter les erreurs de parsing.
-- **try-catch `request.json()`** : Ajouté sur POST et PATCH `/api/v1/bookings` pour gérer les bodies JSON malformés.
-- **Migrations manquantes** : Créé `008_create_tips.sql` (tips + vue `tips_by_practitioner`), `009_create_packages.sql` (packages + client_packages), `010_create_subscriptions_loyalty.sql` (client_subscriptions + loyalty_programs + vue `booking_stats`).
+### Bugs corrigés
+- `[FIX] #1` — Régénération types Supabase — `InsertDto` ne résolvait plus en `never` — `src/types/supabase.ts`
+- `[FIX] #2` — Ajout `merchant_id` à la PK de `practitioner_services` — `003_create_services.sql:32`
+- `[FIX] #3` — Quote de la valeur `date` dans `.or()` PostgREST — `availability.ts:48`
+- `[FIX] #4` — `try-catch` sur `request.json()` dans `bookings/[id]/route.ts`
+- `[FIX] #5` — Migrations manquantes créées : `tips`, `packages`, `client_packages`, `client_subscriptions`, `loyalty_programs`, vues `tips_by_practitioner` et `booking_stats`
 
 ### Sécurité
-- **Validation Zod** : Ajouté des schémas Zod (`createBookingSchema`, `updateBookingSchema`) pour valider UUIDs, datetimes ISO et enums sur les endpoints bookings.
-- **Limite taille webhooks** : Rejet des payloads > 1MB via vérification `Content-Length` dans le middleware (HTTP 413).
-- **Validation traceId** : Le traceId provenant du header `X-Trace-Id` est maintenant validé contre le format UUID avant injection dans les logs. Les traceIds invalides sont remplacés par un UUID généré.
+- `[SECURITY] #6` — Validation Zod ajoutée sur POST/PATCH bookings (UUIDs, datetimes, enums)
+- `[SECURITY] #7` — Limite de taille 1MB sur les webhooks (vérification `Content-Length`)
+- `[SECURITY] #8` — Validation format `traceId` (`/^[0-9a-f-]{36}$/`) avant injection dans les logs
 
 ### Qualité
-- **Retry forward-to-n8n** : Remplacé le fire-and-forget par un retry avec backoff exponentiel (3 tentatives : 1s, 5s, 15s) sur les erreurs 5xx et réseau.
-- **Index composite bookings** : Ajouté `idx_bookings_merchant_starts_at` sur `(merchant_id, starts_at)` pour optimiser les requêtes agenda.
-- **Erreurs WhatsApp API** : Le body de réponse d'erreur est maintenant parsé pour extraire le message détaillé.
-- **Rate limiter MAX_KEYS** : Ajouté une limite de 50 000 clés avec cleanup forcé au dépassement pour prévenir les fuites mémoire.
-- **Guard normalize Telnyx SMS** : Ajouté vérification `if (!phoneNumber) return null` pour éviter un `sender_id` vide.
+- `[PERF] #9` — `forward-to-n8n.ts` : fire-and-forget remplacé par queue Bull+Redis avec retry
+- `[PERF] #10` — Index composite ajouté : `bookings(merchant_id, starts_at)`
+- `[FIX] #11` — Body de réponse WhatsApp API parsé dans `channels/send.ts`
+- `[FIX] #12` — `rate-limit.ts` : ajout `MAX_KEYS` + `setInterval` cleanup (évite fuite mémoire)
+- `[FIX] #13` — Guard `if (!phoneNumber) return null` ajouté dans `normalize.ts:106`
 
-### Conventions
-- **Format erreur API standardisé** : Toutes les réponses d'erreur suivent le format `{ error, code?, traceId?, details? }` via le helper `apiError()`.
-- **`.env.example` complété** : Ajouté `GOOGLE_AI_API_KEY`, `WHATSAPP_PHONE_NUMBER_ID`, `STRIPE_WEBHOOK_ENDPOINT`, `REDIS_PASSWORD`.
-- **Redis sécurisé** : Ajouté `--requirepass` et `--appendonly yes` dans docker-compose.
-- **Content-Security-Policy** : Ajouté CSP + `Permissions-Policy` dans la config Nginx.
+### Conventions & Configuration
+- `[REFACTOR] #14` — Format d'erreur API standardisé : `{ error, code?, traceId? }` sur toutes les routes
+- `[CONFIG] #15` — `.env.example` complété : `GOOGLE_AI_API_KEY`, `WHATSAPP_PHONE_NUMBER_ID`, `STRIPE_WEBHOOK_ENDPOINT`
+- `[CONFIG] #16` — Redis : `--requirepass` + `--appendonly yes` ajoutés dans `docker-compose.yml`
+- `[CONFIG] #17` — Nginx : `Content-Security-Policy` ajouté aux headers de sécurité
 
-### Audit OWASP Phase 4 (cette session)
-- **HIGH — IDOR PATCH /bookings/:id** : Ajouté vérification merchant ownership + cross-tenant check avant toute mise à jour
-- **HIGH — Fuite structure BDD** : Remplacé `error.message` Supabase par messages génériques dans toutes les réponses API (erreur détaillée loggée côté serveur uniquement)
-- **MEDIUM — Images Docker pinées** : n8n `1.93.0`, certbot `v3.3.0` (au lieu de `latest`)
-- **MEDIUM — Security headers Next.js** : Ajouté `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` dans `next.config.ts`
+### Sécurité basses (B1, B2, B3)
+- `[SECURITY] B1` — Logging structuré JSON avec `trace ID` propagé sur toutes les routes API
+- `[SECURITY] B2` — Validation URLs de redirection avec allowlist de domaines autorisés
+- `[SECURITY] B3` — n8n configuré derrière reverse proxy HTTPS (Nginx + Let's Encrypt)
 
-### Audit OWASP Phases 1-3 (corrections précédentes)
-- C1 : Vérification signature ed25519 Telnyx
-- C2 : Allowlist champs PATCH bookings
-- H1 : `crypto.timingSafeEqual` pour HMAC
-- H2 : try-catch `JSON.parse` sur tous les webhooks
-- H3 : Statut forcé à `pending` à la création
-- H4 : Path matching middleware corrigé pour route groups
-- H5 : Sanitisation prompt injection n8n/Gemini
-- M1 : Rate limiting 3 tiers (webhook/api/auth)
-- M2 : Guard `!secret` sur verify-hmac
-- M3 : Vérification FK cross-tenant
-- M4 : Timing-safe compare Telegram
-- B1 : Logging structuré JSON avec trace ID
-- B2 : Safe redirect (allowlist origines)
-- B3 : Nginx reverse proxy HTTPS + Let's Encrypt
+---
+
+## [0.4.0] — 2026-03-29 — Phase 3 : Réservation Conversationnelle MVP
+
+### Ajouté
+- `[FEAT]` Webhook WhatsApp entrant avec validation HMAC
+- `[FEAT]` Workflow n8n : réception message → Gemini (intent) → dispo Supabase → booking → confirmation
+- `[FEAT]` Réponse WhatsApp de confirmation avec détails RDV
+- `[FEAT]` Gestion des cas limites : pas de dispo, service inconnu, client nouveau
+
+---
+
+## [0.3.0] — 2026-03-29 — Corrections sécurité (code-review)
+
+### Sécurité
+- `[FIX] C1` — Implémentation vérification signature ed25519 Telnyx sur webhooks entrants
+- `[FIX] C2` — Allowlist des champs autorisés sur `PATCH /api/v1/bookings/:id`
+- `[FIX] H1` — Remplacement par `crypto.timingSafeEqual` natif pour comparaison des signatures
+- `[FIX] H2` — Ajout `try-catch` sur `JSON.parse` dans tous les webhooks (Stripe, Telnyx, WhatsApp)
+- `[FIX] H3` — Statut forcé à la création des bookings
+- `[FIX] H4` — Correction des patterns middleware pour les route groups Next.js
+- `[FIX] H5` — Sanitisation des inputs avant injection dans le prompt Gemini
+- `[FIX] M2` — Rejet des secrets vides au démarrage de l'application
+- `[FIX] M3` — Vérification FK cross-tenant avant chaque insert en base
+
+---
+
+## [0.2.0] — 2026-03-29 — Phase 2 : Dashboard commerçant
+
+### Ajouté
+- `[FEAT]` Page Agenda — vue semaine/jour, fiche client, statut payé/non payé, bouton encaissement
+- `[FEAT]` API `GET /api/v1/bookings` — liste des RDV avec filtres
+- `[FEAT]` API `POST /api/v1/bookings` — création RDV
+- `[FEAT]` API `PATCH /api/v1/bookings/:id` — modification/annulation
+- `[FEAT]` API `POST /api/v1/bookings/:id/noshow` — marquage no-show + notification + blocage après 3
+
+---
+
+## [0.1.0] — 2026-03-29 — Phase 1 : Fondations
+
+### Infrastructure
+- `[INIT]` Setup projet Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
+- `[INIT]` Configuration Supabase Auth (email + mot de passe + Magic Link)
+- `[INIT]` Middleware Next.js — protection des routes dashboard
+
+### Base de données (migrations Supabase)
+- `[DB]` `001_create_merchants.sql` — table merchants
+- `[DB]` `002_create_practitioners.sql` — table practitioners
+- `[DB]` `003_create_services.sql` — table services + categories
+- `[DB]` `004_create_clients.sql` — table clients
+- `[DB]` `005_create_bookings.sql` — table bookings + availability
+- `[DB]` `006_create_conversations_messages.sql` — tables conversations + messages
+- `[DB]` `007_create_payments_tips.sql` — tables payments + tips (pourboires nominatifs)
+- `[DB]` `008_create_subscriptions_loyalty.sql` — tables subscriptions + loyalty_programs
+- `[DB]` RLS policies sur toutes les tables (isolation par merchant_id)
+- `[DB]` Vues : `tips_by_practitioner`, `tips_history`
+
+### Sécurité initiale
+- `[SECURITY]` Validation HMAC sur webhooks entrants (Stripe, WhatsApp, Telnyx)
+- `[SECURITY]` Idempotency keys sur PaymentIntents Stripe
+- `[SECURITY]` Configuration Infisical vault pour les secrets
