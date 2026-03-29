@@ -168,15 +168,15 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
                   <span className={`font-medium text-sm ${ch.color}`}>{ch.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                    Actif
+                  <span className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full">
+                    Configuration via intégration
                   </span>
                 </div>
               </div>
             ))}
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            La gestion fine des canaux sera disponible dans les paramètres de chaque intégration.
+            L&apos;activation par canal se configure dans les paramètres de chaque intégration (WhatsApp Business, Telnyx, etc.).
           </p>
         </CardContent>
       </Card>

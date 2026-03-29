@@ -181,8 +181,19 @@ export async function PUT(
 
   const { recurring, exceptions } = parsed.data;
 
-  // Traiter recurring: DELETE + INSERT
+  // NOTE: Supabase JS ne supporte pas les transactions côté client. Ces blocs
+  // utilisent un backup + rollback best-effort. Pour une atomicité garantie,
+  // migrer vers une fonction Postgres via supabase.rpc() (TODO: migration 011).
+
+  // Traiter recurring: backup → DELETE → INSERT (rollback si INSERT échoue)
   if (recurring !== undefined) {
+    const { data: recurringBackup } = await supabase
+      .from("practitioner_availability")
+      .select("*")
+      .eq("practitioner_id", id)
+      .eq("merchant_id", merchant.id)
+      .not("day_of_week", "is", null);
+
     const { error: deleteError } = await supabase
       .from("practitioner_availability")
       .delete()
@@ -220,13 +231,25 @@ export async function PUT(
           practitionerId: id,
           traceId,
         });
+        // Best-effort rollback
+        if (recurringBackup && recurringBackup.length > 0) {
+          const restoreRows = recurringBackup.map(({ id: _rowId, created_at: _ca, ...row }) => row);
+          await supabase.from("practitioner_availability").insert(restoreRows);
+        }
         return apiError("Failed to insert recurring availability", 500, { traceId });
       }
     }
   }
 
-  // Traiter exceptions: DELETE + INSERT
+  // Traiter exceptions: backup → DELETE → INSERT (rollback si INSERT échoue)
   if (exceptions !== undefined) {
+    const { data: exceptionsBackup } = await supabase
+      .from("practitioner_availability")
+      .select("*")
+      .eq("practitioner_id", id)
+      .eq("merchant_id", merchant.id)
+      .not("exception_date", "is", null);
+
     const { error: deleteError } = await supabase
       .from("practitioner_availability")
       .delete()
@@ -264,6 +287,11 @@ export async function PUT(
           practitionerId: id,
           traceId,
         });
+        // Best-effort rollback
+        if (exceptionsBackup && exceptionsBackup.length > 0) {
+          const restoreRows = exceptionsBackup.map(({ id: _rowId, created_at: _ca, ...row }) => row);
+          await supabase.from("practitioner_availability").insert(restoreRows);
+        }
         return apiError("Failed to insert exception availability", 500, { traceId });
       }
     }

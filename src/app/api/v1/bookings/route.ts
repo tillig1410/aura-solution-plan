@@ -79,12 +79,14 @@ export async function GET(request: NextRequest) {
       .gte("starts_at", `${date}T00:00:00`)
       .lte("starts_at", `${date}T23:59:59`);
   } else if (weekStart) {
-    const start = new Date(weekStart);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
+    // Manipulation purement UTC pour éviter les décalages DST :
+    // on n'utilise que la partie date, jamais de conversion timezone implicite.
+    const [wy, wm, wd] = weekStart.split("-").map(Number);
+    const endDate = new Date(Date.UTC(wy, wm - 1, wd + 6));
+    const endStr = endDate.toISOString().slice(0, 10);
     query = query
-      .gte("starts_at", start.toISOString())
-      .lte("starts_at", `${end.toISOString().slice(0, 10)}T23:59:59`);
+      .gte("starts_at", `${weekStart}T00:00:00`)
+      .lte("starts_at", `${endStr}T23:59:59`);
   } else if (month) {
     const [year, mon] = month.split("-").map(Number);
     const firstDay = `${month}-01`;

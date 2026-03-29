@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.8.1] — 2026-03-29 — Corrections code-review (8 points)
+
+### Bugs fonctionnels (bloquants)
+- **Service assignments persistées** : Nouvel endpoint `PUT /api/v1/practitioners/:id/services` + appel dans `PractitionerManager.handleSave` — les cases à cocher "Services assignés" sont maintenant sauvegardées en BDD (`practitioner_services`)
+- **Rollback availability** : `PUT /api/v1/practitioners/:id/availability` — ajout d'un backup + best-effort rollback si le INSERT échoue après le DELETE (protection perte de données)
+
+### Tests (importants)
+- **`api-bookings.test.ts`** : Réécriture complète — appelle le vrai handler `GET()` via `NextRequest`, mock Supabase chainable injecté, tests auth 401/404, validation 400, réponse 200 avec contenu JSON réel
+- **`agenda-day-view.test.ts`** : Réécriture complète — rend le composant `DayView` via `render()`, assertions DOM (noms des praticiens, noms clients, pause déjeuner, calcul top/height CSS), test de clic avec `fireEvent`
+
+### Corrections moyennes
+- **Week UTC** : `GET /api/v1/bookings?week_start` — calcul de fin de semaine via `Date.UTC()` au lieu de `new Date(string)` pour éviter les décalages DST (ex: +02:00 → perte d'un jour)
+- **AI canaux** : `AiConfig` — supprimé le badge "Actif" hardcodé sur tous les canaux ; remplacé par "Configuration via intégration"
+
+### Corrections mineures
+- **`sort_order` race condition** : Ajout d'un commentaire documentant la race condition TOCTOU dans `POST /api/v1/services` et suggestion de migration (séquence Postgres)
+- **`is_active` practitioners** : Ajout du champ `is_active` dans le schéma Zod de création + propagé dans l'INSERT
+
+### Validation
+- ✅ `tsc --noEmit` — 0 erreur
+
 ## [Unreleased] — 2026-03-29
 
 ### Phase 5 — US3 Catalogue Services & Configuration (T052–T060)

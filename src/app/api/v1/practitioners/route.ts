@@ -21,6 +21,7 @@ const createPractitionerSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "La couleur doit être au format hexadécimal #RRGGBB"),
   specialties: z.array(z.string()).optional().default([]),
   email: z.string().email("Email invalide").optional(),
+  is_active: z.boolean().optional().default(true),
 });
 
 /**
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const { name, color, specialties, email } = parsed.data;
+  const { name, color, specialties, email, is_active } = parsed.data;
 
   // Calculer sort_order = max(sort_order) + 1
   const { data: maxRow } = await supabase
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest) {
       color,
       specialties: specialties ?? [],
       email: email ?? null,
+      is_active: is_active ?? true,
       sort_order: sortOrder,
     })
     .select()

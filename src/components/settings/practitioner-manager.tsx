@@ -185,6 +185,13 @@ const PractitionerManager = ({ practitioners, services, onUpdate }: Practitioner
         body: JSON.stringify({ recurring }),
       });
 
+      // Save service assignments
+      await fetch(`${baseUrl}/${practId}/services`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service_ids: form.serviceIds }),
+      });
+
       setDialogOpen(false);
       onUpdate();
     } finally {

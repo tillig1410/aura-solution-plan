@@ -125,6 +125,10 @@ export async function POST(request: NextRequest) {
   const { name, duration_minutes, price_cents, description, is_active } = parsed.data;
 
   // Calculer sort_order = max(sort_order) + 1
+  // NOTE: race condition théorique si deux POST simultanés obtiennent le même max.
+  // sort_order n'a pas de contrainte UNIQUE donc les doublons sont acceptables ;
+  // le tri reste cohérent. Pour éliminer totalement la race, utiliser une séquence
+  // Postgres dédiée ou DEFAULT nextval('services_sort_order_seq').
   const { data: maxRow } = await supabase
     .from("services")
     .select("sort_order")
