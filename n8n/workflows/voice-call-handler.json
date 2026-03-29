@@ -1,0 +1,319 @@
+{
+  "name": "Plan — Voice Call Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-call-handler",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "voice-webhook-trigger",
+      "name": "Voice Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "notes": "T082: Receives transcribed speech from Telnyx voice events. Same unified format as text channels."
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/clients",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "merchant_id",
+              "value": "eq.{{ $json.merchant_id }}"
+            },
+            {
+              "name": "or",
+              "value": "(phone.eq.{{ $json.sender_id }})"
+            },
+            {
+              "name": "select",
+              "value": "id,name,preferred_practitioner_id,preferred_service_id,preferred_language,loyalty_points,loyalty_tier"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "voice-identify-client",
+      "name": "Identify Client by Phone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "notes": "Identify client by phone number from the voice call"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/conversations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "eq.{{ $json.client_id }}"
+            },
+            {
+              "name": "channel",
+              "value": "eq.voice"
+            },
+            {
+              "name": "is_active",
+              "value": "eq.true"
+            },
+            {
+              "name": "select",
+              "value": "id,messages(content,sender,created_at)"
+            },
+            {
+              "name": "order",
+              "value": "created_at.desc"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "voice-load-history",
+      "name": "Load Voice Conversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "notes": "Load existing voice conversation for context"
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [{\n        \"text\": \"[TRANSCRIPTION VOCALE]\\n{{ $json.message_text }}\\n[FIN TRANSCRIPTION]\"\n      }]\n    }\n  ],\n  \"systemInstruction\": {\n    \"parts\": [{\n      \"text\": \"Tu es l'assistant vocal IA du salon. Tu réponds de manière concise et naturelle (max 2 phrases) car ta réponse sera lue à voix haute par synthèse vocale.\\n\\nRÈGLES VOCALES:\\n1. Réponses courtes et claires — le client écoute au téléphone\\n2. Pas de formatage, pas de listes, pas de JSON — juste du texte naturel\\n3. Confirme toujours en répétant la date, l'heure et le service\\n4. Si tu ne comprends pas, demande de répéter poliment\\n\\nCLIENT: {{ $json.client_name || 'Inconnu' }}\\nSERVICE HABITUEL: {{ $json.preferred_service || 'aucun' }}\\nPRATICIEN HABITUEL: {{ $json.preferred_practitioner || 'aucun' }}\\n\\nRéponds avec un JSON:\\n{\\n  \\\"spoken_response\\\": \\\"ta réponse vocale courte\\\",\\n  \\\"action\\\": \\\"none|confirm_booking|cancel_booking\\\",\\n  \\\"booking_data\\\": {\\n    \\\"practitioner_id\\\": \\\"uuid ou null\\\",\\n    \\\"service_id\\\": \\\"uuid ou null\\\",\\n    \\\"starts_at\\\": \\\"ISO datetime ou null\\\"\\n  }\\n}\"\n    }]\n  },\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"maxOutputTokens\": 200,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "voice-gemini",
+      "name": "Gemini Voice AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "notes": "Call Gemini with voice-optimized system prompt (short responses for TTS)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXTJS_URL || 'http://localhost:3000' }}/api/v1/telnyx/speak",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "call_control_id",
+              "value": "={{ $('Voice Webhook Trigger').item.json.metadata.call_control_id }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.spoken_response }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "voice-speak-response",
+      "name": "Speak AI Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300],
+      "notes": "Send TTS response back to the caller via Telnyx"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/messages",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "merchant_id",
+              "value": "={{ $json.merchant_id }}"
+            },
+            {
+              "name": "conversation_id",
+              "value": "={{ $json.conversation_id }}"
+            },
+            {
+              "name": "sender",
+              "value": "ai"
+            },
+            {
+              "name": "content",
+              "value": "={{ $('Gemini Voice AI').item.json.spoken_response }}"
+            },
+            {
+              "name": "is_voice_transcription",
+              "value": "true"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "voice-save-response",
+      "name": "Save Voice AI Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300],
+      "notes": "Save AI voice response as message for dashboard visibility"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {}
+      },
+      "id": "voice-respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1680, 300]
+    }
+  ],
+  "connections": {
+    "Voice Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Identify Client by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identify Client by Phone": {
+      "main": [
+        [
+          {
+            "node": "Load Voice Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Voice Conversation": {
+      "main": [
+        [
+          {
+            "node": "Gemini Voice AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Voice AI": {
+      "main": [
+        [
+          {
+            "node": "Speak AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Speak AI Response": {
+      "main": [
+        [
+          {
+            "node": "Save Voice AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Voice AI Response": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "voice",
+      "id": "5"
+    },
+    {
+      "name": "telnyx",
+      "id": "6"
+    }
+  ],
+  "pinData": {}
+}

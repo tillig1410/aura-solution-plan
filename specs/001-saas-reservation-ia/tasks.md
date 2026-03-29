@@ -178,15 +178,15 @@
 
 ### Implementation User Story 5
 
-- [ ] T071 [US5] Créer la migration `supabase/migrations/009_create_loyalty_packages_subscriptions.sql` — tables `loyalty_programs`, `packages`, `client_packages`, `client_subscriptions` avec RLS
-- [ ] T072 [US5] Implémenter les routes CRUD forfaits dans `src/app/api/v1/packages/route.ts` — création/liste des forfaits commerçant
-- [ ] T073 [US5] Implémenter le service de décompte forfait dans `src/lib/packages/consume.ts` — décrémentation `remaining_uses` à chaque visite, vérification expiration
-- [ ] T074 [US5] Implémenter le service fidélité dans `src/lib/loyalty/points.ts` — ajout points par visite/euro, mise à jour palier (bronze → silver → gold), notification palier
-- [ ] T075 [US5] Implémenter les routes programme fidélité dans `src/app/api/v1/loyalty/route.ts` — GET/PUT configuration programme par commerçant
-- [ ] T076 [US5] Implémenter le handler abonnement client dans `src/lib/stripe/handlers/subscription-updated.ts` — mise à jour statut `client_subscriptions` sur events Stripe
-- [ ] T077 [US5] Implémenter la section fidélité/forfaits dans la page Paramètres — configuration programme fidélité, CRUD forfaits, gestion abonnements clients
-- [ ] T078 [US5] Intégrer la vérification forfait/abonnement dans le workflow n8n de réservation — si le client a un forfait actif pour le service demandé, ne pas demander de paiement
-- [ ] T078b [US5] Créer un Bull job de notification d'expiration forfait — vérification quotidienne des forfaits expirant dans 7 jours, envoi notification au client via canal d'origine
+- [X] T071 [US5] Créer la migration `supabase/migrations/009_create_loyalty_packages_subscriptions.sql` — tables `loyalty_programs`, `packages`, `client_packages`, `client_subscriptions` avec RLS
+- [X] T072 [US5] Implémenter les routes CRUD forfaits dans `src/app/api/v1/packages/route.ts` — création/liste des forfaits commerçant
+- [X] T073 [US5] Implémenter le service de décompte forfait dans `src/lib/packages/consume.ts` — décrémentation `remaining_uses` à chaque visite, vérification expiration
+- [X] T074 [US5] Implémenter le service fidélité dans `src/lib/loyalty/points.ts` — ajout points par visite/euro, mise à jour palier (bronze → silver → gold), notification palier
+- [X] T075 [US5] Implémenter les routes programme fidélité dans `src/app/api/v1/loyalty/route.ts` — GET/PUT configuration programme par commerçant
+- [X] T076 [US5] Implémenter le handler abonnement client dans `src/lib/stripe/handlers/subscription-updated.ts` — mise à jour statut `client_subscriptions` sur events Stripe
+- [X] T077 [US5] Implémenter la section fidélité/forfaits dans la page Paramètres — configuration programme fidélité, CRUD forfaits, gestion abonnements clients
+- [X] T078 [US5] Intégrer la vérification forfait/abonnement dans le workflow n8n de réservation — si le client a un forfait actif pour le service demandé, ne pas demander de paiement
+- [X] T078b [US5] Créer un Bull job de notification d'expiration forfait — vérification quotidienne des forfaits expirant dans 7 jours, envoi notification au client via canal d'origine
 
 **Checkpoint**: Fidélité, forfaits et abonnements fonctionnels. Décompte automatique à chaque visite.
 
@@ -200,16 +200,16 @@
 
 ### Tests User Story 6
 
-- [ ] T079 [P] [US6] Écrire le test d'intégration webhook Telnyx Voice dans `tests/integration/webhook-telnyx-voice.test.ts` — validation signature, events call.initiated/hangup
+- [X] T079 [P] [US6] Écrire le test d'intégration webhook Telnyx Voice dans `tests/integration/webhook-telnyx-voice.test.ts` — validation signature, events call.initiated/hangup
 
 ### Implementation User Story 6
 
-- [ ] T080 [US6] Implémenter le handler Telnyx Voice dans `src/app/api/v1/webhooks/telnyx/route.ts` — extension pour events `call.initiated`, `call.answered`, `call.hangup`
-- [ ] T081 [US6] Implémenter le helper Telnyx Voice dans `src/lib/telnyx/voice.ts` — répondre à l'appel, streamer audio vers Gemini STT, envoyer réponse TTS
-- [ ] T082 [US6] Créer le workflow n8n vocal dans `n8n/workflows/voice-call-handler.json` — même logique que le workflow texte mais avec entrée/sortie voix
-- [ ] T083 [US6] Implémenter la sauvegarde transcription dans `src/lib/telnyx/transcription.ts` — stocker la transcription comme message dans `conversations`/`messages` avec `is_voice_transcription = true`
-- [ ] T084 [US6] Implémenter l'activation/désactivation option téléphone dans la page Paramètres — toggle voice_enabled, provisioning numéro Telnyx, mise à jour tarif abonnement
-- [ ] T085 [US6] Implémenter le message d'accueil standard dans `src/lib/telnyx/fallback.ts` — pour les salons sans option téléphone, message invitant à utiliser WhatsApp/SMS
+- [X] T080 [US6] Implémenter le handler Telnyx Voice dans `src/app/api/v1/webhooks/telnyx/route.ts` — extension pour events `call.initiated`, `call.answered`, `call.hangup`
+- [X] T081 [US6] Implémenter le helper Telnyx Voice dans `src/lib/telnyx/voice.ts` — répondre à l'appel, streamer audio vers Gemini STT, envoyer réponse TTS
+- [X] T082 [US6] Créer le workflow n8n vocal dans `n8n/workflows/voice-call-handler.json` — même logique que le workflow texte mais avec entrée/sortie voix
+- [X] T083 [US6] Implémenter la sauvegarde transcription dans `src/lib/telnyx/transcription.ts` — stocker la transcription comme message dans `conversations`/`messages` avec `is_voice_transcription = true`
+- [X] T084 [US6] Implémenter l'activation/désactivation option téléphone dans la page Paramètres — toggle voice_enabled, provisioning numéro Telnyx, mise à jour tarif abonnement
+- [X] T085 [US6] Implémenter le message d'accueil standard dans `src/lib/telnyx/fallback.ts` — pour les salons sans option téléphone, message invitant à utiliser WhatsApp/SMS
 
 **Checkpoint**: Répondeur IA vocal opérationnel. Appels transcrits et visibles dans Messages.
 
@@ -240,11 +240,11 @@
 
 ### Implementation
 
-- [ ] T092 Implémenter la route GET /api/v1/booking/:slug dans `src/app/api/v1/booking/[slug]/route.ts` — infos publiques du salon (nom, services, praticiens, créneaux disponibles)
-- [ ] T093 Implémenter la route POST /api/v1/booking/:slug/reserve dans `src/app/api/v1/booking/[slug]/reserve/route.ts` — création réservation publique
-- [ ] T094 Implémenter la page de réservation publique dans `src/app/(booking)/[slug]/page.tsx` — sélection service → praticien → créneau → confirmation
-- [ ] T095 [P] Implémenter la génération QR code dans `src/lib/utils/qr-code.ts` — QR pointant vers l'URL de réservation du salon
-- [ ] T096 Ajouter la section site de réservation dans la page Paramètres — affichage URL + QR code + personnalisation slug
+- [X] T092 Implémenter la route GET /api/v1/booking/:slug dans `src/app/api/v1/booking/[slug]/route.ts` — infos publiques du salon (nom, services, praticiens, créneaux disponibles)
+- [X] T093 Implémenter la route POST /api/v1/booking/:slug/reserve dans `src/app/api/v1/booking/[slug]/reserve/route.ts` — création réservation publique
+- [X] T094 Implémenter la page de réservation publique dans `src/app/(booking)/[slug]/page.tsx` — sélection service → praticien → créneau → confirmation
+- [X] T095 [P] Implémenter la génération QR code dans `src/lib/utils/qr-code.ts` — QR pointant vers l'URL de réservation du salon
+- [X] T096 Ajouter la section site de réservation dans la page Paramètres — affichage URL + QR code + personnalisation slug
 
 **Checkpoint**: Site de réservation public fonctionnel. QR code disponible.
 
@@ -254,14 +254,14 @@
 
 **Purpose**: Améliorations transverses à toutes les user stories
 
-- [ ] T097 [P] Implémenter les circuit breakers sur tous les appels API externes dans `src/lib/utils/circuit-breaker.ts` — Gemini, Telnyx, Stripe, WhatsApp, Messenger, Telegram
-- [ ] T098 [P] Implémenter le Trace ID bout en bout dans `src/middleware.ts` — génération UUID, propagation header `X-Trace-Id` vers n8n et logs
-- [ ] T099 [P] Implémenter les health checks dans `src/app/api/v1/health/route.ts` — vérification des 7 services (n8n, Redis, Supabase, Telnyx, Stripe, Gemini, WhatsApp)
+- [X] T097 [P] Implémenter les circuit breakers sur tous les appels API externes dans `src/lib/utils/circuit-breaker.ts` — Gemini, Telnyx, Stripe, WhatsApp, Messenger, Telegram
+- [X] T098 [P] Implémenter le Trace ID bout en bout dans `src/middleware.ts` — génération UUID, propagation header `X-Trace-Id` vers n8n et logs
+- [X] T099 [P] Implémenter les health checks dans `src/app/api/v1/health/route.ts` — vérification des 7 services (n8n, Redis, Supabase, Telnyx, Stripe, Gemini, WhatsApp)
 - [ ] T100 [P] Configurer le monitoring Uptime Kuma pour les endpoints health
-- [ ] T101 Implémenter le no-show flow complet — marquage par commerçant → incrémentation `no_show_count` → notification client → blocage IA à 3 no-shows
-- [ ] T104 Audit sécurité — vérifier HMAC sur tous les webhooks, RLS sur toutes les tables, aucun secret en clair, idempotency Stripe
-- [ ] T105 [P] Optimiser les performances — Server Components par défaut, `use client` minimal, ISR sur pages publiques
-- [ ] T106 Mettre à jour `supabase/seed.sql` avec les données complètes pour toutes les user stories
+- [X] T101 Implémenter le no-show flow complet — marquage par commerçant → incrémentation `no_show_count` → notification client → blocage IA à 3 no-shows
+- [X] T104 Audit sécurité — vérifier HMAC sur tous les webhooks, RLS sur toutes les tables, aucun secret en clair, idempotency Stripe
+- [X] T105 [P] Optimiser les performances — Server Components par défaut, `use client` minimal, ISR sur pages publiques
+- [X] T106 Mettre à jour `supabase/seed.sql` avec les données complètes pour toutes les user stories
 - [ ] T107 [P] Configurer Infisical pour la gestion des secrets en production — migration des variables d'environnement vers le vault, intégration SDK Infisical dans le déploiement Vercel et le VPS n8n
 - [ ] T108 [P] Écrire et exécuter des tests de charge avec k6 ou Artillery — simuler 500 commerçants simultanés, valider SC-004 (pas de dégradation perceptible)
 

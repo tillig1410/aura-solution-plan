@@ -65,6 +65,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // --- Health endpoint: no auth needed, just rate limiting ---
+  if (pathname === "/api/v1/health") {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-trace-id", traceId);
+    const response = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+    response.headers.set("x-trace-id", traceId);
+    return response;
+  }
+
   // --- Webhooks: no auth needed, just rate limiting + size limit ---
   if (pathname.startsWith("/api/v1/webhooks")) {
     const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
@@ -74,13 +85,23 @@ export async function middleware(request: NextRequest) {
         { status: 413, headers: { "X-Trace-Id": traceId } },
       );
     }
-    const response = NextResponse.next({ request });
+    const webhookHeaders = new Headers(request.headers);
+    webhookHeaders.set("x-trace-id", traceId);
+    const response = NextResponse.next({
+      request: { headers: webhookHeaders },
+    });
     response.headers.set("x-trace-id", traceId);
     return response;
   }
 
+  // --- T098: Propagate trace ID to downstream API routes via request headers ---
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-trace-id", traceId);
+
   // --- Supabase auth ---
-  const supabaseResponse = NextResponse.next({ request });
+  const supabaseResponse = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

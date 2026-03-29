@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { handlePaymentSucceeded } from "@/lib/stripe/handlers/payment-succeeded";
+import { handleSubscriptionUpdated, handleSubscriptionDeleted } from "@/lib/stripe/handlers/subscription-updated";
 import { logger, webhookLog } from "@/lib/logger";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
@@ -67,16 +68,12 @@ export async function POST(request: NextRequest) {
         break;
 
       case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const status = event.type === "customer.subscription.deleted" ? "cancelled" : sub.status === "past_due" ? "past_due" : "active";
-        await supabase
-          .from("client_subscriptions")
-          .update({ status })
-          .eq("stripe_subscription_id", sub.id);
-        logger.info("stripe.subscription_updated", { subscriptionId: sub.id, status, traceId });
+        await handleSubscriptionUpdated(event.data.object, supabase);
         break;
-      }
+
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object, supabase);
+        break;
 
       case "account.updated": {
         const account = event.data.object as Stripe.Account;

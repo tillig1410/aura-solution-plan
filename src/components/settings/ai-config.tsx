@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Globe, Clock, Save } from "lucide-react";
+import { Bot, Globe, Clock, Save, Phone, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import type { Merchant } from "@/types/supabase";
 
 interface AiConfigProps {
   merchant: Merchant;
-  onSave: (updated: Partial<Merchant>) => void;
+  onSave: (updated: Partial<Merchant>) => Promise<void>;
 }
 
 const TONE_OPTIONS: { value: string; label: string; desc: string }[] = [
@@ -178,6 +179,74 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
           <p className="text-xs text-gray-400 mt-3">
             L&apos;activation par canal se configure dans les paramètres de chaque intégration (WhatsApp Business, Telnyx, etc.).
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Répondeur Téléphonique IA (T084) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Phone className="h-5 w-5 text-indigo-600" />
+            Répondeur Téléphonique IA
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {merchant.voice_enabled ? (
+            <>
+              <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
+                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                <div>
+                  <p className="text-sm font-medium text-green-800">Activé</p>
+                  {merchant.telnyx_phone_number && (
+                    <p className="text-xs text-green-600 font-mono mt-0.5">
+                      {merchant.telnyx_phone_number}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+                onClick={async () => {
+                  try {
+                    await onSave({ voice_enabled: false });
+                    toast.success("Répondeur IA désactivé");
+                  } catch {
+                    toast.error("Erreur lors de la désactivation");
+                  }
+                }}
+              >
+                Désactiver le répondeur
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-700">
+                  L&apos;IA décroche vos appels, comprend les demandes vocalement et réserve
+                  automatiquement. Les transcriptions sont visibles dans Messages.
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Option payante : +7€ à +52€/mois selon le nombre de sièges.
+                </p>
+              </div>
+              <Button
+                className="gap-2"
+                onClick={async () => {
+                  try {
+                    await onSave({ voice_enabled: true });
+                    toast.success("Répondeur IA activé — un numéro sera provisionné sous peu");
+                  } catch {
+                    toast.error("Erreur lors de l'activation");
+                  }
+                }}
+              >
+                <Phone className="h-4 w-4" />
+                Souscrire à l&apos;option
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 

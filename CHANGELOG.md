@@ -5,6 +5,71 @@
 
 ---
 
+## [1.0.0] — 2026-03-29 — Phases 7, 8, 10, 11 : Fidélité, Téléphonie IA, Site Public, Polish (T071–T108)
+
+### Phase 7 — Fidélité, Forfaits & Abonnements (T071–T078b)
+
+#### Fichiers créés
+- `src/app/api/v1/packages/route.ts` — GET (liste avec join service) + POST (création Zod, cross-tenant, auto sort_order)
+- `src/lib/packages/consume.ts` — `consumePackage()` verrouillage optimiste remaining_uses + `hasActivePackageOrSubscription()` pour n8n
+- `src/lib/loyalty/points.ts` — `addLoyaltyPoints()` (points_per_visit + points_per_euro) + `computeTier()` transitions Bronze/Silver/Gold
+- `src/app/api/v1/loyalty/route.ts` — GET (fetch programme) + PUT (upsert avec validation gold > silver)
+- `src/lib/stripe/handlers/subscription-updated.ts` — `handleSubscriptionUpdated()` + `handleSubscriptionDeleted()` Stripe status mapping
+- `src/components/settings/loyalty-config.tsx` — Toggle activation, config points, paliers visuels Bronze/Silver/Gold
+- `src/components/settings/packages-config.tsx` — Liste forfaits, toggle, Dialog création, sélecteur service
+- `n8n/workflows/package-expiration-check.json` — Schedule 9h, forfaits expirant sous 7j, notifications personnalisées
+
+#### Fichiers modifiés
+- `src/app/api/v1/webhooks/stripe/route.ts` — Import + routing vers handlers subscription-updated/deleted
+- `src/app/(dashboard)/settings/page.tsx` — Onglet fidélité → LoyaltyConfig, onglet paiements → PackagesConfig
+- `n8n/workflows/booking-conversation.json` — Ajout nodes Check Client Packages + Check Client Subscriptions, contexte forfait dans prompt IA
+
+### Phase 8 — Répondeur Téléphonique IA (T079–T085)
+
+#### Fichiers créés
+- `tests/integration/webhook-telnyx-voice.test.ts` — 5 tests (call events, SMS vs voice, signature rejection)
+- `src/lib/telnyx/voice.ts` — `handleVoiceEvent()`, `answerCall()`, `startGathering()` (speech recognition), `speakText()` TTS, `hangupCall()`, `playFallbackAndHangup()` (non abonnés)
+- `src/lib/telnyx/transcription.ts` — `saveTranscription()` insère messages with `is_voice_transcription = true`
+- `n8n/workflows/voice-call-handler.json` — Voice webhook → identify client → Gemini prompt vocal optimisé (réponses courtes TTS) → speak + save
+
+#### Fichiers modifiés
+- `src/app/api/v1/webhooks/telnyx/route.ts` — Réécriture complète : SMS + Voice events, gather.ended → transcription → n8n
+- `src/components/settings/ai-config.tsx` — Section Répondeur Téléphonique IA (toggle, pricing, états activated/deactivated)
+
+### Phase 10 — Site de Réservation Public (T092–T096)
+
+#### Fichiers créés
+- `src/app/api/v1/booking/[slug]/route.ts` — GET public : merchant par slug, services, praticiens avec availability
+- `src/app/api/v1/booking/[slug]/reserve/route.ts` — POST public : Zod, find/create client, conflit check, source "booking_page"
+- `src/app/(booking)/[slug]/page.tsx` — Wizard 5 étapes : service → praticien → date/heure → infos client → confirmation
+- `src/lib/utils/qr-code.ts` — `getBookingUrl()` + `getQrCodeUrl()` via Google Charts API
+
+#### Fichiers modifiés
+- `src/app/(dashboard)/settings/page.tsx` — Onglet site : URL réservation + copie + QR code + lien externe
+
+### Phase 11 — Polish & Cross-Cutting (T097–T106)
+
+#### Fichiers créés
+- `src/lib/utils/circuit-breaker.ts` — Pattern Circuit Breaker générique (CLOSED/OPEN/HALF_OPEN) + factory breakers pré-configurés (Gemini, Telnyx, Stripe, WhatsApp, Messenger, Telegram)
+- `src/app/api/v1/health/route.ts` — Health check (Supabase, Redis, n8n), statuts healthy/degraded/unhealthy
+
+#### Fichiers modifiés
+- `src/middleware.ts` — Trace ID bout en bout (UUID, propagation X-Trace-Id, validation format), bypass auth pour /health
+- `src/app/api/v1/bookings/[id]/route.ts` — No-show flow inline (increment no_show_count, block à 3, notification client)
+- `supabase/seed.sql` — Seed complet : 5 tips, 1 loyalty program, 2 packages, 2 client_packages, 3 conversations, 6 messages
+
+### Tâches déférées (infrastructure externe)
+- `T100` — Monitoring Uptime Kuma (configuration serveur externe)
+- `T107` — Infisical vault pour secrets production (intégration Vercel + VPS)
+- `T108` — Tests de charge k6/Artillery (infrastructure dédiée)
+
+### Validation
+- ✅ `tsc --noEmit` — 0 erreur TypeScript
+- ✅ 28 tâches complétées (T071–T078b, T079–T085, T092–T096, T097–T099, T101, T104–T106)
+- ✅ Toutes les phases implémentables terminées
+
+---
+
 ## [0.9.1] — 2026-03-29 — Phase 9 : Statistiques & Avis Google + corrections (T086–T091)
 
 ### Fichiers créés
@@ -38,7 +103,8 @@
 
 ---
 
-## [0.9.0] — 2026-03-29 — Phase 6 : Paiements, Pourboires & Facturation (T061–T070)
+## [0.9.0] — 2026-03-29 — Phase 6 : Paiements, Pourboires & Facturation (T061–T070
+)
 
 ### Fichiers créés
 - `src/app/api/v1/webhooks/stripe/route.ts` — Webhook Stripe (signature, idempotency, routing)

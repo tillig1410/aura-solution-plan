@@ -14,6 +14,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Plus,
+  Package,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import AiConfig from "@/components/settings/ai-config";
+import LoyaltyConfig from "@/components/settings/loyalty-config";
+import PackagesConfig from "@/components/settings/packages-config";
 import type { Merchant } from "@/types/supabase";
 
 // ---------- Types ----------
@@ -357,18 +362,81 @@ const SettingsPage = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Forfaits & Packs prépayés */}
+          <PackagesConfig merchantId={merchant.id} />
         </div>
       )}
 
-      {tab === "site" && (
-        <div className="max-w-2xl space-y-4">
-          <ComingSoonCard title="Site de réservation public avec URL personnalisable et QR code" phase="en Phase 10" />
+      {tab === "site" && merchant && (
+        <div className="max-w-2xl space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Site de réservation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  URL de votre site
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={`${typeof window !== "undefined" ? window.location.origin : ""}/${merchant.slug}`}
+                    readOnly
+                    className="bg-gray-50 font-mono text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = `${window.location.origin}/${merchant.slug}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success("Lien copié !");
+                    }}
+                  >
+                    Copier
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`/${merchant.slug}`, "_blank")}
+                    className="gap-1"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Voir
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  QR Code
+                </label>
+                <div className="flex items-center gap-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.origin : ""}/${merchant.slug}`)}&choe=UTF-8`}
+                    alt="QR Code"
+                    className="w-32 h-32 border border-gray-200 rounded"
+                    width={128}
+                    height={128}
+                  />
+                  <div className="text-sm text-gray-500">
+                    <p>Imprimez ce QR code et affichez-le dans votre salon.</p>
+                    <p className="mt-1">Vos clients peuvent le scanner pour accéder directement à votre page de réservation.</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {tab === "fidelite" && (
-        <div className="max-w-2xl space-y-4">
-          <ComingSoonCard title="Programme fidélité avec points, paliers Bronze/Silver/Gold et récompenses" phase="en Phase 7" />
+      {tab === "fidelite" && merchant && (
+        <div className="max-w-2xl space-y-6">
+          <LoyaltyConfig merchantId={merchant.id} />
         </div>
       )}
 

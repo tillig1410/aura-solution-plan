@@ -153,14 +153,110 @@
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Sanitize Prompt Inputs (ASI01 — Prompt Injection Prevention)\n *\n * Strips instruction-like patterns from user-controlled data\n * before injection into the Gemini system prompt.\n *\n * Defenses:\n * 1. Truncate all text fields to safe lengths\n * 2. Remove common prompt injection patterns\n * 3. Strip control characters\n * 4. Wrap user content in delimiters so the LLM can distinguish data from instructions\n */\n\nconst MAX_NAME = 80;\nconst MAX_MESSAGE = 500;\nconst MAX_HISTORY = 2000;\nconst MAX_FIELD = 120;\n\nfunction sanitize(text, maxLen) {\n  if (!text || typeof text !== 'string') return '';\n  let s = text\n    // Strip control characters (keep newlines and spaces)\n    .replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '')\n    // Remove common prompt injection markers\n    .replace(/\\b(ignore|oublie|forget|disregard)\\s+(all\\s+)?(previous|above|prior|preceding)\\s+(instructions?|rules?|prompts?|context)/gi, '[FILTERED]')\n    .replace(/\\b(system|assistant|admin)\\s*:/gi, '[FILTERED]')\n    .replace(/\\b(tu\\s+es|you\\s+are)\\s+(now|maintenant|désormais)/gi, '[FILTERED]')\n    .replace(/\\bACT\\s+AS\\b/gi, '[FILTERED]')\n    .replace(/\\bRÈGLES?\\s*:/gi, '[FILTERED]')\n    .replace(/\\bINSTRUCTION[S]?\\s*:/gi, '[FILTERED]');\n  // Truncate\n  if (s.length > maxLen) s = s.substring(0, maxLen) + '…';\n  return s;\n}\n\nconst input = $input.first().json;\n\nreturn [{\n  json: {\n    ...input,\n    // Sanitized fields — these will be used in the Gemini prompt\n    safe_client_name: sanitize(input.client_name, MAX_NAME) || 'Inconnu',\n    safe_message_text: sanitize(input.message_text, MAX_MESSAGE),\n    safe_preferred_service: sanitize(input.preferred_service, MAX_FIELD) || 'aucun',\n    safe_preferred_practitioner: sanitize(input.preferred_practitioner, MAX_FIELD) || 'aucun',\n    safe_active_package: sanitize(input.active_package, MAX_FIELD) || 'aucun',\n    safe_conversation_history: sanitize(input.conversation_history, MAX_HISTORY) || 'Première interaction',\n    safe_available_slots_text: sanitize(input.available_slots_text, MAX_HISTORY) || 'Aucun créneau chargé',\n    // Numeric fields — coerce to safe types\n    safe_loyalty_points: Number(input.loyalty_points) || 0,\n    safe_cancellation_delay: Number(input.cancellation_delay_minutes) || 120,\n  }\n}];"
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/client_packages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "merchant_id",
+              "value": "eq.{{ $json.merchant_id }}"
+            },
+            {
+              "name": "client_id",
+              "value": "eq.{{ $json.client_id }}"
+            },
+            {
+              "name": "remaining_uses",
+              "value": "gt.0"
+            },
+            {
+              "name": "select",
+              "value": "id,remaining_uses,expires_at,package:packages(name,service_id,is_active)"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-packages",
+      "name": "Check Client Packages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 200],
+      "notes": "T078: Check if client has active packages or subscriptions. If so, skip payment request."
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/client_subscriptions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "merchant_id",
+              "value": "eq.{{ $json.merchant_id }}"
+            },
+            {
+              "name": "client_id",
+              "value": "eq.{{ $json.client_id }}"
+            },
+            {
+              "name": "status",
+              "value": "eq.active"
+            },
+            {
+              "name": "select",
+              "value": "id,name,service_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-subscriptions",
+      "name": "Check Client Subscriptions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 400],
+      "notes": "T078: Check if client has active subscriptions for the requested service."
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Sanitize Prompt Inputs (ASI01 — Prompt Injection Prevention)\n *\n * Strips instruction-like patterns from user-controlled data\n * before injection into the Gemini system prompt.\n *\n * Defenses:\n * 1. Truncate all text fields to safe lengths\n * 2. Remove common prompt injection patterns\n * 3. Strip control characters\n * 4. Wrap user content in delimiters so the LLM can distinguish data from instructions\n */\n\nconst MAX_NAME = 80;\nconst MAX_MESSAGE = 500;\nconst MAX_HISTORY = 2000;\nconst MAX_FIELD = 120;\n\nfunction sanitize(text, maxLen) {\n  if (!text || typeof text !== 'string') return '';\n  let s = text\n    // Strip control characters (keep newlines and spaces)\n    .replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '')\n    // Remove common prompt injection markers\n    .replace(/\\b(ignore|oublie|forget|disregard)\\s+(all\\s+)?(previous|above|prior|preceding)\\s+(instructions?|rules?|prompts?|context)/gi, '[FILTERED]')\n    .replace(/\\b(system|assistant|admin)\\s*:/gi, '[FILTERED]')\n    .replace(/\\b(tu\\s+es|you\\s+are)\\s+(now|maintenant|désormais)/gi, '[FILTERED]')\n    .replace(/\\bACT\\s+AS\\b/gi, '[FILTERED]')\n    .replace(/\\bRÈGLES?\\s*:/gi, '[FILTERED]')\n    .replace(/\\bINSTRUCTION[S]?\\s*:/gi, '[FILTERED]');\n  // Truncate\n  if (s.length > maxLen) s = s.substring(0, maxLen) + '…';\n  return s;\n}\n\nconst input = $input.first().json;\n\n// T078: Build active package/subscription summary for Gemini prompt\nconst packages = $('Check Client Packages').first()?.json || [];\nconst subscriptions = $('Check Client Subscriptions').first()?.json || [];\nconst now = new Date().toISOString();\n\nconst activePackages = (Array.isArray(packages) ? packages : []).filter(cp => {\n  if (!cp.package || !cp.package.is_active) return false;\n  if (cp.expires_at && cp.expires_at < now) return false;\n  return true;\n});\n\nconst activeSubscriptions = Array.isArray(subscriptions) ? subscriptions : [];\n\nlet coverageSummary = 'aucun';\nif (activePackages.length > 0 || activeSubscriptions.length > 0) {\n  const parts = [];\n  activePackages.forEach(cp => {\n    parts.push(`Forfait \"${cp.package.name}\" (${cp.remaining_uses} séances restantes)`);\n  });\n  activeSubscriptions.forEach(sub => {\n    parts.push(`Abonnement \"${sub.name}\" (actif)`);\n  });\n  coverageSummary = parts.join(', ');\n}\n\nreturn [{\n  json: {\n    ...input,\n    // Sanitized fields — these will be used in the Gemini prompt\n    safe_client_name: sanitize(input.client_name, MAX_NAME) || 'Inconnu',\n    safe_message_text: sanitize(input.message_text, MAX_MESSAGE),\n    safe_preferred_service: sanitize(input.preferred_service, MAX_FIELD) || 'aucun',\n    safe_preferred_practitioner: sanitize(input.preferred_practitioner, MAX_FIELD) || 'aucun',\n    safe_active_package: sanitize(coverageSummary, MAX_FIELD) || 'aucun',\n    safe_conversation_history: sanitize(input.conversation_history, MAX_HISTORY) || 'Première interaction',\n    safe_available_slots_text: sanitize(input.available_slots_text, MAX_HISTORY) || 'Aucun créneau chargé',\n    // Numeric fields — coerce to safe types\n    safe_loyalty_points: Number(input.loyalty_points) || 0,\n    safe_cancellation_delay: Number(input.cancellation_delay_minutes) || 120,\n    // T078: Pass coverage info for booking decision\n    has_active_coverage: activePackages.length > 0 || activeSubscriptions.length > 0,\n  }\n}];"
       },
       "id": "sanitize-inputs",
       "name": "Sanitize Prompt Inputs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1080, 300],
-      "notes": "ASI01 defense: sanitize all user-controlled data before Gemini prompt injection. Strips injection patterns, truncates fields, coerces numerics."
+      "position": [1320, 300],
+      "notes": "ASI01 defense + T078: sanitize all user-controlled data, merge package/subscription info before Gemini prompt injection."
     },
     {
       "parameters": {
@@ -177,7 +273,7 @@
       "name": "Gemini AI",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 300],
+      "position": [1560, 300],
       "notes": "Call Gemini 2.5 Flash with sanitized conversation context, available slots, and client history. Returns structured JSON with response_text and optional booking_data."
     },
     {
@@ -207,7 +303,7 @@
       "name": "Booking Action?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1560, 300],
+      "position": [1800, 300],
       "notes": "Route based on Gemini's action: confirm_booking → create booking, cancel_booking → cancel, else → just reply"
     },
     {
@@ -262,7 +358,7 @@
       "name": "Create Booking",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1800, 200],
+      "position": [2040, 200],
       "notes": "POST /api/v1/bookings — creates the booking in Supabase"
     },
     {
@@ -292,7 +388,7 @@
       "name": "Send Reply",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2040, 300],
+      "position": [2280, 300],
       "notes": "Send AI response back to client via their original channel"
     },
     {
@@ -343,7 +439,7 @@
       "name": "Save AI Message",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2280, 300],
+      "position": [2520, 300],
       "notes": "Persist AI response in messages table for dashboard visibility"
     },
     {
@@ -356,7 +452,7 @@
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2520, 300]
+      "position": [2760, 300]
     }
   ],
   "connections": {
@@ -394,6 +490,33 @@
       ]
     },
     "Check Availability": {
+      "main": [
+        [
+          {
+            "node": "Check Client Packages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Client Subscriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Client Packages": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Prompt Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Client Subscriptions": {
       "main": [
         [
           {

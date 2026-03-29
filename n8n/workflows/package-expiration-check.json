@@ -1,0 +1,279 @@
+{
+  "name": "Plan — Package Expiration Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 9AM Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "notes": "T078b: Run daily at 9AM to check for expiring packages (7 days before expiration)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/client_packages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "remaining_uses",
+              "value": "gt.0"
+            },
+            {
+              "name": "expires_at",
+              "value": "lte.{{ $now.plus({days: 7}).toISO() }}"
+            },
+            {
+              "name": "expires_at",
+              "value": "gte.{{ $now.toISO() }}"
+            },
+            {
+              "name": "select",
+              "value": "id,client_id,merchant_id,remaining_uses,expires_at,package:packages(name,service_id),client:clients(name,phone,whatsapp_id,messenger_id,telegram_id,preferred_language)"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-expiring-packages",
+      "name": "Fetch Expiring Packages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "notes": "Fetch client_packages expiring within 7 days with remaining uses > 0"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-results",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-expiring",
+      "name": "Any Expiring?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = Array.isArray(item.json) ? item.json : [item.json];\n  for (const cp of data) {\n    if (!cp.client || !cp.package) continue;\n    \n    const client = cp.client;\n    const daysLeft = Math.ceil((new Date(cp.expires_at) - new Date()) / (1000 * 60 * 60 * 24));\n    \n    // Determine best channel\n    let channel = 'sms';\n    let recipientId = client.phone;\n    if (client.whatsapp_id) { channel = 'whatsapp'; recipientId = client.whatsapp_id; }\n    else if (client.messenger_id) { channel = 'messenger'; recipientId = client.messenger_id; }\n    else if (client.telegram_id) { channel = 'telegram'; recipientId = client.telegram_id; }\n    \n    const message = client.preferred_language === 'en'\n      ? `Hi ${client.name || 'there'}! Your package \"${cp.package.name}\" expires in ${daysLeft} day(s). You still have ${cp.remaining_uses} session(s) remaining. Book now!`\n      : `Bonjour ${client.name || ''} ! Votre forfait \"${cp.package.name}\" expire dans ${daysLeft} jour(s). Il vous reste ${cp.remaining_uses} séance(s). Réservez vite !`;\n    \n    results.push({\n      json: {\n        client_package_id: cp.id,\n        client_id: cp.client_id,\n        merchant_id: cp.merchant_id,\n        channel,\n        recipient_id: recipientId,\n        message,\n        notification_type: 'package_expiring'\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "build-notifications",
+      "name": "Build Notification Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 200],
+      "notes": "Build personalized notification message per client package, choose best channel"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/notifications",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "merchant_id",
+              "value": "={{ $json.merchant_id }}"
+            },
+            {
+              "name": "client_id",
+              "value": "={{ $json.client_id }}"
+            },
+            {
+              "name": "type",
+              "value": "package_expiring"
+            },
+            {
+              "name": "channel",
+              "value": "={{ $json.channel }}"
+            },
+            {
+              "name": "status",
+              "value": "pending"
+            },
+            {
+              "name": "scheduled_at",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "save-notification",
+      "name": "Save Notification Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 200],
+      "notes": "Record the notification in the notifications table"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXTJS_URL || 'http://localhost:3000' }}/api/v1/channels/send",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "={{ $json.channel }}"
+            },
+            {
+              "name": "recipient_id",
+              "value": "={{ $json.recipient_id }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-notification",
+      "name": "Send via Channel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 200],
+      "notes": "Send expiration notification via client's preferred channel"
+    }
+  ],
+  "connections": {
+    "Daily 9AM Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Expiring Packages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Expiring Packages": {
+      "main": [
+        [
+          {
+            "node": "Any Expiring?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Expiring?": {
+      "main": [
+        [
+          {
+            "node": "Build Notification Messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Build Notification Messages": {
+      "main": [
+        [
+          {
+            "node": "Save Notification Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Notification Record": {
+      "main": [
+        [
+          {
+            "node": "Send via Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "packages",
+      "id": "3"
+    },
+    {
+      "name": "notifications",
+      "id": "4"
+    }
+  ],
+  "pinData": {}
+}

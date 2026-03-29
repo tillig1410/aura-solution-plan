@@ -6,6 +6,8 @@ import { apiError } from "@/lib/api-error";
 import { sendMessage } from "@/lib/channels/send";
 import type { MessageChannel } from "@/types/supabase";
 
+const NO_SHOW_BLOCK_THRESHOLD = 3;
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -115,9 +117,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     bookingLog.cancelled(id, sanitized.cancelled_by as string, traceId);
   }
 
+  // T101: No-show flow — increment count and potentially block client
+  if (sanitized.status === "no_show") {
+    void handleNoShow({
+      merchantId: merchant.id,
+      clientId: existingBooking.client_id,
+      bookingId: id,
+      traceId,
+    });
+  }
+
   // T051b: Send client notification on cancellation or rescheduling
   const shouldNotify =
     sanitized.status === "cancelled" ||
+    sanitized.status === "no_show" ||
     (sanitized.starts_at !== undefined &&
       existingBooking.starts_at !== sanitized.starts_at);
 
@@ -127,6 +140,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       clientId: existingBooking.client_id,
       booking: data,
       isCancelled: sanitized.status === "cancelled",
+      isNoShow: sanitized.status === "no_show",
       traceId,
     });
   }
@@ -147,11 +161,12 @@ interface NotifyClientParams {
     service_id: string;
   };
   isCancelled: boolean;
+  isNoShow: boolean;
   traceId?: string;
 }
 
 async function notifyClient(params: NotifyClientParams): Promise<void> {
-  const { merchantId, clientId, booking, isCancelled, traceId } = params;
+  const { merchantId, clientId, booking, isCancelled, isNoShow, traceId } = params;
 
   try {
     const supabase = await createClient();
@@ -204,9 +219,14 @@ async function notifyClient(params: NotifyClientParams): Promise<void> {
       minute: "2-digit",
     });
 
-    const message = isCancelled
-      ? `Bonjour ${clientName}, votre rendez-vous "${serviceName}" a été annulé. N'hésitez pas à reprendre contact pour en planifier un nouveau.`
-      : `Bonjour ${clientName}, votre rendez-vous "${serviceName}" a été modifié et est maintenant prévu le ${dateLabel}.`;
+    let message: string;
+    if (isCancelled) {
+      message = `Bonjour ${clientName}, votre rendez-vous "${serviceName}" a été annulé. N'hésitez pas à reprendre contact pour en planifier un nouveau.`;
+    } else if (isNoShow) {
+      message = `Bonjour ${clientName}, vous ne vous êtes pas présenté(e) pour votre rendez-vous "${serviceName}" prévu le ${dateLabel}. Merci de nous prévenir à l'avance en cas d'empêchement.`;
+    } else {
+      message = `Bonjour ${clientName}, votre rendez-vous "${serviceName}" a été modifié et est maintenant prévu le ${dateLabel}.`;
+    }
 
     await sendMessage({ channel, recipientId, message, merchantId });
 
@@ -219,6 +239,100 @@ async function notifyClient(params: NotifyClientParams): Promise<void> {
   } catch (err) {
     logger.error("booking.notification_failed", {
       bookingId: booking.id,
+      error: err instanceof Error ? err.message : String(err),
+      traceId,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// T101: No-show flow — increment no_show_count, block client at threshold
+// ---------------------------------------------------------------------------
+
+interface HandleNoShowParams {
+  merchantId: string;
+  clientId: string;
+  bookingId: string;
+  traceId?: string;
+}
+
+async function handleNoShow(params: HandleNoShowParams): Promise<void> {
+  const { merchantId, clientId, bookingId, traceId } = params;
+
+  try {
+    const supabase = await createClient();
+
+    // Fetch current no_show_count
+    const { data: client, error: fetchError } = await supabase
+      .from("clients")
+      .select("id, no_show_count, is_blocked")
+      .eq("id", clientId)
+      .eq("merchant_id", merchantId)
+      .single();
+
+    if (fetchError || !client) {
+      logger.error("noshow.client_not_found", {
+        clientId,
+        merchantId,
+        bookingId,
+        error: fetchError?.message,
+        traceId,
+      });
+      return;
+    }
+
+    // Already blocked — nothing to do
+    if (client.is_blocked) {
+      logger.info("noshow.already_blocked", { clientId, bookingId, traceId });
+      return;
+    }
+
+    const newCount = client.no_show_count + 1;
+    const shouldBlock = newCount >= NO_SHOW_BLOCK_THRESHOLD;
+
+    const updatePayload: { no_show_count: number; is_blocked?: boolean } = {
+      no_show_count: newCount,
+    };
+    if (shouldBlock) {
+      updatePayload.is_blocked = true;
+    }
+
+    const { error: updateError } = await supabase
+      .from("clients")
+      .update(updatePayload)
+      .eq("id", clientId)
+      .eq("merchant_id", merchantId);
+
+    if (updateError) {
+      logger.error("noshow.update_failed", {
+        clientId,
+        bookingId,
+        error: updateError.message,
+        traceId,
+      });
+      return;
+    }
+
+    logger.info("noshow.recorded", {
+      clientId,
+      bookingId,
+      noShowCount: newCount,
+      blocked: shouldBlock,
+      traceId,
+    });
+
+    if (shouldBlock) {
+      logger.warn("noshow.client_blocked", {
+        clientId,
+        merchantId,
+        noShowCount: newCount,
+        traceId,
+      });
+    }
+  } catch (err) {
+    logger.error("noshow.unexpected_error", {
+      clientId,
+      bookingId,
       error: err instanceof Error ? err.message : String(err),
       traceId,
     });

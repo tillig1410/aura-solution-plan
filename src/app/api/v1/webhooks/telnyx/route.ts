@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifyTelnyxSignature } from "@/lib/webhooks/verify-ed25519";
 import { normalizeTelnyxSMS } from "@/lib/webhooks/normalize";
 import { forwardToN8n } from "@/lib/webhooks/forward-to-n8n";
+import { extractVoiceEvent, handleVoiceEvent } from "@/lib/telnyx/voice";
+import { createAdminClient } from "@/lib/supabase/server";
 import { securityLog, webhookLog } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -34,15 +36,53 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // 1. Try SMS normalization first
   const normalized = normalizeTelnyxSMS(body);
-
-  if (!normalized) {
-    // Could be a voice event — handle in Phase 8 (US6)
+  if (normalized) {
+    forwardToN8n(normalized, "Telnyx");
+    webhookLog.forwarded("telnyx", traceId);
     return NextResponse.json({ status: "ok" });
   }
 
-  forwardToN8n(normalized, "Telnyx");
-  webhookLog.forwarded("telnyx", traceId);
+  // 2. Try Voice event handling (T080)
+  const voiceEvent = extractVoiceEvent(body);
+  if (voiceEvent) {
+    // Look up merchant by telnyx_phone_number to check voice_enabled
+    const toNumber = voiceEvent.payload.to;
+    const supabase = createAdminClient();
 
+    const { data: merchant } = await supabase
+      .from("merchants")
+      .select("id, voice_enabled")
+      .eq("telnyx_phone_number", toNumber)
+      .single();
+
+    const voiceEnabled = merchant?.voice_enabled ?? false;
+
+    await handleVoiceEvent(voiceEvent, voiceEnabled, traceId);
+
+    // If it's a gather.ended event with transcription, forward to n8n
+    if (voiceEvent.event_type === "call.gather.ended") {
+      const result = (voiceEvent.payload as unknown as Record<string, unknown>).result as string | undefined;
+      if (result && merchant) {
+        forwardToN8n(
+          {
+            channel: "voice",
+            sender_id: voiceEvent.payload.from,
+            sender_name: null,
+            message_text: result,
+            message_id: voiceEvent.id,
+            timestamp: voiceEvent.occurred_at,
+          },
+          "Telnyx-Voice",
+        );
+        webhookLog.forwarded("telnyx-voice", traceId);
+      }
+    }
+
+    return NextResponse.json({ status: "ok" });
+  }
+
+  // 3. Unknown event type — acknowledge
   return NextResponse.json({ status: "ok" });
 }

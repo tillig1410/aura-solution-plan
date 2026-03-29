@@ -1,5 +1,6 @@
 -- Seed data for Plan — SaaS de Réservation par IA
--- Creates: 1 merchant, 2 practitioners, 5 services, 10 clients, 20 bookings
+-- Creates: 1 merchant, 2 practitioners, 5 services, 10 clients, 20 bookings,
+--          tips, loyalty program, packages, conversations
 
 -- Note: in local dev, create a test user via Supabase Dashboard first
 -- then replace the user_id below with the actual auth.users UUID
@@ -128,3 +129,47 @@ INSERT INTO bookings (id, merchant_id, client_id, practitioner_id, service_id, s
   -- Future bookings
   ('55555555-5555-5555-5555-555555555519', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444410', '22222222-2222-2222-2222-222222222202', '33333333-3333-3333-3333-333333333304', (NOW() + interval '3 days')::date + '10:00'::time, (NOW() + interval '3 days')::date + '11:30'::time, 'confirmed', 'whatsapp', 1),
   ('55555555-5555-5555-5555-555555555520', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444401', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333301', (NOW() + interval '5 days')::date + '09:00'::time, (NOW() + interval '5 days')::date + '09:30'::time, 'pending', 'whatsapp', 1);
+
+-- =============================================
+-- Tips (pourboires nominatifs)
+-- =============================================
+INSERT INTO tips (id, merchant_id, booking_id, client_id, practitioner_id, amount_cents, stripe_payment_intent_id) VALUES
+  ('66666666-6666-6666-6666-666666666601', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555509', '44444444-4444-4444-4444-444444444401', '22222222-2222-2222-2222-222222222201', 300, 'pi_test_tip_001'),
+  ('66666666-6666-6666-6666-666666666602', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555510', '44444444-4444-4444-4444-444444444402', '22222222-2222-2222-2222-222222222202', 500, 'pi_test_tip_002'),
+  ('66666666-6666-6666-6666-666666666603', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555511', '44444444-4444-4444-4444-444444444404', '22222222-2222-2222-2222-222222222202', 1000, 'pi_test_tip_003'),
+  ('66666666-6666-6666-6666-666666666604', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555514', '44444444-4444-4444-4444-444444444410', '22222222-2222-2222-2222-222222222202', 200, 'pi_test_tip_004'),
+  ('66666666-6666-6666-6666-666666666605', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555515', '44444444-4444-4444-4444-444444444407', '22222222-2222-2222-2222-222222222201', 500, 'pi_test_tip_005');
+
+-- =============================================
+-- Loyalty Program
+-- =============================================
+INSERT INTO loyalty_programs (id, merchant_id, points_per_visit, points_per_euro, silver_threshold, gold_threshold, is_active) VALUES
+  ('77777777-7777-7777-7777-777777777701', '11111111-1111-1111-1111-111111111111', 10, 1, 100, 500, true);
+
+-- =============================================
+-- Packages (forfaits)
+-- =============================================
+INSERT INTO packages (id, merchant_id, name, service_id, total_uses, price_cents, validity_days, is_active) VALUES
+  ('88888888-8888-8888-8888-888888888801', '11111111-1111-1111-1111-111111111111', 'Pack 5 coupes homme', '33333333-3333-3333-3333-333333333301', 5, 11000, 180, true),
+  ('88888888-8888-8888-8888-888888888802', '11111111-1111-1111-1111-111111111111', 'Pack 10 barbes', '33333333-3333-3333-3333-333333333303', 10, 12000, 365, true);
+
+-- Client packages (forfaits achetés)
+INSERT INTO client_packages (id, merchant_id, client_id, package_id, remaining_uses, purchased_at, expires_at) VALUES
+  ('99999999-9999-9999-9999-999999999901', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444401', '88888888-8888-8888-8888-888888888801', 3, NOW() - interval '30 days', NOW() + interval '150 days'),
+  ('99999999-9999-9999-9999-999999999902', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444409', '88888888-8888-8888-8888-888888888802', 8, NOW() - interval '15 days', NOW() + interval '350 days');
+
+-- =============================================
+-- Conversations
+-- =============================================
+INSERT INTO conversations (id, merchant_id, client_id, channel, is_active) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa001', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444401', 'whatsapp', true),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa002', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444402', 'whatsapp', true),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa003', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444404', 'messenger', false);
+
+INSERT INTO messages (id, merchant_id, conversation_id, sender, content) VALUES
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa001', 'client', 'Bonjour, je voudrais un RDV coupe mercredi'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb002', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa001', 'ai', 'Bonjour Jean ! Avec plaisir. Marc est disponible mercredi à 9h, 10h30 ou 14h. Quelle heure vous convient ?'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb003', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa001', 'client', '10h30 parfait'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb004', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa001', 'ai', 'Votre coupe homme avec Marc est confirmée pour mercredi à 10h30. À bientôt !'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb005', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa002', 'client', 'Hello, I need a haircut'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb006', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa002', 'ai', 'Hi Marie! Sophie is available tomorrow at 9am, 2pm, or 4pm. Which works best for you?');
