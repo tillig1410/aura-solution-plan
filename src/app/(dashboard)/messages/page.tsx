@@ -183,18 +183,17 @@ const MessagesPage = () => {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelFilter]);
+  }, [channelFilter, supabase]);
 
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
 
-  const filtered = conversations.filter((c) => {
+  const filtered = useMemo(() => conversations.filter((c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return c.client?.name?.toLowerCase().includes(q) || c.client?.phone?.includes(q);
-  });
+  }), [conversations, search]);
 
   const selectedConv = conversations.find((c) => c.id === selectedId) ?? null;
 

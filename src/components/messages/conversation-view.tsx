@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mic, Send, UserCheck, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ const ConversationView = ({ conversationId }: ConversationViewProps) => {
   const [sending, setSending] = useState(false);
   const [aiActive, setAiActive] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchMessages = useCallback(
     async (convId: string) => {
@@ -39,8 +39,7 @@ const ConversationView = ({ conversationId }: ConversationViewProps) => {
       }
       setLoading(false);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [supabase],
   );
 
   useEffect(() => {
@@ -71,8 +70,7 @@ const ConversationView = ({ conversationId }: ConversationViewProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, fetchMessages]);
+  }, [conversationId, fetchMessages, supabase]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

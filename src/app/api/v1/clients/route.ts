@@ -70,7 +70,11 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (search.length > 0) {
-    query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
+    // Escape PostgREST filter metacharacters to prevent injection
+    const safe = search.replace(/[%_\\.,()]/g, "");
+    if (safe.length > 0) {
+      query = query.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`);
+    }
   }
 
   if (filter === "loyal") {

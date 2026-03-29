@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.9.0] — 2026-03-29 — Phase 6 : Paiements, Pourboires & Facturation (T061–T070)
+
+### Stripe Integration
+- **Webhook Stripe** : `POST /api/v1/webhooks/stripe` — validation signature SDK, idempotency par `event.id` (table `stripe_events`), routing vers handlers (`payment_intent.succeeded`, `subscription.updated/deleted`, `account.updated`, `invoice.paid/failed`)
+- **Payment handler** : `handlePaymentSucceeded` — marque le booking payé + crée un pourboire nominatif attribué au praticien via metadata PaymentIntent
+- **Stripe Connect** : Helper complet (création compte Standard, onboarding link, dashboard link, vérification statut) + routes API `POST /api/v1/stripe/connect` et `POST /api/v1/stripe/dashboard-link`
+- **Payment Links** : Génération de sessions Checkout avec option pourboire intégrée (line items optionnels)
+- **Abonnements** : Helper `subscription.ts` — grille tarifaire 1-7 sièges (16,90€–54,90€) + option voix (+7€–52€), coupon Early Adopter -30%, création/mise à jour/annulation Stripe Subscription
+
+### API Routes
+- **GET /api/v1/tips** : Liste paginée avec filtrage par praticien et période, joins praticien + client
+- **GET /api/v1/tips/summary** : Agrégation par praticien (total, count, moyenne), classement décroissant
+
+### Dashboard
+- **Section Paiements** (onglet Paramètres) : Onboarding Stripe Connect (état connecté/non connecté), bouton Dashboard Stripe, statut pourboires nominatifs
+
+### Migrations
+- `012_create_stripe_events.sql` : Table d'idempotency pour les webhooks Stripe
+- Types Supabase mis à jour avec `stripe_events`
+
+### Tests
+- `webhook-stripe.test.ts` : 5 tests (signature, idempotency, event routing, ack silencieux)
+- `tip-attribution.test.ts` : 4 tests (attribution praticien, absence de tip, tip à 0, booking payé)
+
+### Validation
+- ✅ `tsc --noEmit` — 0 erreur
+- ✅ 57/57 tests passent (hors 5 pré-existants dans agenda-day-view)
+
+## [0.8.2] — 2026-03-29 — Corrections code-review #2 (8 points)
+
+### Sécurité (critique)
+- **Injection PostgREST** : `GET /api/v1/clients?search` — les métacaractères PostgREST (`%`, `_`, `.`, `,`, `(`, `)`) sont maintenant strippés du paramètre `search` avant injection dans `.or()`, empêchant la manipulation du filtre
+
+### Bugs haute priorité
+- **conversation-view.tsx** : `createClient()` wrappé dans `useMemo` (évite re-création à chaque render) + suppression des `eslint-disable` + `supabase` ajouté dans les deps du `useEffect` pour cleanup Realtime correct
+- **messages/page.tsx** : Supprimé `eslint-disable react-hooks/exhaustive-deps` ; ajouté `supabase` dans les deps du `useCallback`
+- **settings/page.tsx** : `saveMerchant()` vérifie maintenant `.error` de Supabase et throw si erreur (au lieu d'ignorer silencieusement)
+
+### UX (moyenne)
+- **Toast notifications** : Ajout de `sonner` — feedback succès/erreur sur toutes les opérations de sauvegarde (salon, services, horaires)
+- **Confirmation suppression** : Dialog de confirmation avant désactivation d'un service (empêche les clics accidentels)
+
+### Tests (moyenne)
+- **api-bookings.test.ts** : Ajout de 2 tests vérifiant les appels mock Supabase (`.from()`, `.eq()`, `.gte()` avec les bons filtres)
+
+### Performance (basse)
+- **useMemo filtres** : `activeServices`, `activePractitioners` (services/page.tsx) et `filtered` (messages/page.tsx) sont maintenant mémorisés
+
+### Validation
+- ✅ `tsc --noEmit` — 0 erreur
+- ✅ 16/16 tests api-bookings passent (dont 2 nouveaux)
+
 ## [0.8.1] — 2026-03-29 — Corrections code-review (8 points)
 
 ### Bugs fonctionnels (bloquants)

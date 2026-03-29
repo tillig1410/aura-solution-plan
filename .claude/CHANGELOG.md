@@ -5,6 +5,29 @@
 
 ---
 
+## [0.9.0] — 2026-03-29 — Phase 6 : Paiements, Pourboires & Facturation (T061–T070)
+
+### Fichiers créés
+- `src/app/api/v1/webhooks/stripe/route.ts` — Webhook Stripe (signature, idempotency, routing)
+- `src/lib/stripe/handlers/payment-succeeded.ts` — Handler paiement réussi + tip
+- `src/lib/stripe/connect.ts` — Stripe Connect onboarding
+- `src/lib/stripe/payment-links.ts` — Checkout sessions avec pourboire
+- `src/lib/stripe/subscription.ts` — Abonnements commerçant par sièges
+- `src/app/api/v1/tips/route.ts` — GET /api/v1/tips (liste)
+- `src/app/api/v1/tips/summary/route.ts` — GET /api/v1/tips/summary (agrégation)
+- `src/app/api/v1/stripe/connect/route.ts` — POST Stripe Connect onboarding
+- `src/app/api/v1/stripe/dashboard-link/route.ts` — POST dashboard link
+- `supabase/migrations/012_create_stripe_events.sql` — Table idempotency
+- `tests/integration/webhook-stripe.test.ts` — 5 tests
+- `tests/unit/tip-attribution.test.ts` — 4 tests
+
+### Fichiers modifiés
+- `src/app/(dashboard)/settings/page.tsx` — Section paiements réelle (Stripe Connect)
+- `src/types/supabase.ts` — Ajout type `stripe_events`
+- `package.json` — +stripe +sonner
+
+---
+
 ## [0.8.0] — 2026-03-29 — Phase 5 : Catalogue Services & Configuration (T052–T060)
 
 ### API Routes

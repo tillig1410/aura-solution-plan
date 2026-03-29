@@ -10,7 +10,12 @@ import {
   UsersRound,
   Receipt,
   Save,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,6 +71,9 @@ const SettingsPage = () => {
   const [googlePlaceId, setGooglePlaceId] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Stripe Connect
+  const [connectLoading, setConnectLoading] = useState(false);
+
   const fetchMerchant = useCallback(async () => {
     setLoading(true);
     try {
@@ -102,7 +110,10 @@ const SettingsPage = () => {
   const saveMerchant = async (updates: Partial<Merchant>) => {
     if (!merchant) return;
     const supabase = createClient();
-    await supabase.from("merchants").update(updates).eq("id", merchant.id);
+    const { error } = await supabase.from("merchants").update(updates).eq("id", merchant.id);
+    if (error) {
+      throw new Error(error.message);
+    }
     setMerchant((prev) => (prev ? { ...prev, ...updates } : prev));
   };
 
@@ -117,6 +128,9 @@ const SettingsPage = () => {
         slug: salonSlug.trim(),
         google_place_id: googlePlaceId.trim() || null,
       });
+      toast.success("Salon sauvegardé");
+    } catch {
+      toast.error("Erreur lors de la sauvegarde");
     } finally {
       setSaving(false);
     }
@@ -239,10 +253,110 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {/* ---- Onglets futurs (stubs visuels) ---- */}
-      {tab === "paiements" && (
-        <div className="max-w-2xl space-y-4">
-          <ComingSoonCard title="Stripe Connect, pourboires nominatifs, forfaits & abonnements clients" phase="en Phase 6" />
+      {/* ---- Onglet Paiements ---- */}
+      {tab === "paiements" && merchant && (
+        <div className="max-w-2xl space-y-6">
+          {/* Stripe Connect */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Stripe Connect
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {merchant.stripe_account_id ? (
+                <>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-green-800">Compte Stripe connecté</p>
+                      <p className="text-xs text-green-600 font-mono">{merchant.stripe_account_id}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/v1/stripe/dashboard-link", { method: "POST" });
+                          if (res.ok) {
+                            const { url } = (await res.json()) as { url: string };
+                            window.open(url, "_blank");
+                          }
+                        } catch {
+                          toast.error("Impossible d'ouvrir le dashboard Stripe");
+                        }
+                      }}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Dashboard Stripe
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">Compte non connecté</p>
+                      <p className="text-xs text-amber-600">
+                        Connectez votre compte Stripe pour recevoir des paiements et pourboires.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    disabled={connectLoading}
+                    className="gap-2"
+                    onClick={async () => {
+                      setConnectLoading(true);
+                      try {
+                        const res = await fetch("/api/v1/stripe/connect", { method: "POST" });
+                        if (res.ok) {
+                          const { onboardingUrl } = (await res.json()) as { onboardingUrl: string };
+                          window.location.href = onboardingUrl;
+                        } else {
+                          toast.error("Erreur lors de la connexion Stripe");
+                        }
+                      } catch {
+                        toast.error("Erreur réseau");
+                      } finally {
+                        setConnectLoading(false);
+                      }
+                    }}
+                  >
+                    {connectLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="h-4 w-4" />
+                    )}
+                    Connecter Stripe
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pourboires */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Pourboires nominatifs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600">
+                Vos clients peuvent envoyer un pourboire au praticien de leur choix après chaque prestation.
+                Les pourboires sont visibles dans la page Statistiques.
+              </p>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-gray-500">Statut</span>
+                <span className={`font-medium ${merchant.stripe_account_id ? "text-green-600" : "text-gray-400"}`}>
+                  {merchant.stripe_account_id ? "Actif (via Stripe Connect)" : "Inactif — connectez Stripe"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

@@ -152,19 +152,19 @@
 
 ### Tests User Story 4
 
-- [ ] T061 [P] [US4] Écrire le test d'intégration webhook Stripe dans `tests/integration/webhook-stripe.test.ts` — validation signature, idempotency, routing events
-- [ ] T062 [P] [US4] Écrire le test unitaire attribution pourboire dans `tests/unit/tip-attribution.test.ts` — pourboire attribué au bon practitioner_id
+- [X] T061 [P] [US4] Écrire le test d'intégration webhook Stripe dans `tests/integration/webhook-stripe.test.ts` — validation signature, idempotency, routing events
+- [X] T062 [P] [US4] Écrire le test unitaire attribution pourboire dans `tests/unit/tip-attribution.test.ts` — pourboire attribué au bon practitioner_id
 
 ### Implementation User Story 4
 
-- [ ] T063 [US4] Créer la migration `supabase/migrations/008_create_tips.sql` — table `tips` avec RLS
-- [ ] T064 [US4] Implémenter la route webhook Stripe dans `src/app/api/v1/webhooks/stripe/route.ts` — validation signature, idempotency par event.id, routing vers handlers
-- [ ] T065 [US4] Implémenter le handler `payment_intent.succeeded` dans `src/lib/stripe/handlers/payment-succeeded.ts` — marquer booking payé, créer tip si pourboire inclus
-- [ ] T066 [US4] Implémenter le helper Stripe Connect onboarding dans `src/lib/stripe/connect.ts` — création compte Connect Standard, OAuth flow, vérification statut
-- [ ] T067 [US4] Implémenter le helper Payment Links dans `src/lib/stripe/payment-links.ts` — génération lien paiement post-prestation avec option pourboire nominatif
-- [ ] T068 [US4] Implémenter les routes GET /api/v1/tips et GET /api/v1/tips/summary dans `src/app/api/v1/tips/route.ts` — liste et agrégation par praticien
-- [ ] T069 [US4] Implémenter la section paiements dans la page Paramètres — onboarding Stripe Connect, statut du compte, gestion abonnement Plan
-- [ ] T070 [US4] Implémenter le helper abonnement commerçant dans `src/lib/stripe/subscription.ts` — création Stripe Subscription par nombre de sièges, grille tarifaire, Early Adopter coupon
+- [X] T063 [US4] Créer la migration `supabase/migrations/008_create_tips.sql` — table `tips` avec RLS
+- [X] T064 [US4] Implémenter la route webhook Stripe dans `src/app/api/v1/webhooks/stripe/route.ts` — validation signature, idempotency par event.id, routing vers handlers
+- [X] T065 [US4] Implémenter le handler `payment_intent.succeeded` dans `src/lib/stripe/handlers/payment-succeeded.ts` — marquer booking payé, créer tip si pourboire inclus
+- [X] T066 [US4] Implémenter le helper Stripe Connect onboarding dans `src/lib/stripe/connect.ts` — création compte Connect Standard, OAuth flow, vérification statut
+- [X] T067 [US4] Implémenter le helper Payment Links dans `src/lib/stripe/payment-links.ts` — génération lien paiement post-prestation avec option pourboire nominatif
+- [X] T068 [US4] Implémenter les routes GET /api/v1/tips et GET /api/v1/tips/summary dans `src/app/api/v1/tips/route.ts` — liste et agrégation par praticien
+- [X] T069 [US4] Implémenter la section paiements dans la page Paramètres — onboarding Stripe Connect, statut du compte, gestion abonnement Plan
+- [X] T070 [US4] Implémenter le helper abonnement commerçant dans `src/lib/stripe/subscription.ts` — création Stripe Subscription par nombre de sièges, grille tarifaire, Early Adopter coupon
 
 **Checkpoint**: Paiements fonctionnels. Pourboires attribués au bon praticien. Commerçant peut s'abonner.
 

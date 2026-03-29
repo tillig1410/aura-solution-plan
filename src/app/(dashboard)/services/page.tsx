@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -11,6 +11,7 @@ import {
   CalendarOff,
   Save,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,6 +77,9 @@ const ServicesPage = () => {
   const [services, setServices] = useState<ServiceWithPractitioners[]>([]);
   const [practitioners, setPractitioners] = useState<PractitionerWithServices[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<ServiceWithPractitioners | null>(null);
 
   // Service dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -154,8 +158,15 @@ const ServicesPage = () => {
     setDialogOpen(true);
   };
 
-  const handleDeleteService = async (svc: ServiceWithPractitioners) => {
-    await fetch(`/api/v1/services/${svc.id}`, { method: "DELETE" });
+  const confirmDeleteService = async () => {
+    if (!deleteTarget) return;
+    const res = await fetch(`/api/v1/services/${deleteTarget.id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Service désactivé");
+    } else {
+      toast.error("Erreur lors de la désactivation");
+    }
+    setDeleteTarget(null);
     fetchData();
   };
 
@@ -193,10 +204,12 @@ const ServicesPage = () => {
       if (!res.ok) {
         const errBody = (await res.json()) as { error?: string };
         setSvcError(errBody.error ?? "Erreur");
+        toast.error("Erreur lors de la sauvegarde du service");
         return;
       }
 
       setDialogOpen(false);
+      toast.success(editingService ? "Service modifié" : "Service créé");
       fetchData();
     } finally {
       setSvcSaving(false);
@@ -221,15 +234,21 @@ const ServicesPage = () => {
           body: JSON.stringify({ recurring }),
         });
       });
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
+      const failed = results.some((r) => !r.ok);
+      if (failed) {
+        toast.error("Erreur lors de la sauvegarde de certains horaires");
+      } else {
+        toast.success("Horaires sauvegardés");
+      }
       fetchData();
     } finally {
       setScheduleSaving(false);
     }
   };
 
-  const activeServices = services.filter((s) => s.is_active);
-  const activePractitioners = practitioners.filter((p) => p.is_active);
+  const activeServices = useMemo(() => services.filter((s) => s.is_active), [services]);
+  const activePractitioners = useMemo(() => practitioners.filter((p) => p.is_active), [practitioners]);
 
   return (
     <div className="flex flex-col h-full">
@@ -337,7 +356,7 @@ const ServicesPage = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteService(svc)}
+                          onClick={() => setDeleteTarget(svc)}
                           aria-label="Désactiver"
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
@@ -577,6 +596,26 @@ const ServicesPage = () => {
               disabled={svcSaving || svcName.trim().length < 2}
             >
               {svcSaving ? "Enregistrement..." : "Sauvegarder"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog confirmation suppression */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Désactiver le service</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            Voulez-vous vraiment désactiver <strong>{deleteTarget?.name}</strong> ? Il ne sera plus proposé à la réservation.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteService}>
+              Désactiver
             </Button>
           </DialogFooter>
         </DialogContent>

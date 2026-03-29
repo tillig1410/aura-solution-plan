@@ -197,9 +197,12 @@ describe("GET /api/v1/bookings — validation des paramètres", () => {
 });
 
 describe("GET /api/v1/bookings — réponse nominale", () => {
+  let mockSb: ReturnType<typeof makeMockSupabase>;
+
   beforeEach(() => {
+    mockSb = makeMockSupabase(mockBookings);
     vi.mocked(createClient).mockResolvedValue(
-      makeMockSupabase(mockBookings) as unknown as Awaited<ReturnType<typeof createClient>>,
+      mockSb as unknown as Awaited<ReturnType<typeof createClient>>,
     );
   });
 
@@ -233,6 +236,27 @@ describe("GET /api/v1/bookings — réponse nominale", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as unknown[];
     expect(body).toHaveLength(0);
+  });
+
+  it("appelle from('merchants') et from('bookings') avec les bons filtres", async () => {
+    await GET(req({ date: "2026-04-01" }));
+    expect(mockSb.from).toHaveBeenCalledWith("merchants");
+    expect(mockSb.from).toHaveBeenCalledWith("bookings");
+
+    // Vérifie que .eq a été appelé sur la query bookings (merchant_id filter)
+    const bookingsQuery = mockSb.from("bookings");
+    expect(bookingsQuery.eq).toHaveBeenCalled();
+    expect(bookingsQuery.gte).toHaveBeenCalled();
+  });
+
+  it("filtre par status quand le paramètre est fourni", async () => {
+    mockSb = makeMockSupabase(mockBookings);
+    vi.mocked(createClient).mockResolvedValueOnce(
+      mockSb as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+    await GET(req({ status: "confirmed" }));
+    const bookingsQuery = mockSb.from("bookings");
+    expect(bookingsQuery.eq).toHaveBeenCalled();
   });
 });
 

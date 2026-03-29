@@ -858,6 +858,24 @@ export interface Database {
           },
         ];
       };
+      stripe_events: {
+        Row: {
+          id: string;
+          type: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          type: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          type?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       tips_by_practitioner: {
