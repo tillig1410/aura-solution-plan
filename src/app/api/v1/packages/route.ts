@@ -133,5 +133,5 @@ export async function POST(request: NextRequest) {
 
   logger.info("packages.created", { packageId: created.id, merchantId: merchant.id, traceId });
 
-  return NextResponse.json(created, { status: 201 });
+  return NextResponse.json({ data: created }, { status: 201 });
 }

@@ -297,17 +297,57 @@ async function handleNoShow(params: HandleNoShowParams): Promise<void> {
       updatePayload.is_blocked = true;
     }
 
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from("clients")
       .update(updatePayload)
       .eq("id", clientId)
-      .eq("merchant_id", merchantId);
+      .eq("merchant_id", merchantId)
+      .eq("no_show_count", client.no_show_count)
+      .select("id");
 
     if (updateError) {
       logger.error("noshow.update_failed", {
         clientId,
         bookingId,
         error: updateError.message,
+        traceId,
+      });
+      return;
+    }
+
+    // Optimistic lock failed — retry once with fresh data
+    if (!updated || updated.length === 0) {
+      logger.warn("noshow.retry", { clientId, bookingId, traceId });
+
+      const { data: freshClient } = await supabase
+        .from("clients")
+        .select("id, no_show_count, is_blocked")
+        .eq("id", clientId)
+        .eq("merchant_id", merchantId)
+        .single();
+
+      if (!freshClient || freshClient.is_blocked) return;
+
+      const retryCount = freshClient.no_show_count + 1;
+      const retryBlock = retryCount >= NO_SHOW_BLOCK_THRESHOLD;
+
+      const retryPayload: { no_show_count: number; is_blocked?: boolean } = {
+        no_show_count: retryCount,
+      };
+      if (retryBlock) retryPayload.is_blocked = true;
+
+      await supabase
+        .from("clients")
+        .update(retryPayload)
+        .eq("id", clientId)
+        .eq("merchant_id", merchantId)
+        .eq("no_show_count", freshClient.no_show_count);
+
+      logger.info("noshow.recorded_retry", {
+        clientId,
+        bookingId,
+        noShowCount: retryCount,
+        blocked: retryBlock,
         traceId,
       });
       return;

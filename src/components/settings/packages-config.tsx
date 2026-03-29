@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
 import { formatEuros } from "@/lib/utils";
 import type { Service } from "@/types/supabase";
 
@@ -23,11 +22,7 @@ interface PackageRow {
   service: { id: string; name: string } | null;
 }
 
-interface PackagesConfigProps {
-  merchantId: string;
-}
-
-const PackagesConfig = ({ merchantId }: PackagesConfigProps) => {
+const PackagesConfig = () => {
   const [packages, setPackages] = useState<PackageRow[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,20 +102,23 @@ const PackagesConfig = ({ merchantId }: PackagesConfigProps) => {
   };
 
   const handleToggle = async (pkg: PackageRow) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("packages")
-      .update({ is_active: !pkg.is_active })
-      .eq("id", pkg.id)
-      .eq("merchant_id", merchantId);
+    try {
+      const res = await fetch(`/api/v1/packages/${pkg.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !pkg.is_active, expected_is_active: pkg.is_active }),
+      });
 
-    if (error) {
-      toast.error("Erreur lors de la mise à jour");
-    } else {
-      setPackages((prev) =>
-        prev.map((p) => (p.id === pkg.id ? { ...p, is_active: !p.is_active } : p)),
-      );
-      toast.success(pkg.is_active ? "Forfait désactivé" : "Forfait activé");
+      if (res.ok) {
+        setPackages((prev) =>
+          prev.map((p) => (p.id === pkg.id ? { ...p, is_active: !p.is_active } : p)),
+        );
+        toast.success(pkg.is_active ? "Forfait désactivé" : "Forfait activé");
+      } else {
+        toast.error("Erreur lors de la mise à jour");
+      }
+    } catch {
+      toast.error("Erreur réseau");
     }
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Globe, Clock, Save, Phone, Loader2 } from "lucide-react";
+import { Bot, Globe, Clock, Save, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -8,11 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { LoyaltyProgram } from "@/types/supabase";
 
-interface LoyaltyConfigProps {
-  merchantId: string;
-}
-
-const LoyaltyConfig = ({ merchantId }: LoyaltyConfigProps) => {
+const LoyaltyConfig = () => {
   const [program, setProgram] = useState<LoyaltyProgram | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

@@ -9,6 +9,7 @@ const DASHBOARD_PATHS = ["/agenda", "/clients", "/messages", "/services", "/stat
 // Rate limit config per route category
 const RATE_LIMITS = {
   webhook: { maxRequests: 120, windowMs: 60_000 },  // 120/min per IP (WhatsApp sends bursts)
+  booking: { maxRequests: 10, windowMs: 60_000 },    // 10/min per IP (public booking)
   api: { maxRequests: 60, windowMs: 60_000 },        // 60/min per IP
   auth: { maxRequests: 5, windowMs: 300_000 },        // 5/5min per IP (login)
 } as const;
@@ -28,7 +29,13 @@ export const config = {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  // Prefer Vercel's trusted header, then Cloudflare, then X-Forwarded-For first hop
+  const clientIp =
+    request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ??
+    request.headers.get("cf-connecting-ip") ??
+    request.headers.get("x-real-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown";
   const rawTraceId = request.headers.get("x-trace-id");
   const traceId =
     rawTraceId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTraceId)
@@ -38,11 +45,13 @@ export async function middleware(request: NextRequest) {
   // --- Rate limiting ---
   const rateLimitCategory = pathname.startsWith("/api/v1/webhooks")
     ? "webhook"
-    : pathname === "/login"
-      ? "auth"
-      : pathname.startsWith("/api/v1/")
-        ? "api"
-        : null;
+    : pathname.startsWith("/api/v1/booking/")
+      ? "booking"
+      : pathname === "/login"
+        ? "auth"
+        : pathname.startsWith("/api/v1/")
+          ? "api"
+          : null;
 
   if (rateLimitCategory) {
     const { maxRequests, windowMs } = RATE_LIMITS[rateLimitCategory];
@@ -67,6 +76,17 @@ export async function middleware(request: NextRequest) {
 
   // --- Health endpoint: no auth needed, just rate limiting ---
   if (pathname === "/api/v1/health") {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-trace-id", traceId);
+    const response = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+    response.headers.set("x-trace-id", traceId);
+    return response;
+  }
+
+  // --- Public booking routes: no auth needed, just rate limiting ---
+  if (pathname.startsWith("/api/v1/booking/")) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-trace-id", traceId);
     const response = NextResponse.next({

@@ -49,7 +49,7 @@ export const consumePackage = async (
   const eligible = clientPackages.find((cp) => {
     const pkg = cp.package as unknown as { id: string; service_id: string; is_active: boolean } | null;
     if (!pkg || !pkg.is_active || pkg.service_id !== serviceId) return false;
-    if (cp.expires_at && cp.expires_at < now) return false;
+    if (cp.expires_at && new Date(cp.expires_at) < new Date(now)) return false;
     return true;
   });
 
@@ -108,7 +108,7 @@ export const hasActivePackageOrSubscription = async (
   const hasPackage = (packages ?? []).some((cp) => {
     const pkg = cp.package as unknown as { service_id: string; is_active: boolean } | null;
     if (!pkg || !pkg.is_active || pkg.service_id !== serviceId) return false;
-    if (cp.expires_at && cp.expires_at < now) return false;
+    if (cp.expires_at && new Date(cp.expires_at) < new Date(now)) return false;
     return true;
   });
 

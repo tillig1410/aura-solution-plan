@@ -14,9 +14,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Plus,
-  Package,
-  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import AiConfig from "@/components/settings/ai-config";
 import LoyaltyConfig from "@/components/settings/loyalty-config";
 import PackagesConfig from "@/components/settings/packages-config";
+import { generateQrCodeDataUrl } from "@/lib/utils/qr-code";
 import type { Merchant } from "@/types/supabase";
 
 // ---------- Types ----------
@@ -76,6 +74,9 @@ const SettingsPage = () => {
   const [googlePlaceId, setGooglePlaceId] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // QR Code
+  const [qrCodeSrc, setQrCodeSrc] = useState<string | null>(null);
+
   // Stripe Connect
   const [connectLoading, setConnectLoading] = useState(false);
 
@@ -111,6 +112,12 @@ const SettingsPage = () => {
   useEffect(() => {
     fetchMerchant();
   }, [fetchMerchant]);
+
+  useEffect(() => {
+    if (merchant?.slug) {
+      generateQrCodeDataUrl(merchant.slug, 200).then(setQrCodeSrc).catch(() => setQrCodeSrc(null));
+    }
+  }, [merchant?.slug]);
 
   const saveMerchant = async (updates: Partial<Merchant>) => {
     if (!merchant) return;
@@ -364,7 +371,7 @@ const SettingsPage = () => {
           </Card>
 
           {/* Forfaits & Packs prépayés */}
-          <PackagesConfig merchantId={merchant.id} />
+          <PackagesConfig />
         </div>
       )}
 
@@ -415,14 +422,20 @@ const SettingsPage = () => {
                   QR Code
                 </label>
                 <div className="flex items-center gap-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.origin : ""}/${merchant.slug}`)}&choe=UTF-8`}
-                    alt="QR Code"
-                    className="w-32 h-32 border border-gray-200 rounded"
-                    width={128}
-                    height={128}
-                  />
+                  {qrCodeSrc ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={qrCodeSrc}
+                      alt="QR Code"
+                      className="w-32 h-32 border border-gray-200 rounded"
+                      width={128}
+                      height={128}
+                    />
+                  ) : (
+                    <div className="w-32 h-32 border border-gray-200 rounded flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                    </div>
+                  )}
                   <div className="text-sm text-gray-500">
                     <p>Imprimez ce QR code et affichez-le dans votre salon.</p>
                     <p className="mt-1">Vos clients peuvent le scanner pour accéder directement à votre page de réservation.</p>
@@ -436,7 +449,7 @@ const SettingsPage = () => {
 
       {tab === "fidelite" && merchant && (
         <div className="max-w-2xl space-y-6">
-          <LoyaltyConfig merchantId={merchant.id} />
+          <LoyaltyConfig />
         </div>
       )}
 

@@ -1,7 +1,28 @@
 import { logger } from "@/lib/logger";
 
-const TELNYX_API_KEY = process.env.TELNYX_API_KEY ?? "";
+const TELNYX_API_KEY = process.env.TELNYX_API_KEY;
 const TELNYX_API_BASE = "https://api.telnyx.com/v2";
+
+const getTelnyxApiKey = (): string => {
+  if (!TELNYX_API_KEY) {
+    throw new Error("TELNYX_API_KEY is not configured");
+  }
+  return TELNYX_API_KEY;
+};
+
+// Track calls in fallback flow (event-driven instead of setTimeout)
+const fallbackCalls = new Map<string, number>();
+
+// Cleanup stale entries every 60s (in case call.speak.ended never arrives)
+const FALLBACK_TTL_MS = 30_000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, ts] of fallbackCalls) {
+    if (now - ts > FALLBACK_TTL_MS) {
+      fallbackCalls.delete(id);
+    }
+  }
+}, 60_000);
 
 interface TelnyxCallPayload {
   call_control_id: string;
@@ -42,7 +63,23 @@ export const handleVoiceEvent = async (
       break;
 
     case "call.answered":
-      await startGathering(payload.call_control_id, traceId);
+      if (fallbackCalls.has(payload.call_control_id)) {
+        await speakText(
+          payload.call_control_id,
+          "Bonjour. Ce salon utilise AurA pour ses réservations. Pour prendre rendez-vous, envoyez-nous un message par WhatsApp ou SMS. Merci et à bientôt !",
+          traceId,
+        );
+      } else {
+        await startGathering(payload.call_control_id, traceId);
+      }
+      break;
+
+    case "call.speak.ended":
+      if (fallbackCalls.has(payload.call_control_id)) {
+        fallbackCalls.delete(payload.call_control_id);
+        await hangupCall(payload.call_control_id, traceId);
+        logger.info("telnyx.fallback_played", { callControlId: payload.call_control_id, traceId });
+      }
       break;
 
     case "call.hangup":
@@ -75,7 +112,7 @@ const answerCall = async (callControlId: string, traceId?: string): Promise<void
     const res = await fetch(`${TELNYX_API_BASE}/calls/${callControlId}/actions/answer`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${TELNYX_API_KEY}`,
+        Authorization: `Bearer ${getTelnyxApiKey()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({}),
@@ -113,7 +150,7 @@ const startGathering = async (callControlId: string, traceId?: string): Promise<
     const res = await fetch(`${TELNYX_API_BASE}/calls/${callControlId}/actions/gather`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${TELNYX_API_KEY}`,
+        Authorization: `Bearer ${getTelnyxApiKey()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -153,7 +190,7 @@ export const speakText = async (
     const res = await fetch(`${TELNYX_API_BASE}/calls/${callControlId}/actions/speak`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${TELNYX_API_KEY}`,
+        Authorization: `Bearer ${getTelnyxApiKey()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -184,7 +221,7 @@ export const hangupCall = async (callControlId: string, traceId?: string): Promi
     await fetch(`${TELNYX_API_BASE}/calls/${callControlId}/actions/hangup`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${TELNYX_API_KEY}`,
+        Authorization: `Bearer ${getTelnyxApiKey()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({}),
@@ -200,27 +237,13 @@ export const hangupCall = async (callControlId: string, traceId?: string): Promi
 };
 
 /**
- * T085 — Play fallback message for salons without voice option,
- * then hang up.
+ * T085 — Initiate fallback flow for salons without voice option.
+ * Answers the call and registers it for fallback handling.
+ * The speak + hangup happen event-driven via call.answered / call.speak.ended.
  */
 const playFallbackAndHangup = async (callControlId: string, traceId?: string): Promise<void> => {
+  fallbackCalls.set(callControlId, Date.now());
   await answerCall(callControlId, traceId);
-
-  // Small delay to ensure call is connected before speaking
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  await speakText(
-    callControlId,
-    "Bonjour. Ce salon utilise AurA pour ses réservations. Pour prendre rendez-vous, envoyez-nous un message par WhatsApp ou SMS. Merci et à bientôt !",
-    traceId,
-  );
-
-  // Give time for the message to play (~6 seconds)
-  await new Promise((resolve) => setTimeout(resolve, 7000));
-
-  await hangupCall(callControlId, traceId);
-
-  logger.info("telnyx.fallback_played", { callControlId, traceId });
 };
 
 /**

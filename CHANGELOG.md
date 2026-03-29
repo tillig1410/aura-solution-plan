@@ -5,6 +5,95 @@
 
 ---
 
+## [1.0.2] — 2026-03-29 — Security hardening (16 issues)
+
+### Critical (2)
+
+- **[SEC] Contrainte UNIQUE anti double-booking** — Migration `013_security_constraints.sql` : index `idx_bookings_no_double_booking (merchant_id, practitioner_id, starts_at) WHERE status != 'cancelled'` + gestion code 23505 dans `reserve/route.ts`
+- **[SEC] Audit createAdminClient** — `booking/[slug]/route.ts` + `reserve/route.ts` : confirmé SELECT-only pour GET, ajout commentaires SECURITY sur les deux routes publiques
+
+### High (5)
+
+- **[SEC] RLS policies sur bookings** — Migration `013_security_constraints.sql` : policies `bookings_select_own`, `bookings_insert_own`, `bookings_update_own`, `bookings_delete_own` + `bookings_service_role` pour les routes publiques
+- **[SEC] TELNYX_API_KEY throw si absent** — `src/lib/telnyx/voice.ts` : remplacement `?? ""` par `getTelnyxApiKey()` qui throw `Error("TELNYX_API_KEY is not configured")`
+- **[SEC] Stripe idempotency robuste** — `webhooks/stripe/route.ts` : gestion `error.code === "23505"` comme succès idempotent, log + return 500 sur autres erreurs d'insertion
+- **[SEC] Validation UUID metadata Stripe** — `subscription-updated.ts` : regex UUID sur `merchant_id` / `client_id` avant usage dans les deux handlers
+- **[SEC] IP spoofing mitigation** — `middleware.ts` : priorité `x-vercel-forwarded-for` > `cf-connecting-ip` > `x-real-ip` > `x-forwarded-for`
+
+### Medium (4)
+
+- **[SEC] Health check sans anonKey** — `health/route.ts` : suppression des headers `apikey`/`Authorization` de la requête Supabase dans l'endpoint public
+- **[SEC] CSRF origin check** — `reserve/route.ts` : vérification header `Origin` vs `NEXT_PUBLIC_APP_URL` / `VERCEL_URL`
+- **[SEC] Float precision loyalty** — `loyalty/points.ts` : `Math.floor((amountCents * pointsPerEuro) / 100)` au lieu de `amountCents / 100 * pointsPerEuro`
+- **[SEC] Contrainte UNIQUE clients(merchant_id, phone)** — Migration `013_security_constraints.sql` + gestion 23505 race condition dans `reserve/route.ts`
+
+### Low (3)
+
+- **[SEC] Fallback calls memory leak** — `voice.ts` : `fallbackCalls` converti de `Set` en `Map<string, number>` avec TTL 30s + cleanup interval 60s
+- **[SEC] Optimistic lock packages is_active** — `packages/[id]/route.ts` : champ optionnel `expected_is_active` pour verrouillage optimiste + frontend envoie la valeur courante
+- **[SEC] Seed SQL hardcoded UUID** — `seed.sql` : ajout warnings `LOCAL DEV ONLY`, `Do NOT run in staging or production`
+
+### Fichiers créés
+- `supabase/migrations/013_security_constraints.sql`
+
+### Fichiers modifiés
+- `src/middleware.ts`
+- `src/app/api/v1/booking/[slug]/route.ts`
+- `src/app/api/v1/booking/[slug]/reserve/route.ts`
+- `src/app/api/v1/bookings/[id]/route.ts` (pas modifié — RLS couvre H1)
+- `src/app/api/v1/webhooks/stripe/route.ts`
+- `src/app/api/v1/health/route.ts`
+- `src/app/api/v1/packages/[id]/route.ts`
+- `src/lib/telnyx/voice.ts`
+- `src/lib/stripe/handlers/subscription-updated.ts`
+- `src/lib/loyalty/points.ts`
+- `src/components/settings/packages-config.tsx`
+- `supabase/seed.sql`
+
+---
+
+## [1.0.1] — 2026-03-29 — Corrections code-review v1.0.0 (11 issues)
+
+### Critical
+
+- **[FIX] Routes publiques booking bloquées par auth** — `src/middleware.ts` : ajout catégorie rate-limit `booking` (10/min), détection `/api/v1/booking/` avant `api`, bypass auth (même pattern que health/webhooks)
+- **[FIX] Race condition no_show_count** — `src/app/api/v1/bookings/[id]/route.ts` : ajout `.eq("no_show_count", client.no_show_count)` + `.select("id")` au update, retry unique si lock échoue
+- **[FIX] Validation seuils fidélité incomplète** — `src/app/api/v1/loyalty/route.ts` : query existing program AVANT validation, fusion valeurs existantes + requête pour validation cross-field sur PUT partiel
+
+### Medium
+
+- **[FIX] Import Loader2 inutilisé** — `src/components/settings/ai-config.tsx` : retrait de l'import
+- **[FIX] Prop merchantId inutilisée** — `src/components/settings/loyalty-config.tsx` + `settings/page.tsx` : suppression interface + prop
+- **[FIX] Comparaison dates string fragile** — `src/lib/packages/consume.ts` : `new Date(cp.expires_at) < new Date(now)` (2 occurrences)
+- **[FIX] Health check Redis non fonctionnel** — `src/app/api/v1/health/route.ts` : Redis accédé par Bull/n8n, pas Next.js → `Promise.resolve({ status: "ok" })`
+- **[FIX] setTimeout bloquant dans fallback vocal** — `src/lib/telnyx/voice.ts` : refactoring event-driven (`fallbackCalls` Set, `call.answered` → `speakText`, `call.speak.ended` → `hangupCall`)
+
+### Minor
+
+- **[FIX] Format réponse POST packages** — `src/app/api/v1/packages/route.ts` : `{ data: created }` au lieu de `created` seul
+- **[FIX] PackagesConfig utilisait client Supabase browser** — Nouveau `src/app/api/v1/packages/[id]/route.ts` (PATCH handler), `packages-config.tsx` → `fetch PATCH`, retrait `createClient` + prop `merchantId`
+- **[FIX] QR code Google Charts (déprécié)** — `npm install qrcode`, réécriture `src/lib/utils/qr-code.ts` avec `QRCode.toDataURL()`, `settings/page.tsx` → state + useEffect async
+
+### Fichiers créés
+- `src/app/api/v1/packages/[id]/route.ts`
+
+### Fichiers modifiés
+- `src/middleware.ts`
+- `src/app/api/v1/bookings/[id]/route.ts`
+- `src/app/api/v1/loyalty/route.ts`
+- `src/app/api/v1/packages/route.ts`
+- `src/app/api/v1/health/route.ts`
+- `src/components/settings/ai-config.tsx`
+- `src/components/settings/loyalty-config.tsx`
+- `src/components/settings/packages-config.tsx`
+- `src/app/(dashboard)/settings/page.tsx`
+- `src/lib/packages/consume.ts`
+- `src/lib/telnyx/voice.ts`
+- `src/lib/utils/qr-code.ts`
+- `package.json` / `package-lock.json` (ajout `qrcode` + `@types/qrcode`)
+
+---
+
 ## [1.0.0] — 2026-03-29 — Phases 7, 8, 10, 11 : Fidélité, Téléphonie IA, Site Public, Polish (T071–T108)
 
 ### Phase 7 — Fidélité, Forfaits & Abonnements (T071–T078b)

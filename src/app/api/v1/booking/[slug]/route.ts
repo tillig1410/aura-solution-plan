@@ -5,6 +5,9 @@ import { apiError } from "@/lib/api-error";
 /**
  * GET /api/v1/booking/:slug — Infos publiques du salon (non protégé)
  * Retourne : nom, services actifs, praticiens actifs avec créneaux disponibles
+ *
+ * SECURITY: Uses createAdminClient (bypasses RLS) because this is a public route
+ * with no auth. Only SELECT operations are performed — never INSERT/UPDATE/DELETE.
  */
 export async function GET(
   request: NextRequest,

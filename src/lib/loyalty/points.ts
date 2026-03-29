@@ -48,11 +48,10 @@ export const addLoyaltyPoints = async (
     return null;
   }
 
-  // Calculer les points
+  // Calculer les points (integer arithmetic to avoid float precision issues)
   const pointsPerVisit = program.points_per_visit;
   const pointsPerEuro = program.points_per_euro;
-  const amountEuros = amountCents / 100;
-  const pointsAdded = pointsPerVisit + Math.floor(amountEuros * pointsPerEuro);
+  const pointsAdded = pointsPerVisit + Math.floor((amountCents * pointsPerEuro) / 100);
 
   const totalPoints = client.loyalty_points + pointsAdded;
 

@@ -2,6 +2,8 @@ import { logger } from "@/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface SubscriptionLike {
   id: string;
   status: string;
@@ -29,13 +31,20 @@ export async function handleSubscriptionUpdated(
   supabase: SupabaseClient<Database>,
 ): Promise<void> {
   const sub = subscription as SubscriptionLike;
-  const { merchant_id, client_id } = sub.metadata;
+  const merchantId = sub.metadata?.merchant_id;
+  const clientId = sub.metadata?.client_id;
 
-  if (!merchant_id || !client_id) {
+  if (!merchantId || !clientId) {
     logger.warn("stripe.subscription_no_metadata", { subscriptionId: sub.id });
     return;
   }
 
+  if (!UUID_RE.test(merchantId) || !UUID_RE.test(clientId)) {
+    logger.warn("stripe.subscription_invalid_uuid", { subscriptionId: sub.id, merchantId, clientId });
+    return;
+  }
+
+  const merchant_id = merchantId;
   const newStatus = mapStripeStatus(sub.status);
 
   // Chercher l'abonnement client existant
@@ -94,12 +103,19 @@ export async function handleSubscriptionDeleted(
   supabase: SupabaseClient<Database>,
 ): Promise<void> {
   const sub = subscription as SubscriptionLike;
-  const { merchant_id } = sub.metadata;
+  const merchantId = sub.metadata?.merchant_id;
 
-  if (!merchant_id) {
+  if (!merchantId) {
     logger.warn("stripe.subscription_deleted_no_merchant", { subscriptionId: sub.id });
     return;
   }
+
+  if (!UUID_RE.test(merchantId)) {
+    logger.warn("stripe.subscription_deleted_invalid_uuid", { subscriptionId: sub.id, merchantId });
+    return;
+  }
+
+  const merchant_id = merchantId;
 
   const { error } = await supabase
     .from("client_subscriptions")

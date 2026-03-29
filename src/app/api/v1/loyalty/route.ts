@@ -86,19 +86,22 @@ export async function PUT(request: NextRequest) {
     });
   }
 
-  // Valider que gold_threshold > silver_threshold si les deux sont fournis
-  if (parsed.data.silver_threshold && parsed.data.gold_threshold) {
-    if (parsed.data.gold_threshold <= parsed.data.silver_threshold) {
+  // Fetch existing program BEFORE validation (need current thresholds for partial updates)
+  const { data: existing } = await supabase
+    .from("loyalty_programs")
+    .select("id, silver_threshold, gold_threshold")
+    .eq("merchant_id", merchant.id)
+    .single();
+
+  // Merge submitted values with existing ones for cross-field validation
+  const effectiveSilver = parsed.data.silver_threshold ?? existing?.silver_threshold;
+  const effectiveGold = parsed.data.gold_threshold ?? existing?.gold_threshold;
+
+  if (effectiveSilver != null && effectiveGold != null) {
+    if (effectiveGold <= effectiveSilver) {
       return apiError("gold_threshold doit être supérieur à silver_threshold", 400, { traceId });
     }
   }
-
-  // Upsert : créer si inexistant, mettre à jour sinon
-  const { data: existing } = await supabase
-    .from("loyalty_programs")
-    .select("id")
-    .eq("merchant_id", merchant.id)
-    .single();
 
   if (existing) {
     const { data: updated, error } = await supabase

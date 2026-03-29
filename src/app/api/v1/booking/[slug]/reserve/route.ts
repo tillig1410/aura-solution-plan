@@ -15,6 +15,10 @@ const reserveSchema = z.object({
 
 /**
  * POST /api/v1/booking/:slug/reserve — Création réservation depuis le site public (non protégé)
+ *
+ * SECURITY: Uses createAdminClient (bypasses RLS) because this is a public route.
+ * All writes are scoped to the merchant resolved from the slug.
+ * DB constraints (unique indexes) provide defense-in-depth against race conditions.
  */
 export async function POST(
   request: NextRequest,
@@ -22,6 +26,14 @@ export async function POST(
 ) {
   const { slug } = await params;
   const traceId = request.headers.get("x-trace-id") ?? undefined;
+
+  // CSRF protection: reject cross-origin requests from unknown origins
+  const origin = request.headers.get("origin");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL;
+  if (origin && appUrl && !origin.startsWith(appUrl) && !origin.startsWith(`https://${appUrl}`)) {
+    return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
+  }
+
   const supabase = createAdminClient();
 
   // Charger le commerçant
@@ -102,15 +114,32 @@ export async function POST(
       .select("id")
       .single();
 
-    if (clientError || !newClient) {
-      logger.error("booking_page.client_create_failed", {
-        error: clientError?.message,
-        traceId,
-      });
+    if (clientError) {
+      // Unique constraint violation = concurrent insert with same phone
+      if (clientError.code === "23505") {
+        const { data: raceClient } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("merchant_id", merchant.id)
+          .eq("phone", client_phone)
+          .single();
+        if (raceClient) {
+          clientId = raceClient.id;
+        } else {
+          return apiError("Failed to create client", 500, { traceId });
+        }
+      } else {
+        logger.error("booking_page.client_create_failed", {
+          error: clientError.message,
+          traceId,
+        });
+        return apiError("Failed to create client", 500, { traceId });
+      }
+    } else if (!newClient) {
       return apiError("Failed to create client", 500, { traceId });
+    } else {
+      clientId = newClient.id;
     }
-
-    clientId = newClient.id;
   }
 
   // Calculer ends_at
@@ -149,6 +178,10 @@ export async function POST(
     .single();
 
   if (bookingError) {
+    // Unique constraint violation = double-booking race condition caught at DB level
+    if (bookingError.code === "23505") {
+      return apiError("Ce créneau n'est plus disponible", 409, { traceId, code: "SLOT_CONFLICT" });
+    }
     logger.error("booking_page.create_failed", { error: bookingError.message, traceId });
     return apiError("Failed to create booking", 500, { traceId });
   }

@@ -51,7 +51,19 @@ export async function POST(request: NextRequest) {
   }
 
   // Record the event for idempotency
-  await supabase.from("stripe_events").insert({ id: event.id, type: event.type });
+  const { error: insertError } = await supabase
+    .from("stripe_events")
+    .insert({ id: event.id, type: event.type });
+
+  if (insertError) {
+    // Unique constraint violation = event already being processed concurrently
+    if (insertError.code === "23505") {
+      logger.info("stripe.event_duplicate_race", { eventId: event.id, traceId });
+      return NextResponse.json({ status: "already_processed" });
+    }
+    logger.error("stripe.event_insert_failed", { eventId: event.id, error: insertError.message, traceId });
+    return NextResponse.json({ error: "Failed to record event" }, { status: 500 });
+  }
 
   // 3. Route to handler
   try {

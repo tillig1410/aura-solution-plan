@@ -3,7 +3,27 @@
     "allow": [
       "Bash(cp:*)",
       "Bash(npm run:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(npx eslint:*)",
+      "Bash(python3:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(gh pr:*)",
+      "Bash(grep \"\"recharts\"\":*)",
+      "Bash(where gh)",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Read(//c/Users/User/scoop/shims/**)",
+      "Bash(winget install:*)",
+      "Bash(export:*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\":*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth:*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" repo:*)",
+      "Bash(for f in *.md)",
+      "Bash(do echo \"=== $f ===\")",
+      "Read(//c/Users/User/.Plan/**)",
+      "Bash(done)"
     ]
   }
 }

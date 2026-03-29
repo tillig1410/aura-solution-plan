@@ -2,8 +2,9 @@
 -- Creates: 1 merchant, 2 practitioners, 5 services, 10 clients, 20 bookings,
 --          tips, loyalty program, packages, conversations
 
--- Note: in local dev, create a test user via Supabase Dashboard first
--- then replace the user_id below with the actual auth.users UUID
+-- WARNING: This seed file is for local development ONLY.
+-- Do NOT run in staging or production environments.
+-- The user_id below must match an existing auth.users row created via Supabase Dashboard.
 
 -- =============================================
 -- Merchant
@@ -11,7 +12,7 @@
 INSERT INTO merchants (id, user_id, name, slug, email, phone, address, timezone, opening_hours, seat_count, ai_name, ai_tone, ai_languages, cancellation_delay_minutes)
 VALUES (
   '11111111-1111-1111-1111-111111111111',
-  '00000000-0000-0000-0000-000000000000', -- Replace with actual auth.users.id
+  '00000000-0000-0000-0000-000000000000', -- LOCAL DEV ONLY: replace with actual auth.users.id from Supabase Dashboard
   'Salon Démo',
   'salon-demo',
   'demo@plan-app.com',
