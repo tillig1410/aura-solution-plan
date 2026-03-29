@@ -1,0 +1,66 @@
+services:
+  # --- Reverse proxy (HTTPS termination) ---
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: plan-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/n8n.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
+    environment:
+      - N8N_DOMAIN=${N8N_DOMAIN:-localhost}
+    depends_on:
+      - n8n
+    restart: unless-stopped
+
+  # --- Let's Encrypt auto-renewal ---
+  certbot:
+    image: certbot/certbot:v3.3.0
+    container_name: plan-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    # Check renewal every 12 hours
+    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done"
+    restart: unless-stopped
+
+  # --- n8n (internal only — no exposed ports in production) ---
+  n8n:
+    image: n8nio/n8n:1.93.0
+    container_name: plan-n8n
+    ports:
+      - "${N8N_DEV_PORT:-127.0.0.1:5678}:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD:-changeme}
+      - GENERIC_TIMEZONE=Europe/Paris
+      - TZ=Europe/Paris
+      - N8N_HOST=${N8N_DOMAIN:-localhost}
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://${N8N_DOMAIN:-localhost}/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: plan-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme} --appendonly yes
+    ports:
+      - "${REDIS_DEV_PORT:-127.0.0.1:6379}:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+  redis_data:
+  certbot_www:
+  certbot_certs:

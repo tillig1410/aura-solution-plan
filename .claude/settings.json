@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Read",
+      "Write"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)"
+    ]
+  },
+  "hooks": {
+    "afterWrite": [
+      {
+        "command": "npx eslint --fix $FILE",
+        "description": "Auto-lint après écriture"
+      }
+    ],
+    "afterCommit": [
+      {
+        "command": "npm test",
+        "description": "Tests après chaque commit"
+      }
+    ]
+  },
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "name": "Plan — Reminder Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "notes": "Check every 15 minutes for upcoming bookings needing reminders"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/bookings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "in.(confirmed)"
+            },
+            {
+              "name": "starts_at",
+              "value": "gte.{{ $now.minus(1, 'minute').toISO() }}"
+            },
+            {
+              "name": "starts_at",
+              "value": "lte.{{ $now.plus(24, 'hours').plus(15, 'minutes').toISO() }}"
+            },
+            {
+              "name": "select",
+              "value": "id,merchant_id,client_id,practitioner_id,service_id,starts_at,clients(name,phone,whatsapp_id,messenger_id,telegram_id),services(name),practitioners(name),merchants(ai_name,cancellation_delay_minutes)"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-upcoming",
+      "name": "Fetch Upcoming Bookings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "notes": "Get bookings in next 24h15min that are confirmed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "24h-check",
+              "leftValue": "={{ DateTime.fromISO($json.starts_at).diff($now, 'hours').hours }}",
+              "rightValue": 24.25,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            },
+            {
+              "id": "24h-check-min",
+              "leftValue": "={{ DateTime.fromISO($json.starts_at).diff($now, 'hours').hours }}",
+              "rightValue": 23.75,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-24h",
+      "name": "~24h Before?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 200],
+      "notes": "Check if booking is approximately 24h away (within 15min window)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1h-check",
+              "leftValue": "={{ DateTime.fromISO($json.starts_at).diff($now, 'minutes').minutes }}",
+              "rightValue": 75,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            },
+            {
+              "id": "1h-check-min",
+              "leftValue": "={{ DateTime.fromISO($json.starts_at).diff($now, 'minutes').minutes }}",
+              "rightValue": 45,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-1h",
+      "name": "~1h Before?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 400],
+      "notes": "Check if booking is approximately 1h away (within 15min window)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXTJS_URL || 'http://localhost:3000' }}/api/v1/channels/send",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"{{ $json.clients.whatsapp_id ? 'whatsapp' : ($json.clients.messenger_id ? 'messenger' : ($json.clients.telegram_id ? 'telegram' : 'sms')) }}\",\n  \"recipient_id\": \"{{ $json.clients.whatsapp_id || $json.clients.messenger_id || $json.clients.telegram_id || $json.clients.phone }}\",\n  \"message\": \"Bonjour {{ $json.clients.name || '' }} ! Rappel : votre RDV {{ $json.services.name }} avec {{ $json.practitioners.name }} est demain à {{ DateTime.fromISO($json.starts_at).toFormat('HH:mm') }}. À bientôt ! — {{ $json.merchants.ai_name || 'AurA' }}\"\n}",
+        "options": {}
+      },
+      "id": "send-24h-reminder",
+      "name": "Send 24h Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 200],
+      "notes": "Send reminder 24h before appointment"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXTJS_URL || 'http://localhost:3000' }}/api/v1/channels/send",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"{{ $json.clients.whatsapp_id ? 'whatsapp' : ($json.clients.messenger_id ? 'messenger' : ($json.clients.telegram_id ? 'telegram' : 'sms')) }}\",\n  \"recipient_id\": \"{{ $json.clients.whatsapp_id || $json.clients.messenger_id || $json.clients.telegram_id || $json.clients.phone }}\",\n  \"message\": \"{{ $json.clients.name || 'Bonjour' }}, votre RDV {{ $json.services.name }} avec {{ $json.practitioners.name }} est dans 1 heure ({{ DateTime.fromISO($json.starts_at).toFormat('HH:mm') }}). À tout de suite ! — {{ $json.merchants.ai_name || 'AurA' }}\"\n}",
+        "options": {}
+      },
+      "id": "send-1h-reminder",
+      "name": "Send 1h Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 400],
+      "notes": "Send reminder 1h before appointment"
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Upcoming Bookings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Upcoming Bookings": {
+      "main": [
+        [
+          {
+            "node": "~24h Before?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "~1h Before?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "~24h Before?": {
+      "main": [
+        [
+          {
+            "node": "Send 24h Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "~1h Before?": {
+      "main": [
+        [
+          {
+            "node": "Send 1h Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "reminder",
+      "id": "3"
+    }
+  ],
+  "pinData": {}
+}

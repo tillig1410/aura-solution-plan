@@ -1,0 +1,129 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { securityLog } from "@/lib/logger";
+
+// Dashboard route group pages (Next.js strips the (dashboard) group from URLs)
+const DASHBOARD_PATHS = ["/agenda", "/clients", "/messages", "/services", "/stats", "/settings"];
+
+// Rate limit config per route category
+const RATE_LIMITS = {
+  webhook: { maxRequests: 120, windowMs: 60_000 },  // 120/min per IP (WhatsApp sends bursts)
+  api: { maxRequests: 60, windowMs: 60_000 },        // 60/min per IP
+  auth: { maxRequests: 5, windowMs: 300_000 },        // 5/5min per IP (login)
+} as const;
+
+export const config = {
+  matcher: [
+    "/agenda/:path*",
+    "/clients/:path*",
+    "/messages/:path*",
+    "/services/:path*",
+    "/stats/:path*",
+    "/settings/:path*",
+    "/login",
+    "/api/v1/:path*",
+  ],
+};
+
+export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rawTraceId = request.headers.get("x-trace-id");
+  const traceId =
+    rawTraceId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTraceId)
+      ? rawTraceId
+      : crypto.randomUUID();
+
+  // --- Rate limiting ---
+  const rateLimitCategory = pathname.startsWith("/api/v1/webhooks")
+    ? "webhook"
+    : pathname === "/login"
+      ? "auth"
+      : pathname.startsWith("/api/v1/")
+        ? "api"
+        : null;
+
+  if (rateLimitCategory) {
+    const { maxRequests, windowMs } = RATE_LIMITS[rateLimitCategory];
+    const result = checkRateLimit(`${rateLimitCategory}:${clientIp}`, maxRequests, windowMs);
+
+    if (!result.allowed) {
+      securityLog.rateLimited(rateLimitCategory, clientIp, traceId);
+      return NextResponse.json(
+        { error: "Too many requests" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((result.resetAt - Date.now()) / 1000)),
+            "X-RateLimit-Limit": String(maxRequests),
+            "X-RateLimit-Remaining": "0",
+            "X-Trace-Id": traceId,
+          },
+        },
+      );
+    }
+  }
+
+  // --- Webhooks: no auth needed, just rate limiting + size limit ---
+  if (pathname.startsWith("/api/v1/webhooks")) {
+    const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
+    if (contentLength > 1_048_576) {
+      return NextResponse.json(
+        { error: "Payload too large" },
+        { status: 413, headers: { "X-Trace-Id": traceId } },
+      );
+    }
+    const response = NextResponse.next({ request });
+    response.headers.set("x-trace-id", traceId);
+    return response;
+  }
+
+  // --- Supabase auth ---
+  const supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            supabaseResponse.cookies.set(name, value, options);
+          });
+        },
+      },
+    },
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isDashboardRoute = DASHBOARD_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+
+  if (!user && isDashboardRoute) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (!user && pathname.startsWith("/api/v1/")) {
+    securityLog.unauthorized(pathname, clientIp, traceId);
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: { "X-Trace-Id": traceId } },
+    );
+  }
+
+  // Propagate Trace ID for observability
+  supabaseResponse.headers.set("x-trace-id", traceId);
+
+  return supabaseResponse;
+}
