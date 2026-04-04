@@ -5,6 +5,41 @@
 
 ---
 
+## [1.3.1] — 2026-04-04 — Audit SEO pages publiques (skill seo-audit)
+
+### Crawlabilité & Indexation
+- **[FEAT] S1** — `robots.ts` créé : autorise `/:slug` (pages booking), bloque `/api/`, dashboard, auth — génère `/robots.txt` — `src/app/robots.ts`
+- **[FEAT] S2** — `sitemap.ts` créé : sitemap dynamique listant toutes les pages booking des commerçants depuis la BDD — génère `/sitemap.xml` — `src/app/sitemap.ts`
+- **[FIX] S3** — Pages login et onboarding marquées `robots: { index: false }` — `login/page.tsx`, `onboarding/page.tsx`
+
+### Metadata & Open Graph
+- **[FIX] S4** — Booking page `generateMetadata` : nom réel du salon depuis la BDD (+ fallback slug) au lieu du nom approximatif dérivé du slug — `(booking)/[slug]/page.tsx`
+- **[FIX] S5** — Canonical URL explicite sur les pages booking — `(booking)/[slug]/page.tsx`
+- **[FEAT] S6** — Open Graph complet sur les pages booking (`og:title`, `og:description`, `og:url`, `og:type`, `og:locale`, `og:siteName`) — `(booking)/[slug]/page.tsx`
+- **[FEAT] S7** — `metadataBase`, Open Graph et `robots` ajoutés au root layout — `layout.tsx`
+
+### Structured Data (JSON-LD)
+- **[FEAT] S8** — Schema.org `BeautySalon` + `ReserveAction` injecté en JSON-LD sur chaque page booking (nom, adresse, téléphone, URL) — `(booking)/[slug]/page.tsx`
+
+### Performance
+- **[PERF] S9** — `cache()` React utilisé pour dédupliquer la requête BDD entre `generateMetadata` et le composant page (1 seul aller-retour Supabase par requête) — `(booking)/[slug]/page.tsx`
+
+### Fichiers créés
+- `src/app/robots.ts`
+- `src/app/sitemap.ts`
+
+### Fichiers modifiés
+- `src/app/layout.tsx`
+- `src/app/(booking)/[slug]/page.tsx`
+- `src/app/(auth)/login/page.tsx`
+- `src/app/(auth)/onboarding/page.tsx`
+
+### Validation
+- ✅ `next build` — 0 erreur, 0 warning TypeScript
+- ✅ `/robots.txt` et `/sitemap.xml` prérendus statiquement (○)
+
+---
+
 ## [1.3.0] — 2026-04-04 — Audit Docker Best Practices (skill docker-expert)
 
 ### Critique

@@ -3,6 +3,7 @@ import OnboardingContent from "@/components/auth/onboarding-content";
 
 export const metadata: Metadata = {
   title: "Onboarding",
+  robots: { index: false, follow: false },
 };
 
 const OnboardingPage = () => {

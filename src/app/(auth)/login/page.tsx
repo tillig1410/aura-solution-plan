@@ -3,6 +3,7 @@ import LoginContent from "@/components/auth/login-content";
 
 export const metadata: Metadata = {
   title: "Connexion",
+  robots: { index: false, follow: false },
 };
 
 const LoginPage = () => {

@@ -20,6 +20,19 @@ export const metadata: Metadata = {
   },
   description:
     "Plan est un SaaS de gestion de réservations avec IA conversationnelle pour salons de coiffure, barbiers et instituts de beauté.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://resaplan.fr"),
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    siteName: "Plan",
+    title: "Plan — Gestion de réservations",
+    description:
+      "Plan est un SaaS de gestion de réservations avec IA conversationnelle pour salons de coiffure, barbiers et instituts de beauté.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
