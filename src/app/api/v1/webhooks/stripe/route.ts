@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { handlePaymentSucceeded } from "@/lib/stripe/handlers/payment-succeeded";
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from "@/lib/stripe/handlers/subscription-updated";
+import { handleInvoicePaid, handleInvoicePaymentFailed } from "@/lib/stripe/handlers/invoice-handlers";
 import { logger, webhookLog } from "@/lib/logger";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
@@ -10,6 +11,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
 });
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+if (!WEBHOOK_SECRET) {
+  throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
+}
 
 /**
  * POST /api/v1/webhooks/stripe
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 2. Idempotency check — skip if event already processed
   const { data: existing } = await supabase
@@ -100,17 +104,11 @@ export async function POST(request: NextRequest) {
       }
 
       case "invoice.paid":
-        logger.info("stripe.invoice_paid", {
-          invoiceId: (event.data.object as { id: string }).id,
-          traceId,
-        });
+        await handleInvoicePaid(event.data.object, supabase);
         break;
 
       case "invoice.payment_failed":
-        logger.warn("stripe.invoice_payment_failed", {
-          invoiceId: (event.data.object as { id: string }).id,
-          traceId,
-        });
+        await handleInvoicePaymentFailed(event.data.object, supabase);
         break;
 
       default:

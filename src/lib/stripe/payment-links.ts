@@ -26,6 +26,8 @@ interface PaymentLinkParams {
   };
   /** Optional: pre-set tip amounts in cents for the client to choose from */
   tipOptions?: number[];
+  /** Idempotency key to prevent duplicate checkout sessions on retries */
+  idempotencyKey?: string;
 }
 
 /**
@@ -35,7 +37,7 @@ interface PaymentLinkParams {
 export async function createPaymentCheckout(
   params: PaymentLinkParams,
 ): Promise<string> {
-  const { connectedAccountId, amountCents, serviceName, metadata, tipOptions } = params;
+  const { connectedAccountId, amountCents, serviceName, metadata, tipOptions, idempotencyKey } = params;
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
     {
@@ -81,6 +83,7 @@ export async function createPaymentCheckout(
     },
     {
       stripeAccount: connectedAccountId,
+      idempotencyKey: idempotencyKey ?? `checkout_${metadata.booking_id}`,
     },
   );
 

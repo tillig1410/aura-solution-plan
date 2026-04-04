@@ -5,6 +5,34 @@
 
 ---
 
+## [1.2.1] — 2026-04-04 — Audit Stripe Best Practices (skill stripe-best-practices)
+
+### Sécurité Webhook
+- **[FIX] S1** — Webhook route utilise `createAdminClient()` (service role, bypass RLS) au lieu de `createClient()` — `src/app/api/v1/webhooks/stripe/route.ts`
+- **[FIX] S2** — `STRIPE_WEBHOOK_SECRET` validé au démarrage avec `throw new Error()` si absent
+- **[FEAT] S3** — Handlers `handleInvoicePaid` et `handleInvoicePaymentFailed` créés — distinguent abonnements Plan SaaS (`metadata.source === "plan-saas"`) des abonnements clients — `src/lib/stripe/handlers/invoice-handlers.ts`
+
+### Idempotence
+- **[FIX] S4** — `createMerchantSubscription()` exige un `idempotencyKey` obligatoire passé à `stripe.subscriptions.create()` — `src/lib/stripe/subscription.ts`
+- **[FIX] S5** — `createPaymentCheckout()` utilise `idempotencyKey` (fallback: `checkout_{booking_id}`) sur `stripe.checkout.sessions.create()` — `src/lib/stripe/payment-links.ts`
+
+### Connect v2
+- **[FIX] S6** — Migration `type: "standard"` (v1) vers propriétés `controller` (v2) : `stripe_dashboard.type: "full"`, `losses.payments: "stripe"`, `fees.payer: "account"` — `src/lib/stripe/connect.ts`
+
+### Fichiers créés
+- `src/lib/stripe/handlers/invoice-handlers.ts`
+
+### Fichiers modifiés
+- `src/app/api/v1/webhooks/stripe/route.ts`
+- `src/lib/stripe/subscription.ts`
+- `src/lib/stripe/payment-links.ts`
+- `src/lib/stripe/connect.ts`
+
+### Validation
+- ✅ `next build` — 0 erreur, 0 warning TypeScript
+
+---
+
 ## [1.2.0] — 2026-04-04 — Audit Next.js Best Practices (skill nextjs-developer)
 
 ### Architecture Next.js

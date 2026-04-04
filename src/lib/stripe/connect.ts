@@ -11,18 +11,24 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
  */
 
 /**
- * Create a Stripe Connect Standard account for a merchant.
+ * Create a Stripe Connect account for a merchant.
+ * Uses Accounts v2 controller properties for explicit loss/fee/dashboard config.
+ * Equivalent to former "standard" type: merchant controls their own Stripe dashboard.
  */
 export async function createConnectAccount(
   merchantEmail: string,
   merchantName: string,
 ): Promise<{ accountId: string; onboardingUrl: string }> {
   const account = await stripe.accounts.create({
-    type: "standard",
     email: merchantEmail,
     business_profile: {
       name: merchantName,
       mcc: "7230", // Barber and beauty shops
+    },
+    controller: {
+      stripe_dashboard: { type: "full" },
+      losses: { payments: "stripe" },
+      fees: { payer: "account" },
     },
     metadata: { source: "plan-saas" },
   });

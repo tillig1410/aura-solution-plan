@@ -32,6 +32,8 @@ interface CreateSubscriptionParams {
   seatCount: number;
   voiceEnabled: boolean;
   earlyAdopter?: boolean;
+  /** Idempotency key to prevent duplicate subscription creation on retries */
+  idempotencyKey: string;
 }
 
 /**
@@ -49,7 +51,7 @@ export function calculatePrice(seatCount: number, voiceEnabled: boolean): number
 export async function createMerchantSubscription(
   params: CreateSubscriptionParams,
 ): Promise<{ subscriptionId: string; clientSecret: string | null }> {
-  const { customerId, seatCount, voiceEnabled, earlyAdopter } = params;
+  const { customerId, seatCount, voiceEnabled, earlyAdopter, idempotencyKey } = params;
   const priceCents = calculatePrice(seatCount, voiceEnabled);
 
   // Create an inline price for the subscription
@@ -80,7 +82,9 @@ export async function createMerchantSubscription(
     subscriptionParams.discounts = [{ coupon: EARLY_ADOPTER_COUPON_ID }];
   }
 
-  const subscription = await stripe.subscriptions.create(subscriptionParams);
+  const subscription = await stripe.subscriptions.create(subscriptionParams, {
+    idempotencyKey,
+  });
 
   const invoice = subscription.latest_invoice as Stripe.Invoice | null;
   // Stripe expands payment_intent when requested — cast via Record to avoid strict type mismatch
