@@ -42,12 +42,27 @@
 - `src/components/settings/settings-content.tsx`
 - `tests/integration/webhook-stripe.test.ts`
 
-### Historique v1.2.1
-- **[FIX] S1** — Webhook route utilise `createAdminClient()` (service role, bypass RLS)
-- **[FIX] S2** — `STRIPE_WEBHOOK_SECRET` validé au démarrage
-- **[FEAT] S3** — Handlers `handleInvoicePaid` / `handleInvoicePaymentFailed` — `invoice-handlers.ts`
-- **[FIX] S4-S5** — Idempotency keys sur `subscriptions.create` et `checkout.sessions.create`
-- **[FIX] S6** — Connect v1 `type: "standard"` → v2 `controller` properties
+### Validation
+- ✅ `next build` — 0 erreur, 0 warning TypeScript
+
+---
+
+## [1.2.1] — 2026-04-04 — Audit Stripe bloquants (skill stripe-best-practices)
+
+### Sécurité Webhook
+- **[FIX] S1** — Webhook route utilise `createAdminClient()` (service role, bypass RLS) au lieu de `createClient()` — `webhooks/stripe/route.ts`
+- **[FIX] S2** — `STRIPE_WEBHOOK_SECRET` validé au démarrage du module avec `throw new Error()` si absent
+- **[FEAT] S3** — Handlers `handleInvoicePaid` et `handleInvoicePaymentFailed` — distinguent abonnements Plan SaaS (`metadata.source === "plan-saas"`) des abonnements clients — `invoice-handlers.ts`
+
+### Idempotence
+- **[FIX] S4** — `createMerchantSubscription()` : paramètre `idempotencyKey` obligatoire passé à `stripe.subscriptions.create()` — `subscription.ts`
+- **[FIX] S5** — `createPaymentCheckout()` : idempotency key (fallback `checkout_{booking_id}`) sur `checkout.sessions.create()` — `payment-links.ts`
+
+### Connect v2
+- **[FIX] S6** — Migration `type: "standard"` (v1) → propriétés `controller` (v2) : `stripe_dashboard.type: "full"`, `losses.payments: "stripe"`, `fees.payer: "account"` — `connect.ts`
+
+### Fichiers créés
+- `src/lib/stripe/handlers/invoice-handlers.ts`
 
 ### Validation
 - ✅ `next build` — 0 erreur, 0 warning TypeScript
