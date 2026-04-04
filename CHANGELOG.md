@@ -5,6 +5,37 @@
 
 ---
 
+## [1.3.0] — 2026-04-04 — Audit Docker Best Practices (skill docker-expert)
+
+### Critique
+- **[FIX] C1** — `limit_req_zone` déplacé du bloc `server {}` vers le contexte `http {}` (avant `server {}`) — **le rate limiting webhook ne fonctionnait pas du tout** — `n8n.conf.template`
+- **[FIX] C2** — Mots de passe `changeme` remplacés par `${VAR:?message}` — docker-compose refuse de démarrer sans `.env` configuré — `docker-compose.yml`
+- **[FIX] C3** — Healthchecks ajoutés sur nginx (`wget`), n8n (`/healthz`), Redis (`redis-cli ping`) — `depends_on` avec `condition: service_healthy` — `docker-compose.yml`
+
+### Important
+- **[FIX] I1** — Réseaux isolés : `frontend` (nginx ↔ n8n) + `backend` interne (n8n ↔ Redis) — Redis inaccessible depuis l'extérieur — `docker-compose.yml`
+- **[FIX] I2** — Resource limits CPU/RAM sur tous les services (nginx 128M, n8n 1G, Redis 512M, certbot 64M) — `docker-compose.yml`
+- **[FIX] I3** — Redis port supprimé (communique uniquement via réseau Docker interne `backend`) — `docker-compose.yml`
+- **[FIX] I4** — Variables `N8N_BASIC_AUTH_*` dépréciées supprimées — n8n 1.x utilise l'auth intégrée — `docker-compose.yml`, `.env.example`
+
+### Mineur
+- **[FIX] M1** — `name: plan` ajouté en top-level pour éviter conflits multi-stack — `docker-compose.yml`
+- **[FIX] M2** — HSTS avec `preload` ajouté — `n8n.conf.template`
+- **[FIX] M3** — Header `X-XSS-Protection: 0` ajouté (désactive filtre XSS cassé des vieux navigateurs) — `n8n.conf.template`
+- **[FIX] M4** — Redis `--maxmemory 256mb --maxmemory-policy allkeys-lru` pour éviter OOM — `docker-compose.yml`
+- **[FIX] M5** — `.env.example` mis à jour : suppression defaults `changeme`, marquage REQUIRED — `.env.example`
+
+### Fichiers modifiés
+- `docker-compose.yml`
+- `nginx/n8n.conf.template`
+- `.env.example`
+
+### Validation
+- ✅ `next build` — 0 erreur, 0 warning TypeScript
+- ✅ Syntaxe YAML valide (Docker non disponible sur cette machine pour `docker compose config`)
+
+---
+
 ## [1.2.2] — 2026-04-04 — Audit Stripe complet (skills stripe-best-practices + stripe-integration)
 
 ### Critique
