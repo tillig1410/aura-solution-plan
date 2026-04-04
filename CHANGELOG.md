@@ -5,6 +5,45 @@
 
 ---
 
+## [1.5.0] — 2026-04-04 — Audit antigravity (Next.js best practices + supply chain + perf)
+
+### Critique
+- **[FIX] C1** — `unsafe-eval` dans CSP `script-src` en production : affaiblit la protection XSS. Conditionné à `NODE_ENV === "development"` — `next.config.ts`
+- **[FIX] C2** — 3 requêtes `.select("*")` dans les routes API exposaient toutes les colonnes au client (bookings insert/update, client fiche) → sélections explicites de colonnes — `bookings/route.ts`, `bookings/[id]/route.ts`, `clients/[id]/route.ts`
+
+### Audit Next.js (18 constats)
+- **P01 (Critique)** — Aucun data fetching serveur dans les pages dashboard (tout en client-side useEffect → waterfalls) ➜ DEBT V2
+- **P09 (Critique)** — Rate limiter in-memory inopérant sur Vercel serverless ➜ DEBT (migrer vers Upstash/Vercel KV)
+- **P06 (Important)** — Auth vérifiée 2× (middleware + chaque handler) ➜ DEBT V2
+- **P07 (Important)** — Pattern `getMerchant` répété sans cache à chaque requête API ➜ DEBT V2
+- **P11 (Important)** — `unsafe-eval` en production ➜ CORRIGÉ (C1)
+- **P17 (Important)** — Erreur OTP ignorée silencieusement dans login ➜ DEBT V2
+- 7 constats mineurs documentés (voir rapport complet)
+
+### Audit Supply Chain (21 constats)
+- **Aucune vulnérabilité npm** (`npm audit` = 0 vulns sur 871 packages) ✅
+- **Lock file** intègre avec hashes SHA-512 sur toutes les deps ✅
+- **Docker** : réseaux isolés, healthchecks, resource limits, pas de secrets en dur ✅
+- **Pas de CI/CD** (GitHub Actions absent) ➜ DEBT urgent
+- Docker images sans digest SHA256 (`redis:7-alpine`) ➜ DEBT
+- Pas de `.npmrc` avec `save-exact=true` ➜ DEBT
+
+### Audit Performances (14 constats)
+- `.select("*")` 3/14 corrigés (API routes exposées au client) ✅ ; 11 restants justifiés (backups rollback, types internes complets)
+- Recharts (~300 Ko) chargé statiquement (aucun `next/dynamic`) ➜ DEBT V2
+- Aucune stratégie de cache explicite sur les routes ➜ DEBT V2
+
+### Fichiers modifiés
+- `next.config.ts`
+- `src/app/api/v1/bookings/route.ts`
+- `src/app/api/v1/bookings/[id]/route.ts`
+- `src/app/api/v1/clients/[id]/route.ts`
+
+### Validation
+- ✅ `next build` — 0 erreur TypeScript
+
+---
+
 ## [1.4.2] — 2026-04-04 — Audit sharp-edges + insecure-defaults (trailofbits)
 
 ### Important

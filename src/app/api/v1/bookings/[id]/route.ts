@@ -91,7 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .update({ ...sanitized, version: version + 1 })
     .eq("id", id)
     .eq("version", version)
-    .select("*")
+    .select("id, merchant_id, client_id, practitioner_id, service_id, starts_at, ends_at, status, source_channel, version, cancelled_at, cancelled_by, updated_at")
     .single();
 
   if (error) {

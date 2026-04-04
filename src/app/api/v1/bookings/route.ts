@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("bookings")
     .insert(booking)
-    .select("*")
+    .select("id, merchant_id, client_id, practitioner_id, service_id, starts_at, ends_at, status, source_channel, version, created_at")
     .single();
 
   if (error) {

@@ -47,7 +47,7 @@ export async function GET(
 
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .select("*")
+    .select("id, merchant_id, name, phone, email, notes, is_blocked, loyalty_points, loyalty_tier, no_show_count, preferred_practitioner_id, preferred_service_id, created_at, updated_at")
     .eq("id", id)
     .eq("merchant_id", merchant.id)
     .single();

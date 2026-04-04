@@ -6,7 +6,8 @@ import type { NextConfig } from "next";
 const CSP = [
   "default-src 'self'",
   // Next.js inline scripts + no external JS CDN
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  // 'unsafe-eval' only needed for Next.js dev mode (hot reload)
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
   // Tailwind/shadcn inline styles
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
