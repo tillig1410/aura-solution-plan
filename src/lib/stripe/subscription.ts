@@ -1,7 +1,14 @@
 import Stripe from "stripe";
 import { logger } from "@/lib/logger";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("STRIPE_SECRET_KEY is not configured");
+}
+if (!process.env.STRIPE_PLAN_PRODUCT_ID) {
+  throw new Error("STRIPE_PLAN_PRODUCT_ID is not configured");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2026-03-25.dahlia",
 });
 
@@ -40,7 +47,7 @@ export async function createMerchantSubscription(
       {
         price_data: {
           currency: "eur",
-          product: process.env.STRIPE_PLAN_PRODUCT_ID ?? "",
+          product: process.env.STRIPE_PLAN_PRODUCT_ID!,
           unit_amount: priceCents,
           recurring: { interval: "month" },
         },
@@ -105,7 +112,7 @@ export async function updateMerchantSubscription(
         id: itemId,
         price_data: {
           currency: "eur",
-          product: process.env.STRIPE_PLAN_PRODUCT_ID ?? "",
+          product: process.env.STRIPE_PLAN_PRODUCT_ID!,
           unit_amount: priceCents,
           recurring: { interval: "month" },
         },

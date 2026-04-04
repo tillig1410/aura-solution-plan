@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const practitionerId = searchParams.get("practitioner_id");
+  const practitionerIdRaw = searchParams.get("practitioner_id");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const pageRaw = parseInt(searchParams.get("page") ?? "1", 10);
@@ -39,6 +39,22 @@ export async function GET(request: NextRequest) {
   const page = isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
   const limit = isNaN(limitRaw) || limitRaw < 1 || limitRaw > 100 ? 50 : limitRaw;
   const offset = (page - 1) * limit;
+
+  // Validate UUID format to prevent injection via query params
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (practitionerIdRaw && !UUID_RE.test(practitionerIdRaw)) {
+    return apiError("Invalid practitioner_id", 400, { traceId });
+  }
+  const practitionerId = practitionerIdRaw;
+
+  // Validate ISO date strings
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]*)?$/;
+  if (from && !ISO_DATE_RE.test(from)) {
+    return apiError("Invalid from date", 400, { traceId });
+  }
+  if (to && !ISO_DATE_RE.test(to)) {
+    return apiError("Invalid to date", 400, { traceId });
+  }
 
   let query = supabase
     .from("tips")

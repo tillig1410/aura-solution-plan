@@ -5,6 +5,44 @@
 
 ---
 
+## [1.4.0] — 2026-04-04 — Audit OWASP Top 10:2025 (skill owasp-security)
+
+### Critique
+- **[FIX] C1** — Body size limit ajouté sur toutes les routes API générales (100 KB) ; seuls les webhooks avaient la limite (1 MB) — `middleware.ts`
+- **[FIX] C2** — `STRIPE_SECRET_KEY` et `STRIPE_PLAN_PRODUCT_ID` : throw au démarrage si absent (fail-fast) au lieu de `?? ""` silencieux — `subscription.ts`
+- **[FIX] C3** — Injection PostgREST sur la recherche clients : regex remplacée par allowlist alphanumérique stricte (`[^a-zA-ZÀ-ÿ0-9\s'\-]` supprimé) au lieu de denylist incomplète — `clients/route.ts`
+
+### Important
+- **[FIX] I1** — CSP (Content-Security-Policy) ajouté dans `next.config.ts` : `default-src 'self'`, `connect-src` Supabase + Stripe, `frame-src` Stripe 3DS, `object-src 'none'`, `base-uri 'self'` — `next.config.ts`
+- **[FIX] I2** — `Cross-Origin-Opener-Policy: same-origin-allow-popups` ajouté (Stripe popup flows) — `next.config.ts`
+- **[FIX] I3** — UUID validation sur `practitioner_id` et validation ISO sur `from`/`to` dans la route tips (injection via query params) — `tips/route.ts`
+- **[FIX] I4** — Packages PATCH : code PGRST116 (no rows) retourne 404 au lieu de 500 générique, évite l'ambiguïté tenant mismatch vs erreur DB — `packages/[id]/route.ts`
+- **[FIX] I5** — Telnyx : timestamp futur accepté réduit de 60 s à 10 s (fenêtre de clock skew attack réduite) — `verify-ed25519.ts`
+
+### Mineur
+- **[FIX] M1** — Stats route : `.limit(10_000)` sur 3 requêtes sans borne pour éviter un scan complet en cas de grand volume — `stats/route.ts`
+
+### Fichiers modifiés
+- `src/middleware.ts`
+- `src/lib/stripe/subscription.ts`
+- `src/app/api/v1/clients/route.ts`
+- `src/app/api/v1/tips/route.ts`
+- `src/app/api/v1/packages/[id]/route.ts`
+- `src/app/api/v1/stats/route.ts`
+- `src/lib/webhooks/verify-ed25519.ts`
+- `next.config.ts`
+
+### Validation
+- ✅ `next build` — 0 erreur TypeScript, 0 warning
+- ✅ Skill owasp-security installé dans `.claude/skills/owasp-security/`
+
+### Points notés (hors périmètre / dette technique)
+- **[DEBT]** Rate limiter in-memory non persistant entre instances Vercel (serverless) → migrer vers Upstash Redis en V2
+- **[DEBT]** CSP utilise `'unsafe-inline'` pour scripts/styles (requis par Next.js 14 hydration) → migrer vers CSP nonce en V2
+- **[DEBT]** Logging PII : les UUIDs client/merchant apparaissent dans les logs info → ajouter masquage en V2
+
+---
+
 ## [1.3.1] — 2026-04-04 — Audit SEO pages publiques (skill seo-audit)
 
 ### Crawlabilité & Indexation

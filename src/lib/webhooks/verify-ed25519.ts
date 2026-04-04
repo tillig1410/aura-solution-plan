@@ -20,8 +20,9 @@ export function verifyTelnyxSignature(
   }
 
   // Reject timestamps older than 5 minutes (replay protection)
+  // Reject timestamps more than 10 seconds in the future (clock skew attack)
   const timestampAge = Date.now() / 1000 - Number(timestamp);
-  if (Number.isNaN(timestampAge) || timestampAge > 300 || timestampAge < -60) {
+  if (Number.isNaN(timestampAge) || timestampAge > 300 || timestampAge < -10) {
     return false;
   }
 

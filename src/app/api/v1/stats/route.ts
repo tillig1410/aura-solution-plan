@@ -196,7 +196,8 @@ export async function GET(request: NextRequest) {
     )
     .eq("merchant_id", merchant.id)
     .gte("starts_at", fromISO)
-    .lte("starts_at", toISO);
+    .lte("starts_at", toISO)
+    .limit(10_000);
 
   if (bookingsError) {
     logger.error("stats.bookings_fetch_failed", { error: bookingsError.message, traceId });
@@ -211,7 +212,8 @@ export async function GET(request: NextRequest) {
     .select(`id, status, starts_at, service:services(price_cents)`)
     .eq("merchant_id", merchant.id)
     .gte("starts_at", prevFromISO)
-    .lte("starts_at", prevToISO);
+    .lte("starts_at", prevToISO)
+    .limit(10_000);
 
   if (prevBookingsError) {
     logger.error("stats.prev_bookings_fetch_failed", { error: prevBookingsError.message, traceId });
@@ -230,7 +232,8 @@ export async function GET(request: NextRequest) {
     )
     .eq("merchant_id", merchant.id)
     .gte("created_at", fromISO)
-    .lte("created_at", toISO);
+    .lte("created_at", toISO)
+    .limit(10_000);
 
   if (tipsError) {
     logger.error("stats.tips_fetch_failed", { error: tipsError.message, traceId });

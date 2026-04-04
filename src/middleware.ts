@@ -96,7 +96,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // --- Webhooks: no auth needed, just rate limiting + size limit ---
+  // --- Webhooks: no auth needed, just rate limiting + size limit (1 MB) ---
   if (pathname.startsWith("/api/v1/webhooks")) {
     const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
     if (contentLength > 1_048_576) {
@@ -112,6 +112,17 @@ export async function middleware(request: NextRequest) {
     });
     response.headers.set("x-trace-id", traceId);
     return response;
+  }
+
+  // --- General API routes: body size limit (100 KB) ---
+  if (pathname.startsWith("/api/v1/")) {
+    const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
+    if (contentLength > 102_400) {
+      return NextResponse.json(
+        { error: "Payload too large" },
+        { status: 413, headers: { "X-Trace-Id": traceId } },
+      );
+    }
   }
 
   // --- T098: Propagate trace ID to downstream API routes via request headers ---

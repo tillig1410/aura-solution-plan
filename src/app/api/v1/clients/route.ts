@@ -70,8 +70,9 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (search.length > 0) {
-    // Escape PostgREST filter metacharacters to prevent injection
-    const safe = search.replace(/[%_\\.,()]/g, "");
+    // Allowlist: keep only alphanumeric, spaces, hyphens and apostrophes
+    // PostgREST .or() with ilike is vulnerable to metachar injection
+    const safe = search.replace(/[^a-zA-ZÀ-ÿ0-9\s'\-]/g, "").trim().slice(0, 100);
     if (safe.length > 0) {
       query = query.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`);
     }

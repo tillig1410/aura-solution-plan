@@ -68,6 +68,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { data: updated, error } = await query.select().single();
 
   if (error) {
+    // PGRST116: no rows returned — package not found or belongs to another merchant
+    if ((error as { code?: string }).code === "PGRST116") {
+      return apiError("Package not found", 404, { traceId });
+    }
     logger.error("packages.patch_failed", { error: error.message, traceId });
     return apiError("Failed to update package", 500, { traceId });
   }
