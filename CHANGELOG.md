@@ -5,6 +5,28 @@
 
 ---
 
+## [1.4.2] — 2026-04-04 — Audit sharp-edges + insecure-defaults (trailofbits)
+
+### Important
+- **[FIX] I1** — Fail-fast `SUPABASE_SERVICE_ROLE_KEY` : `createAdminClient()` utilisait l'assertion `!` sans guard (erreur cryptique à la première requête DB) → throw explicite au démarrage — `src/lib/supabase/server.ts`
+- **[FIX] I2** — Plafond manquant sur `tip_amount_cents` : pas de borne supérieure avant insertion en DB (pourboire arbitrairement élevé via metadata Stripe) → `TIP_MAX_CENTS = 100_000` (1 000 €) — `payment-succeeded.ts`
+- **[FIX] I3** — CSRF check silencieux : quand `NEXT_PUBLIC_APP_URL` et `VERCEL_URL` sont absents, le check était ignoré sans log → warning explicite `booking.csrf_check_skipped_no_app_url` — `booking/[slug]/reserve/route.ts`
+
+### Analyse insecure-defaults (aucun problème critique)
+- Tous les `?? ""` webhooks (WhatsApp, Messenger, Telegram, Telnyx, Stripe) sont précédés de gardes fail-fast ajoutées en v1.4.0–1.4.1 ✅
+- `forward-to-n8n.ts` : refuse d'envoyer en production si URL non-HTTPS ✅
+- `safe-redirect.ts` : `ALLOWED_ORIGINS` vide → `isTrustedOrigin()` retourne false (fail-closed) ✅
+
+### Fichiers modifiés
+- `src/lib/supabase/server.ts`
+- `src/lib/stripe/handlers/payment-succeeded.ts`
+- `src/app/api/v1/booking/[slug]/reserve/route.ts`
+
+### Validation
+- ✅ `next build` — 0 erreur TypeScript
+
+---
+
 ## [1.4.1] — 2026-04-04 — Audit OWASP approfondi v2 (A01, A02, A03, A05, A08)
 
 ### Critique

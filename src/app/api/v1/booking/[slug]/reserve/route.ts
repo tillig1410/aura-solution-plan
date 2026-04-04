@@ -30,14 +30,19 @@ export async function POST(
   // CSRF protection: reject cross-origin requests from unknown origins
   const origin = request.headers.get("origin");
   const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL;
-  if (origin && rawAppUrl) {
-    const allowedOrigin = rawAppUrl.startsWith("http") ? rawAppUrl : `https://${rawAppUrl}`;
-    try {
-      if (new URL(origin).origin !== new URL(allowedOrigin).origin) {
+  if (origin) {
+    if (!rawAppUrl) {
+      // Misconfiguration: app URL unknown — log and continue (public endpoint)
+      logger.warn("booking.csrf_check_skipped_no_app_url", { traceId, origin });
+    } else {
+      const allowedOrigin = rawAppUrl.startsWith("http") ? rawAppUrl : `https://${rawAppUrl}`;
+      try {
+        if (new URL(origin).origin !== new URL(allowedOrigin).origin) {
+          return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
+        }
+      } catch {
         return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
       }
-    } catch {
-      return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
     }
   }
 

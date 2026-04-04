@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TIP_MAX_CENTS = 100_000; // 1 000 € — plafond anti-abus
 
 interface PaymentIntentLike {
   id: string;
@@ -46,10 +47,11 @@ export async function handlePaymentSucceeded(
     }
   }
 
-  // 2. Create tip if amount > 0
+  // 2. Create tip if amount > 0 and within safe bounds
   const tipCents = parseInt(tip_amount_cents ?? "0", 10);
   if (
     tipCents > 0 &&
+    tipCents <= TIP_MAX_CENTS &&
     practitioner_id && UUID_RE.test(practitioner_id) &&
     client_id && UUID_RE.test(client_id)
   ) {
