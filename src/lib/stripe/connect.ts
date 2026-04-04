@@ -18,6 +18,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
 export async function createConnectAccount(
   merchantEmail: string,
   merchantName: string,
+  merchantId: string,
 ): Promise<{ accountId: string; onboardingUrl: string }> {
   const account = await stripe.accounts.create({
     email: merchantEmail,
@@ -30,7 +31,9 @@ export async function createConnectAccount(
       losses: { payments: "stripe" },
       fees: { payer: "account" },
     },
-    metadata: { source: "plan-saas" },
+    metadata: { source: "plan-saas", merchant_id: merchantId },
+  }, {
+    idempotencyKey: `connect_${merchantId}`,
   });
 
   const accountLink = await stripe.accountLinks.create({

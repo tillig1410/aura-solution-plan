@@ -21,7 +21,7 @@ vi.mock("stripe", () => {
 });
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: vi.fn(),
+  createAdminClient: vi.fn(),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -34,7 +34,7 @@ vi.mock("@/lib/stripe/handlers/payment-succeeded", () => ({
   handlePaymentSucceeded: vi.fn().mockResolvedValue(undefined),
 }));
 
-const { createClient } = await import("@/lib/supabase/server");
+const { createAdminClient } = await import("@/lib/supabase/server");
 const { POST } = await import("@/app/api/v1/webhooks/stripe/route");
 const { handlePaymentSucceeded } = await import("@/lib/stripe/handlers/payment-succeeded");
 
@@ -111,7 +111,7 @@ describe("POST /api/v1/webhooks/stripe — signature", () => {
   it("retourne 200 pour un event valide", async () => {
     const event = makeEvent("payment_intent.succeeded");
     mockConstructEvent.mockReturnValue(event);
-    vi.mocked(createClient).mockResolvedValue(
+    vi.mocked(createAdminClient).mockReturnValue(
       makeMockSupabase() as unknown as Awaited<ReturnType<typeof createClient>>,
     );
 
@@ -124,7 +124,7 @@ describe("POST /api/v1/webhooks/stripe — idempotency", () => {
   it("ignore un event déjà traité (idempotent)", async () => {
     const event = makeEvent("payment_intent.succeeded", "evt_duplicate");
     mockConstructEvent.mockReturnValue(event);
-    vi.mocked(createClient).mockResolvedValue(
+    vi.mocked(createAdminClient).mockReturnValue(
       makeMockSupabase(["evt_duplicate"]) as unknown as Awaited<ReturnType<typeof createClient>>,
     );
 
@@ -137,7 +137,7 @@ describe("POST /api/v1/webhooks/stripe — idempotency", () => {
 
 describe("POST /api/v1/webhooks/stripe — event routing", () => {
   beforeEach(() => {
-    vi.mocked(createClient).mockResolvedValue(
+    vi.mocked(createAdminClient).mockReturnValue(
       makeMockSupabase() as unknown as Awaited<ReturnType<typeof createClient>>,
     );
   });

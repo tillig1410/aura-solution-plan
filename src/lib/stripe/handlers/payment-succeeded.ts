@@ -1,5 +1,8 @@
 import { logger } from "@/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface PaymentIntentLike {
   id: string;
@@ -14,19 +17,19 @@ interface PaymentIntentLike {
  */
 export async function handlePaymentSucceeded(
   paymentIntent: unknown,
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
 ): Promise<void> {
   const pi = paymentIntent as PaymentIntentLike;
   const { merchant_id, booking_id, client_id, practitioner_id, tip_amount_cents } =
     pi.metadata;
 
-  if (!merchant_id) {
+  if (!merchant_id || !UUID_RE.test(merchant_id)) {
     logger.warn("stripe.payment_no_merchant", { paymentIntentId: pi.id });
     return;
   }
 
   // 1. Mark booking as paid
-  if (booking_id) {
+  if (booking_id && UUID_RE.test(booking_id)) {
     const { error } = await supabase
       .from("bookings")
       .update({ status: "confirmed" })
@@ -44,11 +47,15 @@ export async function handlePaymentSucceeded(
   }
 
   // 2. Create tip if amount > 0
-  const tipCents = parseInt(tip_amount_cents, 10);
-  if (tipCents > 0 && practitioner_id && client_id) {
+  const tipCents = parseInt(tip_amount_cents ?? "0", 10);
+  if (
+    tipCents > 0 &&
+    practitioner_id && UUID_RE.test(practitioner_id) &&
+    client_id && UUID_RE.test(client_id)
+  ) {
     const { error } = await supabase.from("tips").insert({
       merchant_id,
-      booking_id: booking_id || null,
+      booking_id: booking_id && UUID_RE.test(booking_id) ? booking_id : null,
       client_id,
       practitioner_id,
       amount_cents: tipCents,

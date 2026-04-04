@@ -24,6 +24,7 @@ import AiConfig from "@/components/settings/ai-config";
 import LoyaltyConfig from "@/components/settings/loyalty-config";
 import PackagesConfig from "@/components/settings/packages-config";
 import { generateQrCodeDataUrl } from "@/lib/utils/qr-code";
+import { calculatePrice, formatEur } from "@/lib/stripe/pricing";
 import type { Merchant } from "@/types/supabase";
 
 // ---------- Types ----------
@@ -79,6 +80,7 @@ const SettingsContent = () => {
 
   // Stripe Connect
   const [connectLoading, setConnectLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const fetchMerchant = useCallback(async () => {
     setLoading(true);
@@ -477,12 +479,7 @@ const SettingsContent = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold text-indigo-600">
-                    {merchant.seat_count <= 1
-                      ? "16,90"
-                      : merchant.seat_count <= 3
-                        ? "31,90"
-                        : "54,90"}{" "}
-                    €/mois
+                    {formatEur(calculatePrice(merchant.seat_count, merchant.voice_enabled ?? false))}/mois
                   </p>
                 </div>
               </div>
@@ -501,11 +498,29 @@ const SettingsContent = () => {
                 </div>
               )}
               <div className="pt-2 flex gap-2">
-                <Button variant="outline" size="sm">
-                  Changer de plan
-                </Button>
-                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                  Annuler l&apos;abonnement
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={portalLoading || !merchant.stripe_subscription_id}
+                  onClick={async () => {
+                    setPortalLoading(true);
+                    try {
+                      const res = await fetch("/api/v1/stripe/customer-portal", { method: "POST" });
+                      if (res.ok) {
+                        const { url } = (await res.json()) as { url: string };
+                        window.location.href = url;
+                      } else {
+                        toast.error("Impossible d'ouvrir le portail Stripe");
+                      }
+                    } catch {
+                      toast.error("Erreur réseau");
+                    } finally {
+                      setPortalLoading(false);
+                    }
+                  }}
+                >
+                  {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Gérer mon abonnement
                 </Button>
               </div>
             </CardContent>

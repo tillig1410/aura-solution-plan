@@ -93,7 +93,11 @@ export async function createPaymentCheckout(
     merchantId: metadata.merchant_id,
   });
 
-  return session.url ?? "";
+  if (!session.url) {
+    throw new Error(`Stripe checkout session ${session.id} returned no URL`);
+  }
+
+  return session.url;
 }
 
 /**
@@ -105,10 +109,13 @@ export async function createSimplePaymentLink(
   amountCents: number,
   serviceName: string,
   metadata: Record<string, string>,
+  idempotencyKey?: string,
 ): Promise<string> {
+  const baseKey = idempotencyKey ?? `plink_${connectedAccountId}_${serviceName}_${amountCents}`;
+
   const product = await stripe.products.create(
     { name: serviceName },
-    { stripeAccount: connectedAccountId },
+    { stripeAccount: connectedAccountId, idempotencyKey: `${baseKey}_product` },
   );
 
   const price = await stripe.prices.create(
@@ -117,7 +124,7 @@ export async function createSimplePaymentLink(
       unit_amount: amountCents,
       currency: "eur",
     },
-    { stripeAccount: connectedAccountId },
+    { stripeAccount: connectedAccountId, idempotencyKey: `${baseKey}_price` },
   );
 
   const paymentLink = await stripe.paymentLinks.create(
@@ -125,7 +132,7 @@ export async function createSimplePaymentLink(
       line_items: [{ price: price.id, quantity: 1 }],
       metadata,
     },
-    { stripeAccount: connectedAccountId },
+    { stripeAccount: connectedAccountId, idempotencyKey: `${baseKey}_link` },
   );
 
   return paymentLink.url;

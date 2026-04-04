@@ -10,20 +10,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
  * Handles Plan subscriptions based on seat count with pricing tiers.
  */
 
-/**
- * Plan pricing grid (monthly, in cents).
- * Base: 16,90€ (1 seat), up to 54,90€ (7 seats).
- * Voice option: +7€ to +52€/month depending on seat count.
- */
-const SEAT_PRICES: Record<number, { base: number; voice: number }> = {
-  1: { base: 1690, voice: 700 },
-  2: { base: 2490, voice: 1400 },
-  3: { base: 3190, voice: 2100 },
-  4: { base: 3890, voice: 2800 },
-  5: { base: 4490, voice: 3500 },
-  6: { base: 4990, voice: 4200 },
-  7: { base: 5490, voice: 5200 },
-};
+import { calculatePrice } from "@/lib/stripe/pricing";
+export { calculatePrice } from "@/lib/stripe/pricing";
 
 const EARLY_ADOPTER_COUPON_ID = process.env.STRIPE_EARLY_ADOPTER_COUPON_ID;
 
@@ -34,15 +22,6 @@ interface CreateSubscriptionParams {
   earlyAdopter?: boolean;
   /** Idempotency key to prevent duplicate subscription creation on retries */
   idempotencyKey: string;
-}
-
-/**
- * Calculate the monthly price in cents for a given configuration.
- */
-export function calculatePrice(seatCount: number, voiceEnabled: boolean): number {
-  const clampedSeats = Math.max(1, Math.min(7, seatCount));
-  const tier = SEAT_PRICES[clampedSeats];
-  return tier.base + (voiceEnabled ? tier.voice : 0);
 }
 
 /**
@@ -155,14 +134,24 @@ export async function cancelMerchantSubscription(subscriptionId: string): Promis
 
 /**
  * Create or retrieve a Stripe customer for a merchant.
+ * Pass stripeCustomerId when available to avoid email-based lookup ambiguity.
  */
 export async function getOrCreateCustomer(
   email: string,
   merchantName: string,
   merchantId: string,
+  stripeCustomerId?: string | null,
 ): Promise<string> {
-  // Search for existing customer
-  const existing = await stripe.customers.list({ email, limit: 1 });
+  // Fast path: reuse known customer ID
+  if (stripeCustomerId) {
+    return stripeCustomerId;
+  }
+
+  // Search by metadata merchant_id for precision (avoids email collisions)
+  const existing = await stripe.customers.search({
+    query: `metadata["merchant_id"]:"${merchantId}"`,
+    limit: 1,
+  });
   if (existing.data.length > 0) {
     return existing.data[0].id;
   }

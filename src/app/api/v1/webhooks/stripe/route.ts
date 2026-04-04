@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { handlePaymentSucceeded } from "@/lib/stripe/handlers/payment-succeeded";
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from "@/lib/stripe/handlers/subscription-updated";
 import { handleInvoicePaid, handleInvoicePaymentFailed } from "@/lib/stripe/handlers/invoice-handlers";
+import { handleChargeRefunded, handleChargeDisputeCreated } from "@/lib/stripe/handlers/charge-handlers";
 import { logger, webhookLog } from "@/lib/logger";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
@@ -111,12 +112,27 @@ export async function POST(request: NextRequest) {
         await handleInvoicePaymentFailed(event.data.object, supabase);
         break;
 
+      case "charge.refunded":
+        await handleChargeRefunded(event.data.object, supabase);
+        break;
+
+      case "charge.dispute.created":
+        await handleChargeDisputeCreated(event.data.object, supabase);
+        break;
+
       default:
         logger.info("stripe.event_unhandled", { type: event.type, traceId });
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Handler error";
-    logger.error("stripe.handler_error", { type: event.type, error: msg, traceId });
+    const stack = err instanceof Error ? err.stack : undefined;
+    logger.error("stripe.handler_error", {
+      type: event.type,
+      eventId: event.id,
+      error: msg,
+      stack,
+      traceId,
+    });
     // Still return 200 to prevent Stripe retries on application errors
   }
 

@@ -27,10 +27,12 @@ export async function handleInvoicePaid(
   // Vérifier si c'est un abonnement Plan SaaS (via metadata sur la subscription)
   const metadata = inv.metadata ?? {};
   if (metadata.source === "plan-saas") {
-    // Mettre à jour le commerçant : abonnement actif
+    // Abonnement Plan du commerçant — confirmer que le paiement a été reçu.
+    // Le statut de l'abonnement est géré par customer.subscription.updated.
+    // Ici on met à jour updated_at pour tracer la dernière facture payée.
     const { error } = await supabase
       .from("merchants")
-      .update({ stripe_subscription_id: inv.subscription })
+      .update({ updated_at: new Date().toISOString() })
       .eq("stripe_subscription_id", inv.subscription);
 
     if (error) {

@@ -5,28 +5,49 @@
 
 ---
 
-## [1.2.1] — 2026-04-04 — Audit Stripe Best Practices (skill stripe-best-practices)
+## [1.2.2] — 2026-04-04 — Audit Stripe complet (skills stripe-best-practices + stripe-integration)
 
-### Sécurité Webhook
-- **[FIX] S1** — Webhook route utilise `createAdminClient()` (service role, bypass RLS) au lieu de `createClient()` — `src/app/api/v1/webhooks/stripe/route.ts`
-- **[FIX] S2** — `STRIPE_WEBHOOK_SECRET` validé au démarrage avec `throw new Error()` si absent
-- **[FEAT] S3** — Handlers `handleInvoicePaid` et `handleInvoicePaymentFailed` créés — distinguent abonnements Plan SaaS (`metadata.source === "plan-saas"`) des abonnements clients — `src/lib/stripe/handlers/invoice-handlers.ts`
+### Critique
+- **[FIX] C1** — Validation UUID sur toutes les metadata webhook (`merchant_id`, `booking_id`, `client_id`, `practitioner_id`) — `payment-succeeded.ts`
+- **[FIX] C2** — `handleInvoicePaid` Plan SaaS : update `updated_at` au lieu du no-op `stripe_subscription_id = itself` — `invoice-handlers.ts`
+- **[FIX] C3** — Tests webhook mockent `createAdminClient` au lieu de `createClient` (aligné avec le vrai code) — `webhook-stripe.test.ts`
+- **[FIX] C4** — `createSimplePaymentLink` : idempotency keys sur Product, Price et PaymentLink — `payment-links.ts`
 
-### Idempotence
-- **[FIX] S4** — `createMerchantSubscription()` exige un `idempotencyKey` obligatoire passé à `stripe.subscriptions.create()` — `src/lib/stripe/subscription.ts`
-- **[FIX] S5** — `createPaymentCheckout()` utilise `idempotencyKey` (fallback: `checkout_{booking_id}`) sur `stripe.checkout.sessions.create()` — `src/lib/stripe/payment-links.ts`
+### Important
+- **[FEAT] I1** — Customer Portal Stripe : endpoint `POST /api/v1/stripe/customer-portal` + bouton "Gérer mon abonnement" dans Settings — `customer-portal/route.ts`, `settings-content.tsx`
+- **[FIX] I2** — Prix dynamiques via `calculatePrice()` partagé au lieu de valeurs hardcodées dans le frontend — `pricing.ts`, `settings-content.tsx`
+- **[FIX] I3** — Idempotency key sur `accounts.create` dans Connect (`connect_{merchantId}`) — `connect.ts`
+- **[FEAT] I4** — Handlers `charge.refunded` (annule le booking) et `charge.dispute.created` (alerte critique) — `charge-handlers.ts`, `route.ts`
+- **[FIX] I5** — `handlePaymentSucceeded` utilise `SupabaseClient<Database>` pour type-safety — `payment-succeeded.ts`
+- **[FIX] I6** — `createPaymentCheckout` lève une erreur si `session.url` est null au lieu de retourner `""` — `payment-links.ts`
 
-### Connect v2
-- **[FIX] S6** — Migration `type: "standard"` (v1) vers propriétés `controller` (v2) : `stripe_dashboard.type: "full"`, `losses.payments: "stripe"`, `fees.payer: "account"` — `src/lib/stripe/connect.ts`
+### Mineur
+- **[FIX] M1** — `getOrCreateCustomer` : recherche par `metadata["merchant_id"]` au lieu d'email (évite collisions), accepte `stripeCustomerId` optionnel — `subscription.ts`
+- **[FIX] M2** — `parseInt(tip_amount_cents ?? "0", 10)` protège contre `NaN` — `payment-succeeded.ts`
+- **[FIX] M3** — Logging amélioré dans le catch webhook : inclut `eventId` et `stack` trace — `route.ts`
 
 ### Fichiers créés
-- `src/lib/stripe/handlers/invoice-handlers.ts`
+- `src/lib/stripe/pricing.ts`
+- `src/lib/stripe/handlers/charge-handlers.ts`
+- `src/app/api/v1/stripe/customer-portal/route.ts`
 
 ### Fichiers modifiés
-- `src/app/api/v1/webhooks/stripe/route.ts`
-- `src/lib/stripe/subscription.ts`
-- `src/lib/stripe/payment-links.ts`
+- `src/lib/stripe/handlers/payment-succeeded.ts`
+- `src/lib/stripe/handlers/invoice-handlers.ts`
 - `src/lib/stripe/connect.ts`
+- `src/lib/stripe/payment-links.ts`
+- `src/lib/stripe/subscription.ts`
+- `src/app/api/v1/webhooks/stripe/route.ts`
+- `src/app/api/v1/stripe/connect/route.ts`
+- `src/components/settings/settings-content.tsx`
+- `tests/integration/webhook-stripe.test.ts`
+
+### Historique v1.2.1
+- **[FIX] S1** — Webhook route utilise `createAdminClient()` (service role, bypass RLS)
+- **[FIX] S2** — `STRIPE_WEBHOOK_SECRET` validé au démarrage
+- **[FEAT] S3** — Handlers `handleInvoicePaid` / `handleInvoicePaymentFailed` — `invoice-handlers.ts`
+- **[FIX] S4-S5** — Idempotency keys sur `subscriptions.create` et `checkout.sessions.create`
+- **[FIX] S6** — Connect v1 `type: "standard"` → v2 `controller` properties
 
 ### Validation
 - ✅ `next build` — 0 erreur, 0 warning TypeScript
