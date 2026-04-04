@@ -5,6 +5,45 @@
 
 ---
 
+## [1.2.0] — 2026-04-04 — Audit Next.js Best Practices (skill nextjs-developer)
+
+### Architecture Next.js
+
+- **[REFACTOR] C3** — 9 pages migrées de Client Components monolithiques vers Server Components + Client Components feuilles : `agenda`, `clients`, `messages`, `services`, `settings`, `stats`, `login`, `onboarding`, `booking/[slug]` — code interactif extrait dans `src/components/*/`
+- **[FEAT] C1** — `loading.tsx` ajouté dans `(dashboard)`, `(auth)`, `(booking)` — Suspense boundary automatique + fallback spinner pendant le chargement
+- **[FEAT] C2** — `error.tsx` ajouté à la racine `app/` et dans `(dashboard)` — gestion gracieuse des erreurs avec bouton "Réessayer"
+- **[FEAT] C4** — Metadata SEO : root layout avec `title.template "%s | Plan"` et description, `metadata` par page (Agenda, Clients, Messages, Services, Paramètres, Statistiques, Connexion, Onboarding), `generateMetadata` dynamique sur la page booking publique
+- **[FEAT] I1** — `not-found.tsx` personnalisé avec lien retour dashboard
+- **[FIX] I2** — Dashboard layout converti en Server Component async avec vérification auth côté serveur (`supabase.auth.getUser()` + `redirect("/login")`)
+- **[FIX] I6** — Security headers complétés dans `next.config.ts` : HSTS (`max-age=63072000; includeSubDomains; preload`) + `X-DNS-Prefetch-Control`
+- **[FIX] M1** — Page d'accueil remplace le template Next.js par un redirect `/agenda` (connecté) ou `/login` (non connecté)
+- **[FIX] M2** — `<html lang="fr">` au lieu de `lang="en"`
+- **[REFACTOR] M4** — `<Toaster>` extrait dans `ClientProviders` (`src/components/layout/client-providers.tsx`) pour isoler la directive `"use client"` du root layout Server Component
+
+### Fichiers créés
+- `src/app/(auth)/loading.tsx`
+- `src/app/(booking)/loading.tsx`
+- `src/app/(dashboard)/loading.tsx`
+- `src/app/(dashboard)/error.tsx`
+- `src/app/error.tsx`
+- `src/app/not-found.tsx`
+- `src/components/layout/client-providers.tsx`
+- `src/components/agenda/agenda-content.tsx`
+- `src/components/auth/login-content.tsx`
+- `src/components/auth/onboarding-content.tsx`
+- `src/components/booking/booking-content.tsx`
+- `src/components/clients/clients-content.tsx`
+- `src/components/messages/messages-content.tsx`
+- `src/components/services/services-content.tsx`
+- `src/components/settings/settings-content.tsx`
+- `src/components/stats/stats-content.tsx`
+
+### Validation
+- ✅ `next build` — 0 erreur, 0 warning TypeScript
+- ✅ `login` et `onboarding` prérendus statiquement (○)
+
+---
+
 ## [1.1.0] — 2026-04-04 — Audit Postgres Best Practices (migrations 014–016)
 
 ### Base de données — Migrations
