@@ -5,9 +5,9 @@ import { apiError } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
 const reserveSchema = z.object({
-  client_name: z.string().min(1, "Le nom est requis"),
-  client_phone: z.string().min(6, "Le téléphone est requis"),
-  client_email: z.string().email().optional(),
+  client_name: z.string().min(1, "Le nom est requis").max(255),
+  client_phone: z.string().min(6, "Le téléphone est requis").max(30),
+  client_email: z.string().email().max(320).optional(),
   practitioner_id: z.string().uuid("practitioner_id invalide"),
   service_id: z.string().uuid("service_id invalide"),
   starts_at: z.string().datetime("starts_at doit être au format ISO 8601"),
@@ -29,9 +29,16 @@ export async function POST(
 
   // CSRF protection: reject cross-origin requests from unknown origins
   const origin = request.headers.get("origin");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL;
-  if (origin && appUrl && !origin.startsWith(appUrl) && !origin.startsWith(`https://${appUrl}`)) {
-    return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
+  const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL;
+  if (origin && rawAppUrl) {
+    const allowedOrigin = rawAppUrl.startsWith("http") ? rawAppUrl : `https://${rawAppUrl}`;
+    try {
+      if (new URL(origin).origin !== new URL(allowedOrigin).origin) {
+        return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
+      }
+    } catch {
+      return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
+    }
   }
 
   const supabase = createAdminClient();

@@ -53,5 +53,7 @@ export function forwardToN8n(message: NormalizedMessage, source: string): void {
     return;
   }
 
-  postWithRetry(JSON.stringify(message), source);
+  postWithRetry(JSON.stringify(message), source).catch((err) => {
+    webhookLog.forwardFailed(source, err instanceof Error ? err.message : String(err));
+  });
 }

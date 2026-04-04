@@ -13,6 +13,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_no_double_booking
 -- Merchant can only see/modify their own bookings
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "bookings_tenant_isolation" ON bookings;
+DROP POLICY IF EXISTS bookings_select_own ON bookings;
+DROP POLICY IF EXISTS bookings_insert_own ON bookings;
+DROP POLICY IF EXISTS bookings_update_own ON bookings;
+DROP POLICY IF EXISTS bookings_delete_own ON bookings;
+DROP POLICY IF EXISTS bookings_service_role ON bookings;
+
 CREATE POLICY bookings_select_own ON bookings
   FOR SELECT USING (
     merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())

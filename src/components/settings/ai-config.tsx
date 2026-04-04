@@ -88,8 +88,9 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
             </label>
             <Input
               value={aiName}
-              onChange={(e) => setAiName(e.target.value)}
+              onChange={(e) => setAiName(e.target.value.slice(0, 50))}
               placeholder="Ex : Sofia, Alex..."
+              maxLength={50}
               className="max-w-sm"
             />
             <p className="text-xs text-gray-400 mt-1">

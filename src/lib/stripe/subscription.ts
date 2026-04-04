@@ -83,7 +83,9 @@ export async function createMerchantSubscription(
   const subscription = await stripe.subscriptions.create(subscriptionParams);
 
   const invoice = subscription.latest_invoice as Stripe.Invoice | null;
-  const paymentIntent = (invoice as unknown as { payment_intent?: Stripe.PaymentIntent })?.payment_intent ?? null;
+  // Stripe expands payment_intent when requested — cast via Record to avoid strict type mismatch
+  const invoiceRecord = invoice as Record<string, unknown> | null;
+  const paymentIntent = (invoiceRecord?.payment_intent as Stripe.PaymentIntent | undefined) ?? null;
 
   logger.info("stripe.subscription_created", {
     subscriptionId: subscription.id,

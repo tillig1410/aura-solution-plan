@@ -2,6 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import { logger } from "@/lib/logger";
 
+interface PackageJoin {
+  id: string;
+  service_id: string;
+  is_active: boolean;
+}
+
 interface ConsumeResult {
   success: boolean;
   error?: string;
@@ -47,7 +53,7 @@ export const consumePackage = async (
   // Filtrer : service correspondant, actif, non expiré
   const now = new Date().toISOString();
   const eligible = clientPackages.find((cp) => {
-    const pkg = cp.package as unknown as { id: string; service_id: string; is_active: boolean } | null;
+    const pkg = cp.package as PackageJoin | null;
     if (!pkg || !pkg.is_active || pkg.service_id !== serviceId) return false;
     if (cp.expires_at && new Date(cp.expires_at) < new Date(now)) return false;
     return true;
@@ -106,7 +112,7 @@ export const hasActivePackageOrSubscription = async (
     .gt("remaining_uses", 0);
 
   const hasPackage = (packages ?? []).some((cp) => {
-    const pkg = cp.package as unknown as { service_id: string; is_active: boolean } | null;
+    const pkg = cp.package as PackageJoin | null;
     if (!pkg || !pkg.is_active || pkg.service_id !== serviceId) return false;
     if (cp.expires_at && new Date(cp.expires_at) < new Date(now)) return false;
     return true;

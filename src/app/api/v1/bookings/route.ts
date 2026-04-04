@@ -9,6 +9,16 @@ const VALID_STATUSES = ["pending", "confirmed", "in_progress", "completed", "can
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_RE = /^\d{4}-\d{2}$/;
 
+function isValidCalendarDate(dateStr: string): boolean {
+  const d = new Date(dateStr + "T00:00:00Z");
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === dateStr;
+}
+
+function isValidCalendarMonth(monthStr: string): boolean {
+  const d = new Date(monthStr + "-01T00:00:00Z");
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 7) === monthStr;
+}
+
 /**
  * GET /api/v1/bookings — List bookings with optional filters
  * Query params:
@@ -47,14 +57,14 @@ export async function GET(request: NextRequest) {
   const practitionerId = searchParams.get("practitioner_id");
   const status = searchParams.get("status");
 
-  // Validate inputs
-  if (date && !DATE_RE.test(date)) {
+  // Validate inputs (format + calendar validity)
+  if (date && (!DATE_RE.test(date) || !isValidCalendarDate(date))) {
     return apiError("Invalid date format, expected YYYY-MM-DD", 400, { traceId });
   }
-  if (weekStart && !DATE_RE.test(weekStart)) {
+  if (weekStart && (!DATE_RE.test(weekStart) || !isValidCalendarDate(weekStart))) {
     return apiError("Invalid week_start format, expected YYYY-MM-DD", 400, { traceId });
   }
-  if (month && !MONTH_RE.test(month)) {
+  if (month && (!MONTH_RE.test(month) || !isValidCalendarMonth(month))) {
     return apiError("Invalid month format, expected YYYY-MM", 400, { traceId });
   }
   if (status && !(VALID_STATUSES as readonly string[]).includes(status)) {

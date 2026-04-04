@@ -4,6 +4,7 @@ import { bookingLog, logger, securityLog } from "@/lib/logger";
 import { updateBookingSchema } from "@/lib/validations/booking";
 import { apiError } from "@/lib/api-error";
 import { sendMessage } from "@/lib/channels/send";
+import { sanitizeMessageText } from "@/lib/utils/sanitize";
 import type { MessageChannel } from "@/types/supabase";
 
 const NO_SHOW_BLOCK_THRESHOLD = 3;
@@ -119,11 +120,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   // T101: No-show flow — increment count and potentially block client
   if (sanitized.status === "no_show") {
-    void handleNoShow({
+    handleNoShow({
       merchantId: merchant.id,
       clientId: existingBooking.client_id,
       bookingId: id,
       traceId,
+    }).catch((err) => {
+      logger.error("noshow.unhandled", { bookingId: id, error: err instanceof Error ? err.message : String(err), traceId });
     });
   }
 
@@ -135,13 +138,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       existingBooking.starts_at !== sanitized.starts_at);
 
   if (shouldNotify) {
-    void notifyClient({
+    notifyClient({
       merchantId: merchant.id,
       clientId: existingBooking.client_id,
       booking: data,
       isCancelled: sanitized.status === "cancelled",
       isNoShow: sanitized.status === "no_show",
       traceId,
+    }).catch((err) => {
+      logger.error("booking.notification_unhandled", { bookingId: id, error: err instanceof Error ? err.message : String(err), traceId });
     });
   }
 
@@ -209,8 +214,8 @@ async function notifyClient(params: NotifyClientParams): Promise<void> {
       .eq("merchant_id", merchantId)
       .single();
 
-    const clientName = client.name ?? "Client";
-    const serviceName = service?.name ?? "votre prestation";
+    const clientName = sanitizeMessageText(client.name ?? "Client");
+    const serviceName = sanitizeMessageText(service?.name ?? "votre prestation");
     const dateLabel = new Date(booking.starts_at).toLocaleString("fr-FR", {
       weekday: "long",
       day: "numeric",

@@ -13,10 +13,10 @@ export interface ClientWithStats extends ClientRow {
 }
 
 const createClientSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
-  phone: z.string().optional(),
-  email: z.string().email("Email invalide").optional().or(z.literal("")),
-  notes: z.string().optional(),
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(255),
+  phone: z.string().max(30).optional(),
+  email: z.string().email("Email invalide").max(320).optional().or(z.literal("")),
+  notes: z.string().max(5000).optional(),
 });
 
 const VALID_FILTERS = ["all", "loyal", "new", "inactive"] as const;
