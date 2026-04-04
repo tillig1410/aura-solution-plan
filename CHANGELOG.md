@@ -5,6 +5,33 @@
 
 ---
 
+## [1.1.0] — 2026-04-04 — Audit Postgres Best Practices (migrations 014–016)
+
+### Base de données — Migrations
+
+- **[DB] 014** — 3 index FK manquants (`notifications.client_id`, `messages(conversation_id, created_at DESC)`, `clients(merchant_id, created_at DESC)`) + 5 contraintes CHECK métier (`services.duration_minutes > 0`, `services.price_cents >= 0`, `merchants.seat_count > 0`, `bookings.ends_at > starts_at`, `client_packages.expires_at >= purchased_at`)
+- **[DB] 015** — RLS performance : `auth.uid()` wrappé dans `(SELECT auth.uid())` sur 16 tables (jusqu'à 100× plus rapide) ; `FORCE ROW LEVEL SECURITY` sur 16 tables ; politiques granulaires SELECT/INSERT/UPDATE/DELETE + `service_role` sur toutes les tables ; `WITH CHECK` sur INSERT ; 7 index FK manquants (`clients.preferred_practitioner_id`, `clients.preferred_service_id`, `tips.booking_id`, `client_packages.package_id`, `client_subscriptions.service_id`, `practitioner_services` × 2)
+- **[DB] 016** — Index redondants supprimés (`idx_bookings_merchant_id`, `idx_bookings_no_double_booking`) ; autovacuum agressif sur `bookings`, `messages`, `notifications` ; `booking_stats` et `tips_by_practitioner` converties en vues matérialisées ; `NOT NULL` sur `created_at`/`updated_at` (15 tables) ; `CHECK end_time > start_time` sur `practitioner_availability` ; validation email regex sur `merchants`, `practitioners`, `clients` ; extension `pg_stat_statements` activée
+
+### Sécurité — Corrections code v1.0.2 → v1.1.0
+
+- **[SEC] CSRF renforcé** — Comparaison stricte `new URL(origin).origin` sur la route réservation publique — `booking/[slug]/reserve/route.ts`
+- **[SEC] Injection messagerie** — `sanitizeMessageText()` : strip caractères de contrôle, formatage WhatsApp, newlines — `src/lib/utils/sanitize.ts` (nouveau)
+- **[SEC] RLS stripe_events** — RLS activé + politique `service_role` — `012_create_stripe_events.sql`
+- **[SEC] RLS idempotence** — `DROP POLICY IF EXISTS` avant chaque `CREATE POLICY` — `013_security_constraints.sql`
+- **[FIX] Validation Zod maxLength** — `clients` (name 255, phone 30, email 320, notes 5000), réservation publique (name 255, phone 30, email 320) — `clients/route.ts`, `reserve/route.ts`
+- **[FIX] Dates invalides** — `isValidCalendarDate()` / `isValidCalendarMonth()` strict — `bookings/route.ts`
+- **[FIX] Fire-and-forget** — `.catch()` explicite sur `handleNoShow`, `notifyClient`, `postWithRetry`
+- **[FIX] Types Stripe/Supabase** — Suppression `as unknown as`, interface `PackageJoin` typée, cast `Record<string, unknown>` sur Invoice
+- **[FIX] UI maxLength** — `maxLength={50}` + slice sur le champ nom IA — `ai-config.tsx`
+- **[FIX] URL Supabase** — Typo corrigée dans `.env.local` (`zwvn` → `zvwn`)
+
+### Déploiement
+
+- Migrations 001–016 appliquées sur `resaapp-prod` (Supabase `txebdgmufdsnkrntzvwn`)
+
+---
+
 ## [1.0.2] — 2026-03-29 — Security hardening (16 issues)
 
 ### Critical (2)
