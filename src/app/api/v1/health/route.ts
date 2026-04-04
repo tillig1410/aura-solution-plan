@@ -89,10 +89,20 @@ export async function GET() {
     overall = "degraded";
   }
 
+  // In production, strip error details to avoid leaking infrastructure info
+  const isProduction = process.env.NODE_ENV === "production";
+  const sanitizedServices = isProduction
+    ? {
+        supabase: { status: supabase.status, latencyMs: supabase.latencyMs },
+        redis: { status: redis.status, latencyMs: redis.latencyMs },
+        n8n: { status: n8n.status, latencyMs: n8n.latencyMs },
+      }
+    : services;
+
   const body: HealthResponse = {
     status: overall,
     timestamp: new Date().toISOString(),
-    services,
+    services: sanitizedServices as HealthResponse["services"],
   };
 
   const httpStatus = overall === "healthy" ? 200 : overall === "degraded" ? 207 : 503;

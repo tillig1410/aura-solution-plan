@@ -5,6 +5,53 @@
 
 ---
 
+## [1.4.1] — 2026-04-04 — Audit OWASP approfondi v2 (A01, A02, A03, A05, A08)
+
+### Critique
+- **[FIX] C1** — Fail-fast `STRIPE_SECRET_KEY` : 4 modules initialisaient Stripe avec `?? ""` silencieux au lieu de throw au démarrage (seul `subscription.ts` était correct) — `connect.ts`, `payment-links.ts`, `webhooks/stripe/route.ts`, `customer-portal/route.ts`
+- **[FIX] C2** — Validation UUID manquante sur `bookingId`/`merchantId` dans `handleChargeRefunded` (metadata webhook non validée avant usage en DB) — `charge-handlers.ts`
+
+### Important
+- **[FIX] I1** — Fuite d'erreurs internes Stripe dans les réponses API (`"Failed to create Stripe account: " + msg` exposait les détails) → messages génériques + log serveur — `connect/route.ts`, `customer-portal/route.ts`
+- **[FIX] I2** — `practitioner_id` query param non validé UUID sur `GET /bookings` (injection potentielle via PostgREST) — `bookings/route.ts`
+- **[FIX] I3** — Fail-fast sur secrets webhooks WhatsApp, Messenger et Telegram (retournaient 401 silencieusement au lieu de 500 explicite quand le secret est absent en config) — `whatsapp/route.ts`, `messenger/route.ts`, `telegram/route.ts`
+- **[FIX] I4** — 3 requêtes sans `.limit()` dans les stats (clients inactifs : scan complet `bookings` all-time + previous tips sans borne) — `stats/route.ts`
+- **[FIX] I5** — `.max()` manquant sur 8 schémas Zod : noms services (255), praticiens (255), forfaits (255), descriptions (2000), emails (320), téléphones (30), notes clients (5000) — `services/route.ts`, `services/[id]/route.ts`, `practitioners/route.ts`, `practitioners/[id]/route.ts`, `packages/route.ts`, `clients/[id]/route.ts`
+
+### Mineur
+- **[FIX] M1** — Health endpoint masque les messages d'erreur internes en production (évite la fuite d'infos infrastructure) — `health/route.ts`
+
+### Fichiers modifiés
+- `src/lib/stripe/connect.ts`
+- `src/lib/stripe/payment-links.ts`
+- `src/lib/stripe/handlers/charge-handlers.ts`
+- `src/app/api/v1/webhooks/stripe/route.ts`
+- `src/app/api/v1/webhooks/whatsapp/route.ts`
+- `src/app/api/v1/webhooks/messenger/route.ts`
+- `src/app/api/v1/webhooks/telegram/route.ts`
+- `src/app/api/v1/stripe/connect/route.ts`
+- `src/app/api/v1/stripe/customer-portal/route.ts`
+- `src/app/api/v1/bookings/route.ts`
+- `src/app/api/v1/stats/route.ts`
+- `src/app/api/v1/services/route.ts`
+- `src/app/api/v1/services/[id]/route.ts`
+- `src/app/api/v1/practitioners/route.ts`
+- `src/app/api/v1/practitioners/[id]/route.ts`
+- `src/app/api/v1/packages/route.ts`
+- `src/app/api/v1/clients/[id]/route.ts`
+- `src/app/api/v1/health/route.ts`
+
+### Validation
+- ✅ `next build` — 0 erreur TypeScript
+- ✅ `npm test` — 55 passed, 7 failed (identique avant/après — échecs préexistants)
+- ✅ `npm run lint` — 0 nouveau warning (3 erreurs préexistantes dans composants UI)
+
+### Points notés (hors périmètre / dette technique)
+- **[DEBT]** `availability.ts:48` — interpolation `${date}` dans `.or()` PostgREST : sûr tant que l'appelant valide le format, mais fragile si appelé depuis un nouveau contexte → migrer vers paramètre filtré en V2
+- **[DEBT]** Tests unitaires tip-attribution/webhook-stripe — mocks obsolètes depuis v1.2.x (ne testent plus le code actuel) → réécrire en V2
+
+---
+
 ## [1.4.0] — 2026-04-04 — Audit OWASP Top 10:2025 (skill owasp-security)
 
 ### Critique

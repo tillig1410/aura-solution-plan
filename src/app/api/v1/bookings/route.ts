@@ -108,6 +108,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (practitionerId) {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(practitionerId)) {
+      return apiError("Invalid practitioner_id format", 400, { traceId });
+    }
     query = query.eq("practitioner_id", practitionerId);
   }
 

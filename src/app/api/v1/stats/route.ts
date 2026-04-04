@@ -248,7 +248,8 @@ export async function GET(request: NextRequest) {
     .select(`amount_cents`)
     .eq("merchant_id", merchant.id)
     .gte("created_at", prevFromISO)
-    .lte("created_at", prevToISO);
+    .lte("created_at", prevToISO)
+    .limit(10_000);
 
   if (prevTipsError) {
     logger.error("stats.prev_tips_fetch_failed", { error: prevTipsError.message, traceId });
@@ -297,7 +298,8 @@ export async function GET(request: NextRequest) {
     .from("bookings")
     .select(`client_id`)
     .eq("merchant_id", merchant.id)
-    .gte("starts_at", ninetyDaysAgo.toISOString());
+    .gte("starts_at", ninetyDaysAgo.toISOString())
+    .limit(10_000);
 
   const activeClientIds = new Set(
     (recentBookingClientsRaw ?? []).map((b: { client_id: string }) => b.client_id),
@@ -307,7 +309,8 @@ export async function GET(request: NextRequest) {
   const { data: allBookingClientsRaw } = await supabase
     .from("bookings")
     .select(`client_id`)
-    .eq("merchant_id", merchant.id);
+    .eq("merchant_id", merchant.id)
+    .limit(50_000);
 
   const allBookedClientIds = new Set(
     (allBookingClientsRaw ?? []).map((b: { client_id: string }) => b.client_id),

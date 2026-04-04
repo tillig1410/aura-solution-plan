@@ -6,10 +6,10 @@ import { logger, securityLog } from "@/lib/logger";
 
 const updateClientSchema = z
   .object({
-    name: z.string().min(2).optional(),
-    phone: z.string().optional().nullable(),
-    email: z.string().email().optional().nullable(),
-    notes: z.string().optional().nullable(),
+    name: z.string().min(2).max(255).optional(),
+    phone: z.string().max(30).optional().nullable(),
+    email: z.string().email().max(320).optional().nullable(),
+    notes: z.string().max(5000).optional().nullable(),
     is_blocked: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {

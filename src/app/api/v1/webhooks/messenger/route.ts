@@ -26,6 +26,11 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get("x-hub-signature-256") ?? "";
   const secret = process.env.MESSENGER_APP_SECRET ?? "";
 
+  if (!secret) {
+    securityLog.misconfiguration("MESSENGER_APP_SECRET not configured");
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
   if (!verifyHmacSha256(rawBody, signature, secret)) {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     securityLog.signatureRejected("messenger", traceId, ip);

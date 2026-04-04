@@ -21,6 +21,12 @@ export async function POST(request: NextRequest) {
   // Validate Telegram webhook secret (set via setWebhook secret_token)
   const secretToken = request.headers.get("x-telegram-bot-api-secret-token") ?? "";
   const expectedToken = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
+
+  if (!expectedToken) {
+    securityLog.misconfiguration("TELEGRAM_WEBHOOK_SECRET not configured");
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
   if (!safeTokenCompare(secretToken, expectedToken)) {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     securityLog.signatureRejected("telegram", traceId, ip);

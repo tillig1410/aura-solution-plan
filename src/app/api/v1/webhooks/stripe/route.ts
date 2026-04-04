@@ -7,7 +7,11 @@ import { handleInvoicePaid, handleInvoicePaymentFailed } from "@/lib/stripe/hand
 import { handleChargeRefunded, handleChargeDisputeCreated } from "@/lib/stripe/handlers/charge-handlers";
 import { logger, webhookLog } from "@/lib/logger";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("STRIPE_SECRET_KEY is not configured");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2026-03-25.dahlia",
 });
 

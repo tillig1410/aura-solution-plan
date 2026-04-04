@@ -15,12 +15,12 @@ export interface PractitionerWithDetails extends PractitionerRow {
 }
 
 const createPractitionerSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(255),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "La couleur doit être au format hexadécimal #RRGGBB"),
   specialties: z.array(z.string()).optional().default([]),
-  email: z.string().email("Email invalide").optional(),
+  email: z.string().email("Email invalide").max(320).optional(),
   is_active: z.boolean().optional().default(true),
 });
 

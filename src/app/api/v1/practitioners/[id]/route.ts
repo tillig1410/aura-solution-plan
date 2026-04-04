@@ -6,8 +6,8 @@ import { logger, securityLog } from "@/lib/logger";
 
 const updatePractitionerSchema = z
   .object({
-    name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").optional(),
-    email: z.string().email("Email invalide").optional().nullable(),
+    name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(255).optional(),
+    email: z.string().email("Email invalide").max(320).optional().nullable(),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, "La couleur doit être au format hexadécimal #RRGGBB")

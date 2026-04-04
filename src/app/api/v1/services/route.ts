@@ -12,14 +12,14 @@ export interface ServiceWithPractitioners extends ServiceRow {
 }
 
 const createServiceSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(255),
   duration_minutes: z
     .number()
     .int("La durée doit être un entier")
     .min(5, "La durée minimale est 5 minutes")
     .max(480, "La durée maximale est 480 minutes"),
   price_cents: z.number().int("Le prix doit être un entier").min(0, "Le prix ne peut pas être négatif"),
-  description: z.string().optional(),
+  description: z.string().max(2000).optional(),
   is_active: z.boolean().optional().default(true),
 });
 

@@ -5,7 +5,7 @@ import { apiError } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
 const createPackageSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(255),
   service_id: z.string().uuid("service_id invalide"),
   total_uses: z.number().int().min(1, "Minimum 1 utilisation"),
   price_cents: z.number().int().min(0, "Le prix ne peut pas être négatif"),

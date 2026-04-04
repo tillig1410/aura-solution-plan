@@ -2,6 +2,8 @@ import { logger } from "@/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface ChargeLike {
   id: string;
   payment_intent: string | null;
@@ -38,7 +40,7 @@ export async function handleChargeRefunded(
     fullRefund: ch.refunded,
   });
 
-  if (bookingId && merchantId) {
+  if (bookingId && merchantId && UUID_RE.test(bookingId) && UUID_RE.test(merchantId)) {
     const { error } = await supabase
       .from("bookings")
       .update({ status: "cancelled" })

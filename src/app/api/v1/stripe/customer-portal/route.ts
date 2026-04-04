@@ -2,8 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { apiError } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("STRIPE_SECRET_KEY is not configured");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2026-03-25.dahlia",
 });
 
@@ -49,6 +54,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return apiError("Failed to create portal session: " + msg, 500, { traceId });
+    logger.error("stripe.customer_portal_failed", { error: msg, traceId });
+    return apiError("Failed to create portal session", 500, { traceId });
   }
 }

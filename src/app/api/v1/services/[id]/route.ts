@@ -6,8 +6,8 @@ import { logger, securityLog } from "@/lib/logger";
 
 const updateServiceSchema = z
   .object({
-    name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").optional(),
-    description: z.string().optional().nullable(),
+    name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(255).optional(),
+    description: z.string().max(2000).optional().nullable(),
     duration_minutes: z
       .number()
       .int("La durée doit être un entier")

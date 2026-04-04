@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { apiError } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 import { createConnectAccount } from "@/lib/stripe/connect";
 
 /**
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ onboardingUrl });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return apiError("Failed to create Stripe account: " + msg, 500, { traceId });
+    logger.error("stripe.connect_create_failed", { error: msg, traceId });
+    return apiError("Failed to create Stripe account", 500, { traceId });
   }
 }
