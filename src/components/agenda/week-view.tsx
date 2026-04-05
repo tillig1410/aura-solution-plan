@@ -10,9 +10,13 @@ interface BookingWithDetails extends Booking {
   service: { id: string; name: string; duration_minutes: number; price_cents: number } | null;
 }
 
+interface PractitionerWithAvailability extends Practitioner {
+  availability?: { day_of_week: number | null; is_available: boolean; exception_date: string | null }[];
+}
+
 interface WeekViewProps {
   bookings: BookingWithDetails[];
-  practitioners: Practitioner[];
+  practitioners: PractitionerWithAvailability[];
   weekStart: Date;
   selectedPractitionerIds: string[];
   onBookingClick: (b: BookingWithDetails) => void;
@@ -148,6 +152,24 @@ const WeekView = ({
                 }`}
               >
                 {day.getDate()}
+              </div>
+              {/* Pastilles praticiens qui travaillent ce jour */}
+              <div className="flex justify-center gap-0.5 mt-1">
+                {practitioners.filter((p) => p.is_active).map((p) => {
+                  const dayOfWeek = idx; // 0=Lun, 6=Dim
+                  const avail = p.availability?.find(
+                    (a) => a.day_of_week === dayOfWeek && a.exception_date === null
+                  );
+                  const works = avail ? avail.is_available : dayOfWeek < 6; // défaut: travaille lun-sam
+                  return (
+                    <div
+                      key={p.id}
+                      className={`h-2 w-2 rounded-full ${works ? "" : "opacity-20"}`}
+                      style={{ backgroundColor: p.color }}
+                      title={`${p.name}${works ? "" : " (absent)"}`}
+                    />
+                  );
+                })}
               </div>
             </div>
           );

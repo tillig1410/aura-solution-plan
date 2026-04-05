@@ -17,6 +17,8 @@ import DayView from "@/components/agenda/day-view";
 import WeekView from "@/components/agenda/week-view";
 import MonthView from "@/components/agenda/month-view";
 import BookingForm from "@/components/agenda/booking-form";
+import { createClient } from "@/lib/supabase/client";
+import { AlertCircle } from "lucide-react";
 import type { Booking, Practitioner, Service, Client } from "@/types/supabase";
 
 type ViewMode = "day" | "week" | "month";
@@ -120,8 +122,30 @@ const AgendaContent = () => {
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [merchantStatus, setMerchantStatus] = useState<{
+    hasSubscription: boolean;
+    trialEnd: string | null;
+  } | null>(null);
 
   const fetchAllData = useCallback(async () => {
+    // Fetch merchant status
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: merchant } = await supabase
+        .from("merchants")
+        .select("stripe_subscription_id, created_at")
+        .eq("user_id", user.id)
+        .single();
+      if (merchant) {
+        const trialEnd = new Date(new Date(merchant.created_at).getTime() + 14 * 24 * 60 * 60 * 1000);
+        setMerchantStatus({
+          hasSubscription: !!merchant.stripe_subscription_id,
+          trialEnd: trialEnd.toISOString(),
+        });
+      }
+    }
+
     const [pracRes, svcRes, clientRes, bookRes] = await Promise.all([
       fetch("/api/v1/practitioners"),
       fetch("/api/v1/services"),
@@ -310,6 +334,17 @@ const AgendaContent = () => {
     <div className="flex h-full gap-4">
       {/* Main calendar area */}
       <div className="flex flex-1 flex-col gap-3 min-w-0">
+        {/* Bannière statut abonnement */}
+        {merchantStatus && !merchantStatus.hasSubscription && merchantStatus.trialEnd && (
+          <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-700">
+              <span className="font-medium">Période d&apos;essai</span> — fin le{" "}
+              {new Date(merchantStatus.trialEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+            </p>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
