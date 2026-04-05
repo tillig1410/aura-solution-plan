@@ -492,7 +492,7 @@ const ServicesContent = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-[1fr,280px] gap-6">
+                      <div className="grid grid-cols-[1fr,250px] gap-4">
                         {/* Colonne gauche : Horaires */}
                         <div className="space-y-2">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Horaires de travail</p>
@@ -600,7 +600,7 @@ const ServicesContent = () => {
                         </div>
 
                         {/* Colonne droite : Congés */}
-                        <div className="md:border-l md:pl-6">
+                        <div className="border-l pl-4">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
                             <CalendarOff className="h-3.5 w-3.5" />
                             Congés
