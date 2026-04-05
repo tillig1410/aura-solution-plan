@@ -5,6 +5,20 @@
 
 ---
 
+## [1.5.9] — 2026-04-05 — Tests composants React complets (387/387 green)
+
+### Tests ajoutés (33 tests, 5 fichiers)
+- **`tests/unit/topbar.test.ts`** (2 tests) — bouton Déconnexion, appel signOut + redirect /login
+- **`tests/unit/login-content.test.ts`** (6 tests) — titre Plan, champ email, bouton soumission, description, appel signInWithOtp + confirmation, pas de confirmation sur erreur
+- **`tests/unit/ai-config.test.ts`** (10 tests) — nom IA pré-rempli, 3 tons, 5 langues, 4 canaux, bouton sauvegarder, répondeur Souscrire/Activé/Désactiver, changement ton, toggle langue, onSave données correctes
+- **`tests/unit/tips-summary.test.ts`** (9 tests) — total pourboires, nb pourboires, moyenne, noms top clients, Client anonyme, montants, numéros 1-2-3, état vide message, 0 € total+moyenne
+- **`tests/unit/bookings-chart.test.ts`** (6 tests) — filtrage 8h–21h, exclusion avant 8h, exclusion après 21h, inclusion bornes, labels Xh, données vides
+
+### Résultat
+- **40 suites, 387 tests, 0 échec** ✅
+
+---
+
 ## [1.5.8] — 2026-04-05 — Tests composants React critiques (354/354 green)
 
 ### Tests ajoutés (35 tests, 4 fichiers)
