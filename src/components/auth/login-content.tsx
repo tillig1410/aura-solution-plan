@@ -1,33 +1,97 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const LoginContent = () => {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const [loading, setLoading] = useState(false);
+type Mode = "login" | "register" | "magic";
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const LoginContent = () => {
+  const [mode, setMode] = useState<Mode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [magicSent, setMagicSent] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (authError) {
+      setError(
+        authError.message === "Invalid login credentials"
+          ? "Email ou mot de passe incorrect."
+          : authError.message
+      );
+      return;
+    }
+
+    router.push("/agenda");
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (password.length < 6) {
+      setError("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+
+    setLoading(false);
+
+    if (authError) {
+      setError(authError.message);
+      return;
+    }
+
+    router.push("/onboarding");
+  };
+
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
 
-    if (!error) {
-      setSent(true);
-    }
     setLoading(false);
+
+    if (authError) {
+      setError(authError.message);
+      return;
+    }
+
+    setMagicSent(true);
   };
 
-  if (sent) {
+  if (magicSent) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -49,11 +113,22 @@ const LoginContent = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Resaapp</CardTitle>
           <CardDescription>
-            Connectez-vous avec votre email professionnel
+            {mode === "login" && "Connectez-vous à votre espace"}
+            {mode === "register" && "Créez votre compte professionnel"}
+            {mode === "magic" && "Recevez un lien de connexion par email"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            onSubmit={
+              mode === "login"
+                ? handleLogin
+                : mode === "register"
+                  ? handleRegister
+                  : handleMagicLink
+            }
+            className="space-y-4"
+          >
             <Input
               type="email"
               placeholder="votre@email.com"
@@ -61,10 +136,82 @@ const LoginContent = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+            {mode !== "magic" && (
+              <Input
+                type="password"
+                placeholder="Mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            )}
+
+            {error && (
+              <p className="text-sm text-red-500 bg-red-50 p-2 rounded">
+                {error}
+              </p>
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Envoi..." : "Recevoir le lien de connexion"}
+              {loading
+                ? "Chargement..."
+                : mode === "login"
+                  ? "Se connecter"
+                  : mode === "register"
+                    ? "Créer mon compte"
+                    : "Envoyer le lien"}
             </Button>
           </form>
+
+          <div className="mt-4 space-y-2 text-center text-sm">
+            {mode === "login" && (
+              <>
+                <p>
+                  Pas encore de compte ?{" "}
+                  <button
+                    type="button"
+                    className="text-blue-600 hover:underline"
+                    onClick={() => { setMode("register"); setError(""); }}
+                  >
+                    Créer un compte
+                  </button>
+                </p>
+                <p>
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:underline"
+                    onClick={() => { setMode("magic"); setError(""); }}
+                  >
+                    Connexion par lien magique
+                  </button>
+                </p>
+              </>
+            )}
+            {mode === "register" && (
+              <p>
+                Déjà un compte ?{" "}
+                <button
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => { setMode("login"); setError(""); }}
+                >
+                  Se connecter
+                </button>
+              </p>
+            )}
+            {mode === "magic" && (
+              <p>
+                <button
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => { setMode("login"); setError(""); }}
+                >
+                  Retour à la connexion
+                </button>
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
