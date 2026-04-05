@@ -21,6 +21,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import AiConfig from "@/components/settings/ai-config";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import LoyaltyConfig from "@/components/settings/loyalty-config";
@@ -98,6 +105,10 @@ const SettingsContent = () => {
 
   // Seat selector
   const [previewSeats, setPreviewSeats] = useState(0);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
+
+  // Voice confirmation
+  const [voiceConfirmOpen, setVoiceConfirmOpen] = useState(false);
 
   // Delete account
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -659,7 +670,7 @@ const SettingsContent = () => {
                       </p>
                     </div>
                     <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 space-y-4">
-                      <p className="text-sm font-medium text-indigo-800">Choisir le nombre de sièges</p>
+                      <p className="text-sm font-medium text-indigo-800">Choisir votre forfait</p>
 
                       {/* Sélecteur +/- */}
                       <div className="flex items-center justify-center gap-4">
@@ -687,18 +698,80 @@ const SettingsContent = () => {
                         </button>
                       </div>
 
-                      {/* Prix affiché */}
-                      <div className="text-center space-y-1">
-                        <p className="text-2xl font-bold text-indigo-600">
-                          {formatEur(calculatePrice(previewSeats || merchant.seat_count, merchant.voice_enabled ?? false))}<span className="text-sm font-normal text-gray-500">/mois</span>
-                        </p>
-                        {merchant.voice_enabled && (
-                          <p className="text-xs text-gray-500">dont option Tél. IA incluse</p>
-                        )}
-                        <p className="text-xs text-green-600 font-medium">
-                          Early Adopter : {formatEur(calculateEarlyAdopterPrice(previewSeats || merchant.seat_count, merchant.voice_enabled ?? false))}/mois (-30%)
-                        </p>
+                      {/* Mensuel / Annuel */}
+                      <div className="flex justify-center">
+                        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setBillingPeriod("monthly")}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                              billingPeriod === "monthly"
+                                ? "bg-indigo-600 text-white"
+                                : "bg-white text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            Mensuel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBillingPeriod("annual")}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                              billingPeriod === "annual"
+                                ? "bg-indigo-600 text-white"
+                                : "bg-white text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            Annuel <span className="text-xs opacity-75">(-2 mois)</span>
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Prix affiché */}
+                      {(() => {
+                        const seats = previewSeats || merchant.seat_count;
+                        const monthly = calculatePrice(seats, merchant.voice_enabled ?? false);
+                        const annual = Math.round(monthly * 10); // 10 mois = 2 mois offerts
+                        const earlyMonthly = calculateEarlyAdopterPrice(seats, merchant.voice_enabled ?? false);
+                        const earlyAnnual = Math.round(earlyMonthly * 10);
+                        return (
+                          <div className="text-center space-y-1">
+                            {billingPeriod === "monthly" ? (
+                              <>
+                                <p className="text-2xl font-bold text-indigo-600">
+                                  {formatEur(monthly)}<span className="text-sm font-normal text-gray-500">/mois</span>
+                                </p>
+                                <p className="text-xs text-green-600 font-medium">
+                                  Early Adopter : {formatEur(earlyMonthly)}/mois (-30%)
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-2xl font-bold text-indigo-600">
+                                  {formatEur(annual)}<span className="text-sm font-normal text-gray-500">/an</span>
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  soit {formatEur(Math.round(annual / 12))}/mois — <span className="text-green-600 font-medium">2 mois offerts</span>
+                                </p>
+                                <p className="text-xs text-green-600 font-medium">
+                                  Early Adopter : {formatEur(earlyAnnual)}/an (-30%)
+                                </p>
+                              </>
+                            )}
+                            {merchant.voice_enabled && (
+                              <p className="text-xs text-gray-400">dont option Tél. IA incluse</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Bouton valider */}
+                      <Button
+                        className="w-full"
+                        disabled={!merchant.stripe_subscription_id}
+                        onClick={() => toast.info("La souscription sera disponible après la configuration de Stripe.")}
+                      >
+                        {merchant.stripe_subscription_id ? "Valider le changement" : "Activer mon abonnement"}
+                      </Button>
 
                       <p className="text-xs text-gray-400 text-center">
                         Essai gratuit 14 jours · Sans carte bancaire · Sans engagement
@@ -725,11 +798,46 @@ const SettingsContent = () => {
                     L&apos;IA décroche vos appels et réserve automatiquement.
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    +7€ à +52€/mois selon le nombre de sièges
+                    +{formatEur(calculatePrice(merchant.seat_count, true) - calculatePrice(merchant.seat_count, false))}/mois pour {merchant.seat_count} siège{merchant.seat_count > 1 ? "s" : ""}
                   </p>
                 </div>
-                <button
-                  type="button"
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                  merchant.voice_enabled ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
+                }`}>
+                  {merchant.voice_enabled ? "Activé" : "Désactivé"}
+                </span>
+              </div>
+              <Button
+                variant={merchant.voice_enabled ? "outline" : "default"}
+                size="sm"
+                className={merchant.voice_enabled ? "text-red-600 border-red-200 hover:bg-red-50" : ""}
+                onClick={() => setVoiceConfirmOpen(true)}
+              >
+                {merchant.voice_enabled ? "Désactiver l'option" : "Activer l'option"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Dialog confirmation Tél IA */}
+          <Dialog open={voiceConfirmOpen} onOpenChange={setVoiceConfirmOpen}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>
+                  {merchant.voice_enabled ? "Désactiver le Téléphone IA ?" : "Activer le Téléphone IA ?"}
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-gray-600">
+                {merchant.voice_enabled
+                  ? "L'IA ne répondra plus aux appels téléphoniques. Vous pourrez réactiver à tout moment."
+                  : `L'option ajoutera ${formatEur(calculatePrice(merchant.seat_count, true) - calculatePrice(merchant.seat_count, false))}/mois à votre abonnement. Un numéro dédié (+33) vous sera attribué.`
+                }
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setVoiceConfirmOpen(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  variant={merchant.voice_enabled ? "destructive" : "default"}
                   onClick={async () => {
                     try {
                       await saveMerchant({ voice_enabled: !merchant.voice_enabled });
@@ -737,20 +845,14 @@ const SettingsContent = () => {
                     } catch {
                       toast.error("Erreur");
                     }
+                    setVoiceConfirmOpen(false);
                   }}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    merchant.voice_enabled ? "bg-indigo-600" : "bg-gray-200"
-                  }`}
                 >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
-                      merchant.voice_enabled ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
+                  Confirmer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
       </div>{/* fin contenu scrollable */}
