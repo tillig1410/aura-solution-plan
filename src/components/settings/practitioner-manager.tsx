@@ -227,22 +227,22 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
-          {activePracCount} / {seatCount} praticien{seatCount > 1 ? "s" : ""}
-        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">
+            {activePracCount} / {seatCount} praticien{seatCount > 1 ? "s" : ""}
+          </span>
+          {activePracCount > seatCount && (
+            <span className="text-xs px-2 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200">
+              Dépassement
+            </span>
+          )}
+        </div>
         {seatLimitReached ? (
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-1 rounded-full border ${
-              activePracCount > seatCount
-                ? "text-red-700 bg-red-50 border-red-200"
-                : "text-amber-700 bg-amber-50 border-amber-200"
-            }`}>
-              {activePracCount > seatCount
-                ? `Dépassement : ${activePracCount} actifs / ${seatCount} autorisé${seatCount > 1 ? "s" : ""}`
-                : `Limite atteinte (${seatCount} siège${seatCount > 1 ? "s" : ""})`
-              }
-            </span>
-            <Button size="sm" className="gap-1" onClick={() => {
+            {activePracCount <= seatCount && (
+              <span className="text-xs text-amber-600">Limite atteinte</span>
+            )}
+            <Button className="gap-2" onClick={() => {
               sessionStorage.setItem("settings_tab", "abonnement");
               window.location.href = "/settings";
             }}>
@@ -250,7 +250,7 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
             </Button>
           </div>
         ) : (
-          <Button onClick={openNew} size="sm" className="gap-2">
+          <Button onClick={openNew} className="gap-2">
             <Plus className="h-4 w-4" />
             Nouveau praticien
           </Button>

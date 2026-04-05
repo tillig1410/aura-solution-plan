@@ -315,12 +315,6 @@ const ServicesContent = () => {
             {activePractitioners.length} praticien{activePractitioners.length > 1 ? "s" : ""}
           </p>
         </div>
-        {tab === "services" && (
-          <Button onClick={openNewService} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nouveau service
-          </Button>
-        )}
       </div>
 
       {/* Tabs */}
@@ -347,6 +341,32 @@ const ServicesContent = () => {
         </div>
       ) : (
         <>
+          {/* Barre d'action — même style pour tous les onglets */}
+          <div className="flex justify-end mb-4">
+            {tab === "services" && (
+              <Button onClick={openNewService} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nouveau service
+              </Button>
+            )}
+            {tab === "horaires" && (
+              <Button
+                onClick={handleSaveSchedule}
+                disabled={scheduleSaving}
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {scheduleSaving ? "Enregistrement..." : "Sauvegarder les horaires"}
+              </Button>
+            )}
+            {tab === "fermetures" && (
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Ajouter fermeture
+              </Button>
+            )}
+          </div>
+
           {/* ---- Onglet Services ---- */}
           {tab === "services" && (
             <div className="space-y-3">
@@ -438,16 +458,6 @@ const ServicesContent = () => {
           {/* ---- Onglet Horaires ---- */}
           {tab === "horaires" && (
             <div className="space-y-6">
-              <div className="flex justify-end sticky top-0 z-10 bg-gray-50 -mt-2 pt-2 pb-2">
-                <Button
-                  onClick={handleSaveSchedule}
-                  disabled={scheduleSaving}
-                  className="gap-2"
-                >
-                  <Save className="h-4 w-4" />
-                  {scheduleSaving ? "Enregistrement..." : "Sauvegarder les horaires"}
-                </Button>
-              </div>
               {activePractitioners.map((prac) => {
                 const days = scheduleByPrac[prac.id];
                 if (!days) return null;
@@ -699,13 +709,6 @@ const ServicesContent = () => {
           {/* ---- Onglet Fermetures ---- */}
           {tab === "fermetures" && (
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Jours de fermeture</h3>
-                <Button size="sm" variant="outline" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Ajouter fermeture
-                </Button>
-              </div>
               <Card>
                 <CardContent className="py-12 text-center">
                   <CalendarOff className="h-8 w-8 text-gray-300 mx-auto mb-3" />
