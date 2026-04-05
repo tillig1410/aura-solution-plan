@@ -162,10 +162,10 @@ const SettingsContent = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">Paramètres</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-4 shrink-0">Paramètres</h1>
 
-      {/* Tabs — sticky dans le main scroll */}
-      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto sticky -top-6 bg-gray-50 z-10 -mx-6 px-6 pt-6 -mt-6">
+      {/* Tabs — fixe en haut, ne scrolle jamais */}
+      <div className="flex gap-1 border-b border-gray-200 mb-0 overflow-x-auto shrink-0">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -181,6 +181,9 @@ const SettingsContent = () => {
           </button>
         ))}
       </div>
+
+      {/* Contenu scrollable sous les onglets */}
+      <div className="flex-1 overflow-y-auto pt-6">
 
       {/* ---- Onglet Mon salon ---- */}
       {tab === "salon" && (
@@ -530,6 +533,7 @@ const SettingsContent = () => {
           </Card>
         </div>
       )}
+      </div>{/* fin contenu scrollable */}
     </div>
   );
 };
