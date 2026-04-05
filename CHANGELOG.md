@@ -5,6 +5,19 @@
 
 ---
 
+## [1.5.8] — 2026-04-05 — Tests composants React critiques (354/354 green)
+
+### Tests ajoutés (35 tests, 4 fichiers)
+- **`tests/unit/agenda-week-view.test.ts`** (13 tests) — WeekView : en-têtes Lun–Dim, numéros de jour, grille 8h–19h, Fermé dimanche, affichage booking client, filtrage par praticien, selectedPractitionerIds vide = tout visible, positionnement CSS top/height, service visible si ≥32px, onBookingClick, dimanche pas de bookings
+- **`tests/unit/agenda-month-view.test.ts`** (8 tests) — MonthView : en-têtes, grille 42 boutons (6×7), premier lundi correct, jours 1–30, Fermé ×6, compteur RDV, point couleur praticien, onDayClick retourne la bonne date
+- **`tests/unit/practitioner-performance.test.ts`** (7 tests) — PractitionerPerformance : état vide message, en-têtes tableau, noms praticiens, bookings_count, fill_rate %, top_service, pas de crash avec 1 seul praticien
+- **`tests/unit/sidebar.test.ts`** (7 tests) — Sidebar : 6 items navigation, logo Plan, href corrects, classe bg-gray-100 sur item actif, items inactifs sans classe, pathname → bon item actif, sous-routes reconnues
+
+### Résultat
+- **35 suites, 354 tests, 0 échec** ✅
+
+---
+
 ## [1.5.7] — 2026-04-05 — Tests complets toutes routes API v1 (319/319 green)
 
 ### Tests ajoutés (47 tests, 4 fichiers)
