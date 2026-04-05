@@ -64,7 +64,16 @@ const ComingSoonCard = ({ title, phase }: { title: string; phase: string }) => (
 // ---------- Component ----------
 
 const SettingsContent = () => {
-  const [tab, setTab] = useState<SettingsTab>("salon");
+  const [tab, setTab] = useState<SettingsTab>(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("settings_tab") as SettingsTab | null;
+      if (saved) {
+        sessionStorage.removeItem("settings_tab");
+        return saved;
+      }
+    }
+    return "salon";
+  });
   const [merchant, setMerchant] = useState<Merchant | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -598,47 +607,85 @@ const SettingsContent = () => {
                   {merchant.stripe_subscription_id ? "Actif" : "Période d'essai"}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Prochain renouvellement</span>
-                <span className="text-gray-700">
-                  {merchant.stripe_subscription_id ? "Géré par Stripe" : "—"}
-                </span>
-              </div>
-              <div className="pt-2">
-                {merchant.stripe_subscription_id ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={portalLoading}
-                    onClick={async () => {
-                      setPortalLoading(true);
-                      try {
-                        const res = await fetch("/api/v1/stripe/customer-portal", { method: "POST" });
-                        if (res.ok) {
-                          const { url } = (await res.json()) as { url: string };
-                          window.location.href = url;
-                        } else {
-                          toast.error("Impossible d'ouvrir le portail Stripe");
-                        }
-                      } catch {
-                        toast.error("Erreur réseau");
-                      } finally {
-                        setPortalLoading(false);
-                      }
-                    }}
-                  >
-                    {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Gérer mon abonnement
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
-                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                    <p className="text-sm text-amber-700">
-                      Période d&apos;essai — la gestion sera disponible après la configuration de Stripe.
-                    </p>
+              {merchant.stripe_subscription_id ? (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Prochain renouvellement</span>
+                    <span className="text-gray-700">Géré par Stripe</span>
                   </div>
-                )}
-              </div>
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={portalLoading}
+                      onClick={async () => {
+                        setPortalLoading(true);
+                        try {
+                          const res = await fetch("/api/v1/stripe/customer-portal", { method: "POST" });
+                          if (res.ok) {
+                            const { url } = (await res.json()) as { url: string };
+                            window.location.href = url;
+                          } else {
+                            toast.error("Impossible d'ouvrir le portail Stripe");
+                          }
+                        } catch {
+                          toast.error("Erreur réseau");
+                        } finally {
+                          setPortalLoading(false);
+                        }
+                      }}
+                    >
+                      {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Gérer mon abonnement
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Fin de la période d&apos;essai</span>
+                    <span className="text-gray-700">
+                      {new Date(new Date(merchant.created_at).getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                    </span>
+                  </div>
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                      <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                      <p className="text-sm text-amber-700">
+                        Vous êtes en période d&apos;essai (14 jours). Activez votre abonnement pour continuer après cette date.
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 space-y-3">
+                      <p className="text-sm font-medium text-indigo-800">Changer de forfait</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { seats: 1, label: "Solo" },
+                          { seats: 3, label: "Équipe" },
+                          { seats: 7, label: "Salon" },
+                        ].map((plan) => (
+                          <div
+                            key={plan.seats}
+                            className={`rounded-lg border p-3 text-center ${
+                              merchant.seat_count === plan.seats
+                                ? "border-indigo-500 bg-white ring-1 ring-indigo-500"
+                                : "border-gray-200 bg-white"
+                            }`}
+                          >
+                            <p className="text-xs font-medium text-gray-900">{plan.label}</p>
+                            <p className="text-lg font-bold text-indigo-600">
+                              {formatEur(calculatePrice(plan.seats, false))}
+                            </p>
+                            <p className="text-xs text-gray-500">/mois · {plan.seats} siège{plan.seats > 1 ? "s" : ""}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 text-center">
+                        L&apos;activation de l&apos;abonnement sera disponible après la configuration de Stripe.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 

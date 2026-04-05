@@ -210,11 +210,21 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
         </h3>
         {seatLimitReached ? (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
-              Limite atteinte ({seatCount} siège{seatCount > 1 ? "s" : ""})
+            <span className={`text-xs px-2 py-1 rounded-full border ${
+              activePracCount > seatCount
+                ? "text-red-700 bg-red-50 border-red-200"
+                : "text-amber-700 bg-amber-50 border-amber-200"
+            }`}>
+              {activePracCount > seatCount
+                ? `Dépassement : ${activePracCount} actifs / ${seatCount} autorisé${seatCount > 1 ? "s" : ""}`
+                : `Limite atteinte (${seatCount} siège${seatCount > 1 ? "s" : ""})`
+              }
             </span>
-            <Button size="sm" variant="outline" className="gap-1 text-indigo-600" onClick={() => window.location.href = "/settings?tab=abonnement"}>
-              Upgrader
+            <Button size="sm" className="gap-1" onClick={() => {
+              sessionStorage.setItem("settings_tab", "abonnement");
+              window.location.href = "/settings";
+            }}>
+              Upgrader mon forfait
             </Button>
           </div>
         ) : (
