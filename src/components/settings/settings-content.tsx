@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import AiConfig from "@/components/settings/ai-config";
+import ErrorBoundary from "@/components/ui/error-boundary";
 import LoyaltyConfig from "@/components/settings/loyalty-config";
 import PackagesConfig from "@/components/settings/packages-config";
 import { generateQrCodeDataUrl } from "@/lib/utils/qr-code";
@@ -263,7 +264,9 @@ const SettingsContent = () => {
       {/* ---- Onglet IA & Canaux ---- */}
       {tab === "ia" && merchant && (
         <div className="max-w-2xl">
-          <AiConfig merchant={merchant} onSave={saveMerchant} />
+          <ErrorBoundary>
+            <AiConfig merchant={merchant} onSave={saveMerchant} />
+          </ErrorBoundary>
         </div>
       )}
 
