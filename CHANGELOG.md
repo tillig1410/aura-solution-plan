@@ -1,7 +1,32 @@
-# CHANGELOG — AurA Solutions
+# CHANGELOG — Resaapp
 
 > Suivi des modifications du projet. Mis à jour après chaque session de développement.
 > Format : `[TYPE] Description — fichier(s) modifié(s)`
+
+---
+
+## [2.0.0] — 2026-04-05 — Déploiement production complet
+
+### Déploiement
+- **[INFRA]** Frontend déployé sur **Vercel** — https://resaapp.fr (auto-deploy sur push `main`)
+- **[INFRA]** Base de données **Supabase Cloud** — 16 migrations synchronisées (projet `txebdgmufdsnkrntzvwn`, région Paris)
+- **[INFRA]** VPS Hostinger KVM 2 (Ubuntu 24.04) — **n8n + Redis + Nginx + Certbot** via Docker Compose
+- **[INFRA]** n8n accessible sur https://n8n.resaapp.fr avec SSL Let's Encrypt
+- **[INFRA]** 5 workflows n8n importés et activés : booking-conversation, google-review-request, reminder-notifications, package-expiration-check, voice-call-handler
+- **[INFRA]** Credentials n8n configurés : Supabase API, Google Gemini, Header Auth
+- **[INFRA]** 17 variables d'environnement configurées sur Vercel (production)
+- **[INFRA]** Domaine `resaapp.fr` configuré (DNS A → Vercel, CNAME www → Vercel, A n8n → VPS)
+
+### Rebranding
+- **[REFACTOR]** Renommage de l'app **Plan → Resaapp** — layout.tsx, sidebar, login, onboarding, booking page (metadata, OpenGraph, SEO)
+
+### Architecture déployée
+```
+resaapp.fr (Vercel) → Supabase Cloud (BDD/Auth)
+                    → n8n.resaapp.fr (VPS) → Redis (interne)
+                                           → Gemini API
+                                           → Webhooks (Stripe, WhatsApp, Telnyx)
+```
 
 ---
 
