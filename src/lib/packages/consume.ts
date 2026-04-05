@@ -65,15 +65,21 @@ export const consumePackage = async (
 
   const newRemaining = eligible.remaining_uses - 1;
 
-  const { error: updateError } = await supabase
+  const { data: updatedRows, error: updateError } = await supabase
     .from("client_packages")
     .update({ remaining_uses: newRemaining })
     .eq("id", eligible.id)
-    .eq("remaining_uses", eligible.remaining_uses); // Optimistic lock
+    .eq("remaining_uses", eligible.remaining_uses) // Optimistic lock
+    .select("id");
 
   if (updateError) {
     logger.error("packages.consume_update_failed", { error: updateError.message, traceId });
     return { success: false, error: "Failed to consume package (concurrent update)" };
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    logger.warn("packages.consume_optimistic_lock_failed", { clientPackageId: eligible.id, traceId });
+    return { success: false, error: "Concurrent update detected, please retry" };
   }
 
   logger.info("packages.consumed", {

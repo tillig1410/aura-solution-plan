@@ -82,7 +82,18 @@ function makeGetSb() {
   };
 }
 
-describe("GET /api/v1/booking/:slug — salon introuvable", () => {
+describe("GET /api/v1/booking/:slug — validation slug", () => {
+  it("retourne 404 si slug contient des caractères invalides", async () => {
+    const res = await GET(new NextRequest("http://localhost/api/v1/booking/INVALID_SLUG!"), routeCtx("INVALID_SLUG!"));
+    expect(res.status).toBe(404);
+  });
+
+  it("retourne 404 si slug trop long (>100 chars)", async () => {
+    const longSlug = "a".repeat(101);
+    const res = await GET(new NextRequest(`http://localhost/api/v1/booking/${longSlug}`), routeCtx(longSlug));
+    expect(res.status).toBe(404);
+  });
+
   it("retourne 404 si slug inconnu", async () => {
     vi.mocked(createAdminClient).mockReturnValue({
       from: vi.fn(() => buildChain(null)),
@@ -174,7 +185,7 @@ function makeReserveSb(options: {
 function reserveReq(slug: string, body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest(`http://localhost/api/v1/booking/${slug}/reserve`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: { "Content-Type": "application/json", "x-requested-with": "XMLHttpRequest", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -231,7 +242,7 @@ describe("POST /api/v1/booking/:slug/reserve — validation", () => {
   it("retourne 400 si JSON invalide", async () => {
     const req = new NextRequest("http://localhost/api/v1/booking/salon-test/reserve", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-requested-with": "XMLHttpRequest" },
       body: "not-json",
     });
     const res = await POST(req, routeCtx("salon-test"));
@@ -262,7 +273,6 @@ describe("POST /api/v1/booking/:slug/reserve — CSRF", () => {
       reserveReq("salon-test", validBody, { origin: "https://app.plan.fr" }),
       routeCtx("salon-test"),
     );
-    // Ne retourne pas 403 — peut retourner 404 pour praticien/service mais pas CSRF
     expect(res.status).not.toBe(403);
   });
 
@@ -272,6 +282,30 @@ describe("POST /api/v1/booking/:slug/reserve — CSRF", () => {
       routeCtx("salon-test"),
     );
     expect(res.status).toBe(403);
+  });
+
+  it("retourne 403 si ni Origin ni X-Requested-With", async () => {
+    // Requête brute sans x-requested-with ni origin
+    const rawReq = new NextRequest("http://localhost/api/v1/booking/salon-test/reserve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+    const res = await POST(
+      rawReq,
+      routeCtx("salon-test"),
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json() as { code: string };
+    expect(body.code).toBe("CSRF_MISSING_ORIGIN");
+  });
+
+  it("accepte si X-Requested-With présent sans Origin", async () => {
+    const res = await POST(
+      reserveReq("salon-test", validBody, { "x-requested-with": "XMLHttpRequest" }),
+      routeCtx("salon-test"),
+    );
+    expect(res.status).not.toBe(403);
   });
 });
 

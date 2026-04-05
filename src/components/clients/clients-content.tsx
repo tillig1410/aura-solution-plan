@@ -138,9 +138,11 @@ const ClientsContent = () => {
     [],
   );
 
+  // Fetch on filter/page change only — search is debounced separately
   useEffect(() => {
     fetchClients(search, filter, page);
-  }, [filter, page, fetchClients, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, page, fetchClients]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);

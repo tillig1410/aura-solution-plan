@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { apiError } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 import { createDashboardLink } from "@/lib/stripe/connect";
 
 /**
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return apiError("Failed to create dashboard link: " + msg, 500, { traceId });
+    logger.error("stripe.dashboard_link_failed", { error: msg, traceId });
+    return apiError("Failed to create dashboard link", 500, { traceId });
   }
 }

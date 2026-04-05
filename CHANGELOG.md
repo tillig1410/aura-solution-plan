@@ -5,6 +5,25 @@
 
 ---
 
+## [1.6.0] — 2026-04-05 — Audit sécurité + correctifs 7 issues (391/391 green)
+
+### Sécurité — Correctifs audit
+- **[CRITIQUE]** `src/lib/telnyx/voice.ts` — remplacé `setInterval` module-scope par `purgeStaleFallbackCalls()` on-demand (fuite mémoire serverless)
+- **[ÉLEVÉ]** `src/app/api/v1/stripe/dashboard-link/route.ts` — message erreur Stripe masqué (info disclosure) → log côté serveur uniquement
+- **[ÉLEVÉ]** `src/app/api/v1/booking/[slug]/reserve/route.ts` — CSRF renforcé : exige `X-Requested-With` si `Origin` absent (bloque scripts/curl)
+- **[MOYEN]** `src/app/api/v1/booking/[slug]/*.ts` — validation format slug (alphanum+tirets, max 100 chars)
+- **[MOYEN]** `src/lib/packages/consume.ts` — optimistic lock vérifie désormais le nombre de rows affectées (`.select("id")` + check `updatedRows.length`)
+- **[MOYEN]** `src/components/clients/clients-content.tsx` — supprimé double-fetch sur recherche (useEffect ne dépend plus de `search`)
+- **[MOYEN]** `src/components/clients/client-detail.tsx` — ajout `toast.error()` si sauvegarde notes échoue (erreur silencieuse corrigée)
+
+### Tests ajoutés
+- 4 nouveaux tests : validation slug invalide/trop long, CSRF sans Origin ni X-Requested-With, CSRF avec X-Requested-With seul
+
+### Résultat
+- **40 suites, 391 tests, 0 échec** ✅
+
+---
+
 ## [1.5.9] — 2026-04-05 — Tests composants React complets (387/387 green)
 
 ### Tests ajoutés (33 tests, 5 fichiers)

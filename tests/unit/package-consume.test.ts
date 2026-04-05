@@ -29,10 +29,12 @@ function makeClientPackage(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeConsumeSupabase(packages: object[] | null, updateError: object | null = null) {
+function makeConsumeSupabase(packages: object[] | null, updateError: object | null = null, updatedRows: object[] = [{ id: "cp-1" }]) {
   const updateFn = vi.fn().mockReturnValue({
     eq: vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: updateError }),
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockResolvedValue({ data: updateError ? null : updatedRows, error: updateError }),
+      }),
     }),
   });
 

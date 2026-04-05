@@ -14,6 +14,12 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+
+  // Validate slug format (alphanumeric + hyphens, max 100 chars)
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/.test(slug)) {
+    return apiError("Salon not found", 404);
+  }
+
   const supabase = createAdminClient();
 
   // Charger le commerçant par slug

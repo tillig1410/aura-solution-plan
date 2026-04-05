@@ -27,12 +27,17 @@ export async function POST(
   const { slug } = await params;
   const traceId = request.headers.get("x-trace-id") ?? undefined;
 
+  // Validate slug format (alphanumeric + hyphens, max 100 chars)
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/.test(slug)) {
+    return apiError("Invalid slug", 400, { traceId });
+  }
+
   // CSRF protection: reject cross-origin requests from unknown origins
+  // Also require X-Requested-With header when Origin is absent (blocks raw scripts/curl)
   const origin = request.headers.get("origin");
   const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL;
   if (origin) {
     if (!rawAppUrl) {
-      // Misconfiguration: app URL unknown — log and continue (public endpoint)
       logger.warn("booking.csrf_check_skipped_no_app_url", { traceId, origin });
     } else {
       const allowedOrigin = rawAppUrl.startsWith("http") ? rawAppUrl : `https://${rawAppUrl}`;
@@ -44,6 +49,9 @@ export async function POST(
         return apiError("Forbidden", 403, { traceId, code: "CSRF_ORIGIN_MISMATCH" });
       }
     }
+  } else if (!request.headers.get("x-requested-with")) {
+    // No Origin header and no X-Requested-With — likely a direct script call
+    return apiError("Forbidden", 403, { traceId, code: "CSRF_MISSING_ORIGIN" });
   }
 
   const supabase = createAdminClient();

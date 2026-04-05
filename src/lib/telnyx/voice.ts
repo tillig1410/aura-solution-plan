@@ -13,16 +13,18 @@ const getTelnyxApiKey = (): string => {
 // Track calls in fallback flow (event-driven instead of setTimeout)
 const fallbackCalls = new Map<string, number>();
 
-// Cleanup stale entries every 60s (in case call.speak.ended never arrives)
+// Cleanup stale entries (in case call.speak.ended never arrives)
 const FALLBACK_TTL_MS = 30_000;
-setInterval(() => {
+
+/** Purge expired fallback call entries. Called before each Map access. */
+const purgeStaleFallbackCalls = () => {
   const now = Date.now();
   for (const [id, ts] of fallbackCalls) {
     if (now - ts > FALLBACK_TTL_MS) {
       fallbackCalls.delete(id);
     }
   }
-}, 60_000);
+};
 
 interface TelnyxCallPayload {
   call_control_id: string;
@@ -63,6 +65,7 @@ export const handleVoiceEvent = async (
       break;
 
     case "call.answered":
+      purgeStaleFallbackCalls();
       if (fallbackCalls.has(payload.call_control_id)) {
         await speakText(
           payload.call_control_id,

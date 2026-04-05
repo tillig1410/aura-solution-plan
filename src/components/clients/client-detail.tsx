@@ -11,6 +11,7 @@ import {
   Package,
   ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 // --- Types ---
@@ -180,6 +181,9 @@ const ClientDetail = ({ clientId, onClose }: ClientDetailProps) => {
         const updated = (await res.json()) as ClientDetail;
         setClient((prev) => (prev ? { ...prev, notes: updated.notes } : prev));
         setEditingNotes(false);
+      } else {
+        const err = (await res.json().catch(() => ({ error: "Erreur inconnue" }))) as { error?: string };
+        toast.error(err.error ?? "Erreur lors de la sauvegarde des notes");
       }
     } finally {
       setSavingNotes(false);
