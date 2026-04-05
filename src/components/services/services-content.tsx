@@ -95,10 +95,13 @@ const ServicesContent = () => {
   const [svcError, setSvcError] = useState<string | null>(null);
 
   // Horaires state
-  const [scheduleByPrac, setScheduleByPrac] = useState<
-    Record<string, { enabled: boolean; start: string; end: string }[]>
-  >({});
+  interface DaySlot { enabled: boolean; start: string; end: string; breakStart: string; breakEnd: string }
+  const [scheduleByPrac, setScheduleByPrac] = useState<Record<string, DaySlot[]>>({});
   const [scheduleSaving, setScheduleSaving] = useState(false);
+
+  // Congés state
+  const [vacationByPrac, setVacationByPrac] = useState<Record<string, string[]>>({});
+  const [vacationInputs, setVacationInputs] = useState<Record<string, { from: string; to: string }>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -128,20 +131,26 @@ const ServicesContent = () => {
         const pracs = (pracJson.data ?? pracJson) as PractitionerWithServices[];
         setPractitioners(pracs);
 
-        // Build schedule from availability data
-        const sched: Record<string, { enabled: boolean; start: string; end: string }[]> = {};
+        // Build schedule + vacations from availability data
+        const sched: Record<string, DaySlot[]> = {};
+        const vacations: Record<string, string[]> = {};
         for (const p of pracs) {
-          const days = DAY_LABELS.map((_, i) => {
+          const days: DaySlot[] = DAY_LABELS.map((_, i) => {
             const match = p.availability.find(
               (a) => a.day_of_week === i && a.exception_date === null,
             );
             return match
-              ? { enabled: match.is_available, start: match.start_time.slice(0, 5), end: match.end_time.slice(0, 5) }
-              : { enabled: i < 6, start: "09:00", end: "19:00" };
+              ? { enabled: match.is_available, start: match.start_time.slice(0, 5), end: match.end_time.slice(0, 5), breakStart: "12:00", breakEnd: "13:00" }
+              : { enabled: i < 6, start: "09:00", end: "19:00", breakStart: "12:00", breakEnd: "13:00" };
           });
           sched[p.id] = days;
+          vacations[p.id] = p.availability
+            .filter((a) => a.exception_date !== null && !a.is_available)
+            .map((a) => a.exception_date as string)
+            .sort();
         }
         setScheduleByPrac(sched);
+        setVacationByPrac(vacations);
       }
     } finally {
       setLoading(false);
@@ -246,10 +255,16 @@ const ServicesContent = () => {
           end_time: slot.end,
           is_available: slot.enabled,
         }));
+        const exceptions = (vacationByPrac[pracId] ?? []).map((date) => ({
+          exception_date: date,
+          start_time: "00:00",
+          end_time: "23:59",
+          is_available: false,
+        }));
         return fetch(`/api/v1/practitioners/${pracId}/availability`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ recurring }),
+          body: JSON.stringify({ recurring, exceptions }),
         });
       });
       const results = await Promise.all(promises);
@@ -415,6 +430,8 @@ const ServicesContent = () => {
               {activePractitioners.map((prac) => {
                 const days = scheduleByPrac[prac.id];
                 if (!days) return null;
+                const pracVacations = vacationByPrac[prac.id] ?? [];
+                const vacInput = vacationInputs[prac.id] ?? { from: "", to: "" };
                 return (
                   <Card key={prac.id}>
                     <CardHeader>
@@ -426,11 +443,12 @@ const ServicesContent = () => {
                         {prac.name}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
+                      {/* Horaires hebdomadaires */}
                       <div className="space-y-2">
                         {DAY_LABELS.map((day, i) => (
-                          <div key={day} className="flex items-center gap-3">
-                            <label className="flex items-center gap-2 w-28 text-sm cursor-pointer">
+                          <div key={day} className="flex items-center gap-3 flex-wrap">
+                            <label className="flex items-center gap-2 w-28 text-sm cursor-pointer shrink-0">
                               <input
                                 type="checkbox"
                                 checked={days[i].enabled}
@@ -449,7 +467,7 @@ const ServicesContent = () => {
                               </span>
                             </label>
                             {days[i].enabled ? (
-                              <div className="flex items-center gap-1 text-sm">
+                              <div className="flex items-center gap-1 text-sm flex-wrap">
                                 <input
                                   type="time"
                                   value={days[i].start}
@@ -477,12 +495,102 @@ const ServicesContent = () => {
                                   }
                                   className="border border-gray-200 rounded px-2 py-1 text-sm"
                                 />
+                                <span className="text-xs text-gray-400 ml-2">Pause</span>
+                                <input
+                                  type="time"
+                                  value={days[i].breakStart}
+                                  onChange={(e) =>
+                                    setScheduleByPrac((prev) => ({
+                                      ...prev,
+                                      [prac.id]: prev[prac.id].map((slot, j) =>
+                                        j === i ? { ...slot, breakStart: e.target.value } : slot,
+                                      ),
+                                    }))
+                                  }
+                                  className="border border-gray-200 rounded px-1.5 py-1 text-xs w-20"
+                                />
+                                <span className="text-gray-400">—</span>
+                                <input
+                                  type="time"
+                                  value={days[i].breakEnd}
+                                  onChange={(e) =>
+                                    setScheduleByPrac((prev) => ({
+                                      ...prev,
+                                      [prac.id]: prev[prac.id].map((slot, j) =>
+                                        j === i ? { ...slot, breakEnd: e.target.value } : slot,
+                                      ),
+                                    }))
+                                  }
+                                  className="border border-gray-200 rounded px-1.5 py-1 text-xs w-20"
+                                />
                               </div>
                             ) : (
                               <span className="text-xs text-gray-400 italic">Fermé</span>
                             )}
                           </div>
                         ))}
+                      </div>
+
+                      {/* Congés */}
+                      <div className="border-t pt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                          <CalendarOff className="h-4 w-4" />
+                          Congés
+                        </label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs text-gray-500">Du</span>
+                          <input
+                            type="date"
+                            value={vacInput.from}
+                            onChange={(e) => setVacationInputs((prev) => ({ ...prev, [prac.id]: { ...vacInput, from: e.target.value } }))}
+                            className="border border-gray-200 rounded px-2 py-1 text-sm"
+                          />
+                          <span className="text-xs text-gray-500">au</span>
+                          <input
+                            type="date"
+                            value={vacInput.to}
+                            onChange={(e) => setVacationInputs((prev) => ({ ...prev, [prac.id]: { ...vacInput, to: e.target.value } }))}
+                            className="border border-gray-200 rounded px-2 py-1 text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!vacInput.from || !vacInput.to || vacInput.from > vacInput.to}
+                            onClick={() => {
+                              const dates: string[] = [];
+                              const d = new Date(vacInput.from);
+                              const end = new Date(vacInput.to);
+                              while (d <= end) {
+                                const iso = d.toISOString().slice(0, 10);
+                                if (!pracVacations.includes(iso)) dates.push(iso);
+                                d.setDate(d.getDate() + 1);
+                              }
+                              setVacationByPrac((prev) => ({
+                                ...prev,
+                                [prac.id]: [...(prev[prac.id] ?? []), ...dates].sort(),
+                              }));
+                              setVacationInputs((prev) => ({ ...prev, [prac.id]: { from: "", to: "" } }));
+                            }}
+                          >
+                            Ajouter
+                          </Button>
+                        </div>
+                        {pracVacations.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {pracVacations.map((d) => (
+                              <span key={d} className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-700 px-2 py-1 rounded-full border border-red-200">
+                                {new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                <button type="button" onClick={() => setVacationByPrac((prev) => ({
+                                  ...prev,
+                                  [prac.id]: (prev[prac.id] ?? []).filter((v) => v !== d),
+                                }))} className="hover:text-red-900">×</button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">Aucun congé planifié</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
