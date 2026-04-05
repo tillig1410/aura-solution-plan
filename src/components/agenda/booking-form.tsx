@@ -209,20 +209,36 @@ const BookingForm = ({
     }
   }, [serviceId, filteredPractitioners, practitionerId]);
 
+  // Check practitioner availability for the selected day
+  const pracAvailability = useMemo(() => {
+    if (!practitionerId || !startDate) return { works: true, dayAvail: null };
+    const selectedPrac = practitioners.find((p) => p.id === practitionerId) as PractitionerWithServiceIds & { availability?: { day_of_week: number; start_time: string; end_time: string; is_available: boolean; exception_date: string | null }[] };
+    if (!selectedPrac?.availability) return { works: true, dayAvail: null };
+    const dayOfWeek = (new Date(startDate).getDay() + 6) % 7; // Monday=0
+
+    // Check vacation day
+    const isVacation = selectedPrac.availability.some(
+      (a) => a.exception_date === startDate && !a.is_available
+    );
+    if (isVacation) return { works: false, dayAvail: null, reason: "en congé ce jour" };
+
+    const dayAvail = selectedPrac.availability.find(
+      (a) => a.day_of_week === dayOfWeek && a.exception_date === null
+    );
+    if (dayAvail && !dayAvail.is_available) {
+      return { works: false, dayAvail: null, reason: "ne travaille pas ce jour" };
+    }
+    return { works: true, dayAvail: dayAvail ?? null };
+  }, [practitioners, practitionerId, startDate]);
+
   // Build available time slots based on practitioner availability
   const timeSlots = useMemo(() => {
-    if (!practitionerId || !startDate) return generateTimeSlots(8, 20);
-    const selectedPrac = practitioners.find((p) => p.id === practitionerId) as PractitionerWithServiceIds & { availability?: { day_of_week: number; start_time: string; end_time: string; is_available: boolean; exception_date: string | null }[] };
-    if (!selectedPrac?.availability) return generateTimeSlots(8, 20);
-    const dayOfWeek = (new Date(startDate).getDay() + 6) % 7; // Monday=0
-    const dayAvail = selectedPrac.availability.find(
-      (a) => a.day_of_week === dayOfWeek && a.exception_date === null && a.is_available
-    );
-    if (!dayAvail) return generateTimeSlots(8, 20);
-    const startH = parseInt(dayAvail.start_time.slice(0, 2));
-    const endH = parseInt(dayAvail.end_time.slice(0, 2)) + (parseInt(dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
+    if (!pracAvailability.works) return [];
+    if (!pracAvailability.dayAvail) return generateTimeSlots(8, 20);
+    const startH = parseInt(pracAvailability.dayAvail.start_time.slice(0, 2));
+    const endH = parseInt(pracAvailability.dayAvail.end_time.slice(0, 2)) + (parseInt(pracAvailability.dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
     return generateTimeSlots(startH, endH);
-  }, [practitioners, practitionerId, startDate]);
+  }, [pracAvailability]);
 
   const startDatetime = `${startDate}T${startTime}`;
 
@@ -233,6 +249,10 @@ const BookingForm = ({
     if (!serviceId) newErrors.serviceId = "Veuillez sélectionner un service.";
     if (!startDate) newErrors.startDate = "Veuillez indiquer une date.";
     if (!startTime) newErrors.startTime = "Veuillez indiquer une heure.";
+    if (practitionerId && startDate && !pracAvailability.works) {
+      const pracName = practitioners.find((p) => p.id === practitionerId)?.name ?? "Ce praticien";
+      newErrors.startDate = `${pracName} ${pracAvailability.reason ?? "n'est pas disponible ce jour"}.`;
+    }
     dispatch({ type: "SET_ERRORS", errors: newErrors });
     return Object.keys(newErrors).length === 0;
   };
@@ -397,6 +417,11 @@ const BookingForm = ({
             />
             {errors.startDate && (
               <span className="text-xs text-destructive">{errors.startDate}</span>
+            )}
+            {!errors.startDate && practitionerId && startDate && !pracAvailability.works && (
+              <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                {practitioners.find((p) => p.id === practitionerId)?.name ?? "Ce praticien"} {pracAvailability.reason ?? "n'est pas disponible ce jour"}.
+              </span>
             )}
           </div>
 
