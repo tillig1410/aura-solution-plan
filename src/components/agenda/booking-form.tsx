@@ -46,12 +46,6 @@ interface BookingFormProps {
 
 // ---------- helpers ----------
 
-const toLocalDatetimeValue = (date: Date): string => {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}`;
-};
 
 const computeEndsAt = (start: string, durationMinutes: number): string => {
   const d = new Date(start);
@@ -65,7 +59,8 @@ interface FormState {
   clientId: string;
   practitionerId: string;
   serviceId: string;
-  startDatetime: string;
+  startDate: string;
+  startTime: string;
   errors: Partial<Record<string, string>>;
 }
 
@@ -87,13 +82,26 @@ const formReducer = (state: FormState, action: FormAction): FormState => {
   }
 };
 
+const toDateValue = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const toTimeValue = (d: Date): string => {
+  const m = Math.round(d.getMinutes() / 15) * 15;
+  const h = d.getHours() + Math.floor(m / 60);
+  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
+
 const buildInitialState = (editBooking: BookingWithDetails | undefined, initialDate: Date | undefined): FormState => {
   if (editBooking) {
+    const d = new Date(editBooking.starts_at);
     return {
       clientId: editBooking.client_id,
       practitionerId: editBooking.practitioner_id,
       serviceId: editBooking.service_id,
-      startDatetime: toLocalDatetimeValue(new Date(editBooking.starts_at)),
+      startDate: toDateValue(d),
+      startTime: toTimeValue(d),
       errors: {},
     };
   }
@@ -103,9 +111,21 @@ const buildInitialState = (editBooking: BookingWithDetails | undefined, initialD
     clientId: "",
     practitionerId: "",
     serviceId: "",
-    startDatetime: toLocalDatetimeValue(base),
+    startDate: toDateValue(base),
+    startTime: toTimeValue(base),
     errors: {},
   };
+};
+
+/** Generate 15-min time slots between start and end hours */
+const generateTimeSlots = (startHour: number, endHour: number): string[] => {
+  const slots: string[] = [];
+  for (let h = startHour; h < endHour; h++) {
+    for (const m of [0, 15, 30, 45]) {
+      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+  }
+  return slots;
 };
 
 // ---------- component ----------
@@ -127,7 +147,7 @@ const BookingForm = ({
     () => buildInitialState(editBooking, initialDate)
   );
 
-  const { clientId, practitionerId, serviceId, startDatetime, errors } = state;
+  const { clientId, practitionerId, serviceId, startDate, startTime, errors } = state;
 
   // --- New client inline form ---
   const [showNewClient, setShowNewClient] = useState(false);
@@ -189,12 +209,30 @@ const BookingForm = ({
     }
   }, [serviceId, filteredPractitioners, practitionerId]);
 
+  // Build available time slots based on practitioner availability
+  const timeSlots = useMemo(() => {
+    if (!practitionerId || !startDate) return generateTimeSlots(8, 20);
+    const selectedPrac = practitioners.find((p) => p.id === practitionerId) as PractitionerWithServiceIds & { availability?: { day_of_week: number; start_time: string; end_time: string; is_available: boolean; exception_date: string | null }[] };
+    if (!selectedPrac?.availability) return generateTimeSlots(8, 20);
+    const dayOfWeek = (new Date(startDate).getDay() + 6) % 7; // Monday=0
+    const dayAvail = selectedPrac.availability.find(
+      (a) => a.day_of_week === dayOfWeek && a.exception_date === null && a.is_available
+    );
+    if (!dayAvail) return generateTimeSlots(8, 20);
+    const startH = parseInt(dayAvail.start_time.slice(0, 2));
+    const endH = parseInt(dayAvail.end_time.slice(0, 2)) + (parseInt(dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
+    return generateTimeSlots(startH, endH);
+  }, [practitioners, practitionerId, startDate]);
+
+  const startDatetime = `${startDate}T${startTime}`;
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<string, string>> = {};
     if (!clientId) newErrors.clientId = "Veuillez sélectionner un client.";
     if (!practitionerId) newErrors.practitionerId = "Veuillez sélectionner un praticien.";
     if (!serviceId) newErrors.serviceId = "Veuillez sélectionner un service.";
-    if (!startDatetime) newErrors.startDatetime = "Veuillez indiquer une date et heure.";
+    if (!startDate) newErrors.startDate = "Veuillez indiquer une date.";
+    if (!startTime) newErrors.startTime = "Veuillez indiquer une heure.";
     dispatch({ type: "SET_ERRORS", errors: newErrors });
     return Object.keys(newErrors).length === 0;
   };
@@ -347,23 +385,50 @@ const BookingForm = ({
             )}
           </div>
 
-          {/* Date + heure */}
+          {/* Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Date et heure de début</label>
+            <label className="text-sm font-medium text-gray-700">Date</label>
             <Input
-              type="datetime-local"
-              value={startDatetime}
+              type="date"
+              value={startDate}
               onChange={(e) =>
-                dispatch({ type: "SET_FIELD", field: "startDatetime", value: e.target.value })
+                dispatch({ type: "SET_FIELD", field: "startDate", value: e.target.value })
               }
             />
-            {errors.startDatetime && (
-              <span className="text-xs text-destructive">{errors.startDatetime}</span>
+            {errors.startDate && (
+              <span className="text-xs text-destructive">{errors.startDate}</span>
+            )}
+          </div>
+
+          {/* Heure (paliers 15 min, filtrée par horaires praticien) */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">
+              Heure
+              {practitionerId && timeSlots.length < generateTimeSlots(8, 20).length && (
+                <span className="text-xs text-gray-400 ml-1">(selon horaires praticien)</span>
+              )}
+            </label>
+            <select
+              value={startTime}
+              onChange={(e) =>
+                dispatch({ type: "SET_FIELD", field: "startTime", value: e.target.value })
+              }
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <option value="">Choisir une heure...</option>
+              {timeSlots.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            {errors.startTime && (
+              <span className="text-xs text-destructive">{errors.startTime}</span>
             )}
           </div>
 
           {/* Résumé durée */}
-          {selectedService && startDatetime && (
+          {selectedService && startDate && startTime && (
             <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
               Fin estimée :{" "}
               <span className="font-medium text-foreground">
