@@ -336,24 +336,7 @@ const AgendaContent = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
-              {merchantStatus && (() => {
-                const isActive = merchantStatus.hasSubscription;
-                const trialExpired = !isActive && merchantStatus.trialEnd && new Date(merchantStatus.trialEnd) < new Date();
-                const label = isActive ? "Actif" : trialExpired ? "Essai expiré" : "Période d'essai";
-                const colors = isActive
-                  ? "bg-green-50 text-green-600"
-                  : trialExpired
-                    ? "bg-red-50 text-red-600"
-                    : "bg-amber-50 text-amber-600";
-                return (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors}`}>
-                    {label}
-                  </span>
-                );
-              })()}
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
             <p className="text-sm text-gray-500">
               {new Date().toLocaleDateString("fr-FR", {
                 weekday: "long",
@@ -361,23 +344,43 @@ const AgendaContent = () => {
                 month: "long",
                 year: "numeric",
               })}
-              {merchantStatus && !merchantStatus.hasSubscription && merchantStatus.trialEnd && (
-                <span className="text-gray-400"> · Essai jusqu&apos;au {new Date(merchantStatus.trialEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>
-              )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-            </Button>
-            <Button onClick={() => { setSelectedBooking(null); setFormOpen(true); }}>
-              <Plus className="h-4 w-4" />
-              Nouveau RDV
-            </Button>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+              </Button>
+              <Button onClick={() => { setSelectedBooking(null); setFormOpen(true); }}>
+                <Plus className="h-4 w-4" />
+                Nouveau RDV
+              </Button>
+            </div>
+            {merchantStatus && (() => {
+              const isActive = merchantStatus.hasSubscription;
+              const trialExpired = !isActive && merchantStatus.trialEnd && new Date(merchantStatus.trialEnd) < new Date();
+              const label = isActive ? "Actif" : trialExpired ? "Essai expiré" : "Période d'essai";
+              const colors = isActive
+                ? "bg-green-50 text-green-600"
+                : trialExpired
+                  ? "bg-red-50 text-red-600"
+                  : "bg-amber-50 text-amber-600";
+              const dateText = !isActive && merchantStatus.trialEnd
+                ? `Essai jusqu'au ${new Date(merchantStatus.trialEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`
+                : null;
+              return (
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors}`}>
+                    {label}
+                  </span>
+                  {dateText && <span className="text-xs text-gray-400">{dateText}</span>}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
