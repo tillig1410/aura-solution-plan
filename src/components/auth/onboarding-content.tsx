@@ -234,7 +234,10 @@ const OnboardingContent = () => {
   };
 
   // --- Step 3: Save practitioners ---
+  const maxPractitioners = 1; // seat_count par défaut
+
   const addPractitioner = () => {
+    if (practitioners.length >= maxPractitioners) return;
     setPractitioners([...practitioners, { name: "", specialties: "" }]);
   };
 
@@ -613,14 +616,20 @@ const OnboardingContent = () => {
                 </div>
               ))}
 
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={addPractitioner}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter un praticien
-              </Button>
+              {practitioners.length < maxPractitioners ? (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={addPractitioner}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Ajouter un praticien
+                </Button>
+              ) : (
+                <p className="text-xs text-center text-gray-400">
+                  Votre forfait permet {maxPractitioners} praticien{maxPractitioners > 1 ? "s" : ""}. Vous pourrez upgrader dans Paramètres.
+                </p>
+              )}
 
               <div className="flex gap-2">
                 <Button

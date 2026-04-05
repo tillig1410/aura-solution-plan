@@ -138,6 +138,14 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
       setError("Le nom doit contenir au moins 2 caractères");
       return;
     }
+    // Empêcher activation/création si limite sièges atteinte
+    const isNew = !editingId;
+    const wasInactive = editingId ? practitioners.find((p) => p.id === editingId)?.is_active === false : false;
+    const wouldAddActive = (isNew || wasInactive) && form.isActive;
+    if (wouldAddActive && seatLimitReached) {
+      setError(`Limite de ${seatCount} siège${seatCount > 1 ? "s" : ""} atteinte. Upgradez votre forfait.`);
+      return;
+    }
     setSaving(true);
     setError(null);
 
