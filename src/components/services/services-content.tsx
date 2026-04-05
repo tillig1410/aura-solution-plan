@@ -344,29 +344,46 @@ const ServicesContent = () => {
       ) : (
         <>
           {/* Barre d'action — même style pour tous les onglets */}
-          <div className="flex justify-end mb-4">
+          <div className="flex items-center justify-end gap-3 mb-4">
             {tab === "services" && (
               <Button onClick={openNewService} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Nouveau service
               </Button>
             )}
-            {tab === "praticiens" && (
-              practitioners.filter((p) => p.is_active).length >= seatCount ? (
-                <Button className="gap-2" onClick={() => {
-                  sessionStorage.setItem("settings_tab", "abonnement");
-                  window.location.href = "/settings";
-                }}>
-                  <ArrowUpCircle className="h-4 w-4" />
-                  Upgrader mon forfait
-                </Button>
-              ) : (
-                <Button className="gap-2" onClick={() => pracNewRef.current?.()}>
-                  <Plus className="h-4 w-4" />
-                  Nouveau praticien
-                </Button>
-              )
-            )}
+            {tab === "praticiens" && (() => {
+              const activeCount = practitioners.filter((p) => p.is_active).length;
+              const limitReached = activeCount >= seatCount;
+              return (
+                <>
+                  <span className="text-sm text-gray-500">
+                    {activeCount} / {seatCount} praticien{seatCount > 1 ? "s" : ""}
+                  </span>
+                  {activeCount > seatCount && (
+                    <span className="text-xs px-2 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200">
+                      Dépassement
+                    </span>
+                  )}
+                  {limitReached && activeCount <= seatCount && (
+                    <span className="text-xs text-amber-600">Limite atteinte</span>
+                  )}
+                  {limitReached ? (
+                    <Button className="gap-2" onClick={() => {
+                      sessionStorage.setItem("settings_tab", "abonnement");
+                      window.location.href = "/settings";
+                    }}>
+                      <ArrowUpCircle className="h-4 w-4" />
+                      Upgrader mon forfait
+                    </Button>
+                  ) : (
+                    <Button className="gap-2" onClick={() => pracNewRef.current?.()}>
+                      <Plus className="h-4 w-4" />
+                      Nouveau praticien
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
             {tab === "horaires" && (
               <Button
                 onClick={handleSaveSchedule}

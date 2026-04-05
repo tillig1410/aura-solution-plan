@@ -233,19 +233,6 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onO
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-sm text-gray-500">
-          {activePracCount} / {seatCount} praticien{seatCount > 1 ? "s" : ""}
-        </span>
-        {activePracCount > seatCount && (
-          <span className="text-xs px-2 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200">
-            Dépassement
-          </span>
-        )}
-        {seatLimitReached && activePracCount <= seatCount && (
-          <span className="text-xs text-amber-600">Limite atteinte</span>
-        )}
-      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {practitioners.map((prac) => (
