@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import PractitionerManager from "@/components/settings/practitioner-manager";
+import { createClient } from "@/lib/supabase/client";
 import type { Service, Practitioner } from "@/types/supabase";
 
 // ---------- Types ----------
@@ -77,6 +78,7 @@ const ServicesContent = () => {
   const [services, setServices] = useState<ServiceWithPractitioners[]>([]);
   const [practitioners, setPractitioners] = useState<PractitionerWithServices[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seatCount, setSeatCount] = useState(1);
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<ServiceWithPractitioners | null>(null);
@@ -101,6 +103,18 @@ const ServicesContent = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // Fetch seat_count from merchant
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: merchant } = await supabase
+          .from("merchants")
+          .select("seat_count")
+          .eq("user_id", user.id)
+          .single();
+        if (merchant) setSeatCount(merchant.seat_count);
+      }
+
       const [svcRes, pracRes] = await Promise.all([
         fetch("/api/v1/services?include_inactive=true"),
         fetch("/api/v1/practitioners?include_inactive=true"),
@@ -380,6 +394,7 @@ const ServicesContent = () => {
             <PractitionerManager
               practitioners={practitioners}
               services={services}
+              seatCount={seatCount}
               onUpdate={fetchData}
             />
           )}

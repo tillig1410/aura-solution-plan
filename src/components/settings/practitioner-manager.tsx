@@ -34,6 +34,7 @@ interface PractitionerWithServices extends Practitioner {
 interface PractitionerManagerProps {
   practitioners: PractitionerWithServices[];
   services: Service[];
+  seatCount: number;
   onUpdate: () => void;
 }
 
@@ -79,7 +80,9 @@ const defaultSchedule = (): ScheduleSlot[] =>
     end: "19:00",
   }));
 
-const PractitionerManager = ({ practitioners, services, onUpdate }: PractitionerManagerProps) => {
+const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: PractitionerManagerProps) => {
+  const activePracCount = practitioners.filter((p) => p.is_active).length;
+  const seatLimitReached = activePracCount >= seatCount;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -203,12 +206,23 @@ const PractitionerManager = ({ practitioners, services, onUpdate }: Practitioner
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">
-          {practitioners.length} praticien{practitioners.length > 1 ? "s" : ""}
+          {activePracCount} / {seatCount} praticien{seatCount > 1 ? "s" : ""}
         </h3>
-        <Button onClick={openNew} size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nouveau praticien
-        </Button>
+        {seatLimitReached ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+              Limite atteinte ({seatCount} siège{seatCount > 1 ? "s" : ""})
+            </span>
+            <Button size="sm" variant="outline" className="gap-1 text-indigo-600" onClick={() => window.location.href = "/settings?tab=abonnement"}>
+              Upgrader
+            </Button>
+          </div>
+        ) : (
+          <Button onClick={openNew} size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nouveau praticien
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
