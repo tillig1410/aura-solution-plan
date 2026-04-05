@@ -108,13 +108,22 @@ const OnboardingContent = () => {
     setSearchQuery("");
   };
 
+  const [salonError, setSalonError] = useState("");
+  const [salonLoading, setSalonLoading] = useState(false);
+
   const handleCreateSalon = async () => {
+    setSalonError("");
+    setSalonLoading(true);
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return;
+    if (!user) {
+      setSalonError("Session expirée. Reconnectez-vous.");
+      setSalonLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("merchants")
@@ -139,7 +148,14 @@ const OnboardingContent = () => {
       .select("id")
       .single();
 
-    if (!error && data) {
+    setSalonLoading(false);
+
+    if (error) {
+      setSalonError(error.message);
+      return;
+    }
+
+    if (data) {
       setMerchantId(data.id);
       setStep("services");
     }
@@ -371,12 +387,17 @@ const OnboardingContent = () => {
                 </p>
               )}
 
+              {salonError && (
+                <p className="text-sm text-red-500 bg-red-50 p-2 rounded">
+                  {salonError}
+                </p>
+              )}
               <Button
                 className="w-full"
                 onClick={handleCreateSalon}
-                disabled={!salonName}
+                disabled={!salonName || salonLoading}
               >
-                Continuer
+                {salonLoading ? "Création..." : "Continuer"}
               </Button>
             </div>
           )}
