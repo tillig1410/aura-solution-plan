@@ -5,6 +5,27 @@
 
 ---
 
+## [2.3.0] — 2026-04-05 — Services, clients, agenda
+
+### Services / Horaires
+- **[FEAT]** Heure de début de pause midi configurable (champ heure)
+- **[FEAT]** Durée de pause via dropdown (pas de pause / 30 min / 45 min / 1h / 1h30 / 2h)
+- **[FEAT]** Congés affichés en plages lisibles ("Du lun. 4 au ven. 8 août 2026")
+- **[FEAT]** Layout 2 colonnes — horaires à gauche, congés à droite (colonne fixe `w-64`)
+- **[FEAT]** Sélection de semaines complètes et plages de dates pour les congés
+- **[FIX]** Barre d'action unifiée sous les onglets (boutons même taille/couleur/emplacement)
+- **[FIX]** Bouton "Ajouter un praticien" affiché si la limite n'est pas atteinte, "Upgrader" sinon
+
+### Clients
+- **[FIX]** Encodage Unicode — colonnes "Téléphone", "Dernière visite", "Fidélité" affichaient `\u00e9` au lieu de `é`
+
+### Agenda
+- **[FIX]** Suppression des données mock Alice/Bob — affichage des vraies données API
+- **[FEAT]** Pastille statut abonnement (orange essai / vert actif / rouge expiré) sous le bouton Nouveau RDV
+- **[FEAT]** Date de fin d'essai affichée sous la pastille
+
+---
+
 ## [2.2.0] — 2026-04-05 — Abonnement, praticiens, fidélité, sécurité
 
 ### Abonnement
