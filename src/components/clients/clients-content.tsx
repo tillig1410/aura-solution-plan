@@ -80,13 +80,13 @@ const ChannelIcon = ({ client }: { client: ClientWithStats }) => {
   if (client.whatsapp_id) return <MessageSquare className="w-4 h-4 text-green-500" aria-label="WhatsApp" />;
   if (client.messenger_id) return <MessageCircle className="w-4 h-4 text-blue-500" aria-label="Messenger" />;
   if (client.telegram_id) return <Send className="w-4 h-4 text-sky-500" aria-label="Telegram" />;
-  if (client.phone) return <Phone className="w-4 h-4 text-gray-400" aria-label="SMS/T\u00e9l\u00e9phone" />;
+  if (client.phone) return <Phone className="w-4 h-4 text-gray-400" aria-label="SMS/Téléphone" />;
   return <Monitor className="w-4 h-4 text-gray-300" aria-label="Dashboard" />;
 };
 
 const FILTERS: { value: FilterType; label: string }[] = [
   { value: "all", label: "Tous" },
-  { value: "loyal", label: "Fid\u00e8les" },
+  { value: "loyal", label: "Fidèles" },
   { value: "new", label: "Nouveaux" },
   { value: "inactive", label: "Inactifs" },
 ];
@@ -176,7 +176,7 @@ const ClientsContent = () => {
       const body = await res.json();
       if (!res.ok) {
         const errBody = body as { error?: string };
-        setCreateError(errBody.error ?? "Erreur lors de la cr\u00e9ation");
+        setCreateError(errBody.error ?? "Erreur lors de la création");
         return;
       }
       setDialogOpen(false);
@@ -215,7 +215,7 @@ const ClientsContent = () => {
             <Input
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Rechercher par nom ou t\u00e9l\u00e9phone..."
+              placeholder="Rechercher par nom ou téléphone..."
               className="pl-9"
             />
           </div>
@@ -242,10 +242,10 @@ const ClientsContent = () => {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Client</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">T\u00e9l\u00e9phone</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Derni\u00e8re visite</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">Téléphone</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">Dernière visite</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Visites</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Fid\u00e9lit\u00e9</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">Fidélité</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Canal</th>
               </tr>
             </thead>
@@ -262,7 +262,7 @@ const ClientsContent = () => {
               {!loading && clients.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-400 italic">
-                    Aucun client trouv\u00e9
+                    Aucun client trouvé
                   </td>
                 </tr>
               )}
@@ -294,7 +294,7 @@ const ClientsContent = () => {
                           </div>
                           {client.is_blocked && (
                             <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-200">
-                              Bloqu\u00e9
+                              Bloqué
                             </span>
                           )}
                         </div>
@@ -344,7 +344,7 @@ const ClientsContent = () => {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
-                Pr\u00e9c\u00e9dent
+                Précédent
               </Button>
               <Button
                 size="sm"
@@ -359,7 +359,7 @@ const ClientsContent = () => {
         )}
       </div>
 
-      {/* Panneau droit : d\u00e9tail client */}
+      {/* Panneau droit : détail client */}
       <ClientDetail clientId={selectedId} onClose={() => setSelectedId(null)} />
 
       {/* Dialog nouveau client */}
@@ -376,12 +376,12 @@ const ClientsContent = () => {
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Pr\u00e9nom Nom"
+                placeholder="Prénom Nom"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                T\u00e9l\u00e9phone
+                Téléphone
               </label>
               <Input
                 value={newPhone}
@@ -426,7 +426,7 @@ const ClientsContent = () => {
               onClick={handleCreate}
               disabled={creating || newName.trim().length < 2}
             >
-              {creating ? "Cr\u00e9ation..." : "Cr\u00e9er le client"}
+              {creating ? "Création..." : "Créer le client"}
             </Button>
           </DialogFooter>
         </DialogContent>
