@@ -5,6 +5,23 @@
 
 ---
 
+## [1.5.5] — 2026-04-05 — Tests complets lib/ + fix open redirect (174/174 green)
+
+### Critique
+- **[FIX]** `src/lib/safe-redirect.ts` — protection protocol-relative URLs (`//evil.com`) contournait le check `startsWith("/")` → ajout `|| path.startsWith("//")` — **vulnérabilité open redirect corrigée**
+
+### Tests ajoutés
+- **`tests/unit/rate-limit.test.ts`** (6 tests) — sliding window : autorise, bloque, remaining, resetAt, expiration, isolation clés
+- **`tests/unit/safe-redirect.test.ts`** (10 tests) — `safeRedirectUrl` : chemin relatif, absolute → /login, protocol-relative → /login, query params — `isTrustedOrigin` : origins trusted/untrusted, malformée
+- **`tests/unit/utils-api-error.test.ts`** (10 tests) — `apiError` : status HTTP, body JSON, code/traceId/details optionnels, header X-Trace-Id — `formatEuros` : centimes → euros locale fr-FR
+- **`tests/unit/channels-send.test.ts`** (8 tests) — `sendMessage` : routage WhatsApp/Messenger/Telegram/SMS/voice→SMS, canal inconnu, erreurs API
+- **`tests/unit/client-identify.test.ts`** (7 tests) — `identifyClient` : client existant, mise à jour nom, création, mapping canal→champ, phone WhatsApp, throw erreur
+
+### Résultat
+- **20 suites, 174 tests, 0 échec** ✅
+
+---
+
 ## [1.5.4] — 2026-04-05 — Tests : validations booking, Stripe handlers complets (133/133 green)
 
 ### Tests ajoutés

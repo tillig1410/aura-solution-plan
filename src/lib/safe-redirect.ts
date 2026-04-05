@@ -24,7 +24,7 @@ const ALLOWED_ORIGINS = new Set(
  * @param fallbackOrigin - Used only in development if NEXT_PUBLIC_APP_URL is not set
  */
 export function safeRedirectUrl(path: string, fallbackOrigin?: string): URL {
-  if (!path.startsWith("/")) {
+  if (!path.startsWith("/") || path.startsWith("//")) {
     // Never allow absolute URLs or protocol-relative URLs as paths
     return new URL("/login", resolveOrigin(fallbackOrigin));
   }
