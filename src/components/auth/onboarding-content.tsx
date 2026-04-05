@@ -52,7 +52,7 @@ const OnboardingContent = () => {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle>Bienvenue sur Plan</CardTitle>
+          <CardTitle>Bienvenue sur Resaapp</CardTitle>
           <CardDescription>
             Configurez votre salon en quelques étapes
           </CardDescription>

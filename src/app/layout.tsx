@@ -15,19 +15,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Plan — Gestion de réservations",
-    template: "%s | Plan",
+    default: "Resaapp — Gestion de réservations",
+    template: "%s | Resaapp",
   },
   description:
-    "Plan est un SaaS de gestion de réservations avec IA conversationnelle pour salons de coiffure, barbiers et instituts de beauté.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://resaplan.fr"),
+    "Resaapp est un SaaS de gestion de réservations avec IA conversationnelle pour salons de coiffure, barbiers et instituts de beauté.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://resaapp.fr"),
   openGraph: {
     type: "website",
     locale: "fr_FR",
-    siteName: "Plan",
-    title: "Plan — Gestion de réservations",
+    siteName: "Resaapp",
+    title: "Resaapp — Gestion de réservations",
     description:
-      "Plan est un SaaS de gestion de réservations avec IA conversationnelle pour salons de coiffure, barbiers et instituts de beauté.",
+      "Resaapp est un SaaS de gestion de réservations avec IA conversationnelle pour salons de coiffure, barbiers et instituts de beauté.",
   },
   robots: {
     index: true,

@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: BookingPageProps): Promise<Me
       url,
       type: "website",
       locale: "fr_FR",
-      siteName: "Plan",
+      siteName: "Resaapp",
     },
     robots: { index: true, follow: true },
   };

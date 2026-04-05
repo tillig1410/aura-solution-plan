@@ -28,7 +28,7 @@ const Sidebar = () => {
     <aside className="flex h-full w-64 flex-col border-r bg-white">
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/agenda" className="text-xl font-bold">
-          Plan
+          Resaapp
         </Link>
       </div>
 

@@ -47,7 +47,7 @@ const LoginContent = () => {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Plan</CardTitle>
+          <CardTitle className="text-2xl">Resaapp</CardTitle>
           <CardDescription>
             Connectez-vous avec votre email professionnel
           </CardDescription>
