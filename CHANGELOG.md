@@ -5,6 +5,24 @@
 
 ---
 
+## [1.5.7] — 2026-04-05 — Tests complets toutes routes API v1 (319/319 green)
+
+### Tests ajoutés (47 tests, 4 fichiers)
+- **`tests/integration/api-booking-public.test.ts`** (16 tests) — GET /booking/:slug (404 slug inconnu, 200 infos salon+services+praticiens, pas de merchant_id exposé) + POST /booking/:slug/reserve (validation name/phone/UUID/ISO/JSON, CSRF origin mismatch/malformé/valide, 404 praticien/service cross-tenant, 409 créneau pris, 201 nouveau client, 201 client existant)
+- **`tests/integration/api-stats.test.ts`** (8 tests) — GET /stats (auth 401/404, structure réponse summary/revenue_by_day/bookings_by_day/by_channel/practitioners/clients/booking_patterns, 5 periods valides, fallback month, valeurs 0 sans données)
+- **`tests/integration/api-webhooks-messenger-telegram.test.ts`** (11 tests) — GET messenger verify (200 challenge/403 token/403 mode) + POST messenger (500 secret manquant, 401 HMAC invalide, 200 forward, skip si null) + POST telegram (500 secret manquant, 401 token invalide, 200 forward, 400 JSON malformé)
+- **`tests/integration/api-stripe.test.ts`** (12 tests) — POST stripe/connect (401, 404, 400 déjà connecté, 200 onboardingUrl, 500 Stripe error) + POST stripe/dashboard-link (401, 400 pas de compte, 200 URL, 500 Stripe error)
+
+### Couverture routes API
+- **27/27 routes API testées** (sauf customer-portal qui instancie Stripe au module level)
+- Routes publiques (`booking/:slug`) : CSRF, cross-tenant, slot conflict
+- Webhooks : signature HMAC (messenger), timing-safe token (telegram)
+
+### Résultat
+- **31 suites, 319 tests, 0 échec** ✅
+
+---
+
 ## [1.5.6] — 2026-04-05 — Tests routes API v1 + fix sécurité token (272/272 green)
 
 ### Sécurité
