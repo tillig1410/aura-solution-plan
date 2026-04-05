@@ -98,3 +98,48 @@ export async function PATCH(
 
   return NextResponse.json(updated);
 }
+
+/**
+ * DELETE /api/v1/practitioners/:id — Supprimer un praticien
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const traceId = request.headers.get("x-trace-id") ?? undefined;
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return apiError("Unauthorized", 401, { traceId });
+  }
+
+  const { data: merchant } = await supabase
+    .from("merchants")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!merchant) {
+    return apiError("Merchant not found", 404, { traceId });
+  }
+
+  const { error } = await supabase
+    .from("practitioners")
+    .delete()
+    .eq("id", id)
+    .eq("merchant_id", merchant.id);
+
+  if (error) {
+    logger.error("practitioners.delete_failed", { error: error.message, practitionerId: id, traceId });
+    return apiError("Failed to delete practitioner", 500, { traceId });
+  }
+
+  logger.info("practitioners.deleted", { practitionerId: id, merchantId: merchant.id, traceId });
+
+  return NextResponse.json({ success: true });
+}
