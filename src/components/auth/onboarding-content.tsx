@@ -90,9 +90,13 @@ const OnboardingContent = () => {
 
   const handleSearchInput = (value: string) => {
     setSearchQuery(value);
+    // Also update salon name as fallback (user might not select a result)
+    if (!googlePlaceId) {
+      setSalonName(value);
+      setSlug(value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, ""));
+    }
     if (value.length >= 3) {
-      const timeout = setTimeout(() => searchPlaces(value), 400);
-      return () => clearTimeout(timeout);
+      setTimeout(() => searchPlaces(value), 400);
     } else {
       setSearchResults([]);
     }
@@ -122,6 +126,36 @@ const OnboardingContent = () => {
     if (!user) {
       setSalonError("Session expirée. Reconnectez-vous.");
       setSalonLoading(false);
+      return;
+    }
+
+    // Check if merchant already exists (e.g. previous attempt)
+    const { data: existing } = await supabase
+      .from("merchants")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (existing) {
+      // Update existing merchant instead of inserting
+      const { error } = await supabase
+        .from("merchants")
+        .update({
+          name: salonName,
+          slug: slug || salonName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          phone: salonPhone || null,
+          address: salonAddress || null,
+          google_place_id: googlePlaceId,
+        })
+        .eq("id", existing.id);
+
+      setSalonLoading(false);
+      if (error) {
+        setSalonError(error.message);
+        return;
+      }
+      setMerchantId(existing.id);
+      setStep("services");
       return;
     }
 
