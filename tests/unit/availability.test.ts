@@ -63,8 +63,8 @@ describe("Availability Calculation", () => {
       durationMinutes: 30,
     });
 
-    // 09:00–12:30 = 210 min, pas de 30 min chacun = 7 créneaux
-    expect(slots.length).toBe(7);
+    // 09:00–12:30, stride 15 min, durée 30 min → dernier slot 12:00 (12:00+30=12:30 ✓) → 13 créneaux
+    expect(slots.length).toBe(13);
     expect(slots[0].starts_at).toBe(`${DATE}T09:00:00`);
     expect(slots[0].ends_at).toBe(`${DATE}T09:30:00`);
   });
@@ -100,8 +100,8 @@ describe("Availability Calculation", () => {
       durationMinutes: 30,
     });
 
-    // 09:00-10:30 = 3 créneaux - 1 réservé = 2
-    expect(slots.length).toBe(2);
+    // 09:00-10:30 stride 15 = 5 créneaux. Booking 09:00-09:30 bloque 09:00 et 09:15 → 3 libres
+    expect(slots.length).toBe(3);
     expect(slots.every((s) => s.starts_at !== `${DATE}T09:00:00`)).toBe(true);
   });
 
@@ -120,12 +120,12 @@ describe("Availability Calculation", () => {
       durationMinutes: 30,
     });
 
-    // 09:00–12:00 = 6 créneaux. Booking 09:00–10:30 bloque 09:00, 09:30, 10:00 → 3 libres
-    expect(slots.length).toBe(3);
+    // 09:00–12:00 stride 15 = 11 créneaux. Booking 09:00–10:30 bloque 09:00–10:15 (6 slots) → 5 libres
+    expect(slots.length).toBe(5);
     const startTimes = slots.map((s) => s.starts_at);
     expect(startTimes).not.toContain(`${DATE}T09:00:00`);
-    expect(startTimes).not.toContain(`${DATE}T09:30:00`);
     expect(startTimes).not.toContain(`${DATE}T10:00:00`);
+    expect(startTimes).not.toContain(`${DATE}T10:15:00`);
     expect(startTimes).toContain(`${DATE}T10:30:00`);
   });
 
@@ -145,7 +145,7 @@ describe("Availability Calculation", () => {
       durationMinutes: 30,
     });
 
-    expect(slots.length).toBe(3); // 09:00, 09:30, 10:00
+    expect(slots.length).toBe(5); // 09:00, 09:15, 09:30, 09:45, 10:00
   });
 
   it("should respect service duration for slot generation", async () => {
@@ -159,9 +159,8 @@ describe("Availability Calculation", () => {
       durationMinutes: 45,
     });
 
-    // Slots 30-min stride, 45-min duration: 09:00, 09:30, 10:00, 10:30, 11:00, 11:30
-    // 11:30+45=12:15 ≤ 12:30 ✓ mais 12:00+45=12:45 > 12:30 ✗ → 6 créneaux
-    expect(slots.length).toBe(6);
+    // Stride 15 min, durée 45 min : dernier slot 11:45 (11:45+45=12:30 ✓) → 12 créneaux
+    expect(slots.length).toBe(12);
     expect(slots[0].ends_at).toBe(`${DATE}T09:45:00`);
   });
 
@@ -210,8 +209,8 @@ describe("Availability Calculation", () => {
       durationMinutes: 30,
     });
 
-    // Matin: 6 créneaux (09:00–12:00), Après-midi: 6 créneaux (14:00–17:00)
-    expect(slots.length).toBe(12);
+    // Matin: 11 créneaux (09:00–11:30 stride 15), Après-midi: 11 créneaux (14:00–16:30) → 22
+    expect(slots.length).toBe(22);
     const startTimes = slots.map((s) => s.starts_at);
     // Pas de créneau entre 12:00 et 14:00
     expect(startTimes.some((t) => t >= `${DATE}T12:00:00` && t < `${DATE}T14:00:00`)).toBe(false);

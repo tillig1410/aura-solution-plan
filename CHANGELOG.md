@@ -5,6 +5,20 @@
 
 ---
 
+## [1.5.3] — 2026-04-05 — Stride créneaux 30 min → 15 min
+
+### Changement
+- **[FIX]** `src/lib/availability.ts` — stride des créneaux passé de 30 min à 15 min (`t += 30` → `t += 15`) pour offrir plus de flexibilité dans la prise de RDV
+- **[UPDATE]** `tests/unit/availability.test.ts` — tous les counts recalculés pour le stride 15 min
+
+### Note
+Le stride est encore hardcodé. DEBT : le rendre configurable par salon (`slot_interval_minutes` dans `merchants`).
+
+### Résultat
+- **12 suites, 96 tests, 0 échec** ✅
+
+---
+
 ## [1.5.2] — 2026-04-05 — Tests unitaires : loyalty, packages, availability (96/96 green)
 
 ### Tests ajoutés

@@ -82,7 +82,7 @@ export async function getAvailableSlots(
     const blockStart = parseTimeToMinutes(block.start_time);
     const blockEnd = parseTimeToMinutes(block.end_time);
 
-    for (let t = blockStart; t + durationMinutes <= blockEnd; t += 30) {
+    for (let t = blockStart; t + durationMinutes <= blockEnd; t += 15) {
       const slotStart = minutesToISODateTime(date, t);
       const slotEnd = minutesToISODateTime(date, t + durationMinutes);
 
