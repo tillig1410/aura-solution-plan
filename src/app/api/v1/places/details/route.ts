@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
     headers: {
       "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "id,displayName,formattedAddress,nationalPhoneNumber,currentOpeningHours,googleMapsUri",
+      "X-Goog-FieldMask": "id,displayName,formattedAddress,nationalPhoneNumber,currentOpeningHours,googleMapsUri,photos",
     },
   });
 
@@ -28,6 +28,13 @@ export async function GET(request: NextRequest) {
 
   const place = await res.json();
 
+  // Build photo URL if available
+  const photos = place.photos as { name: string }[] | undefined;
+  let photoUrl: string | null = null;
+  if (photos?.[0]?.name) {
+    photoUrl = `https://places.googleapis.com/v1/${photos[0].name}/media?key=${apiKey}&maxWidthPx=400&maxHeightPx=300`;
+  }
+
   return NextResponse.json({
     placeId: place.id,
     name: place.displayName?.text ?? "",
@@ -35,5 +42,6 @@ export async function GET(request: NextRequest) {
     phone: place.nationalPhoneNumber ?? "",
     mapsUrl: place.googleMapsUri ?? "",
     openingHours: place.currentOpeningHours?.weekdayDescriptions ?? [],
+    photoUrl,
   });
 }

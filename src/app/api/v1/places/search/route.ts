@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.currentOpeningHours,places.types",
+      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.types,places.photos",
     },
     body: JSON.stringify({
       textQuery: query,
@@ -37,12 +37,20 @@ export async function GET(request: NextRequest) {
   }
 
   const data = await res.json();
-  const results = (data.places ?? []).map((place: Record<string, unknown>) => ({
-    placeId: place.id,
-    name: (place.displayName as Record<string, string>)?.text ?? "",
-    address: place.formattedAddress ?? "",
-    phone: place.nationalPhoneNumber ?? "",
-  }));
+  const results = (data.places ?? []).map((place: Record<string, unknown>) => {
+    const photos = place.photos as { name: string }[] | undefined;
+    let photoUrl: string | null = null;
+    if (photos?.[0]?.name) {
+      photoUrl = `https://places.googleapis.com/v1/${photos[0].name}/media?key=${apiKey}&maxWidthPx=400&maxHeightPx=300`;
+    }
+    return {
+      placeId: place.id,
+      name: (place.displayName as Record<string, string>)?.text ?? "",
+      address: place.formattedAddress ?? "",
+      phone: place.nationalPhoneNumber ?? "",
+      photoUrl,
+    };
+  });
 
   return NextResponse.json({ results });
 }

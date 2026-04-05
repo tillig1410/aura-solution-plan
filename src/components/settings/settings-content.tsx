@@ -79,9 +79,17 @@ const SettingsContent = () => {
   // QR Code
   const [qrCodeSrc, setQrCodeSrc] = useState<string | null>(null);
 
+  // Photo Google Maps
+  const [placePhotoUrl, setPlacePhotoUrl] = useState<string | null>(null);
+
   // Stripe Connect
   const [connectLoading, setConnectLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+
+  // Delete account
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const fetchMerchant = useCallback(async () => {
     setLoading(true);
@@ -122,6 +130,15 @@ const SettingsContent = () => {
     }
   }, [merchant?.slug]);
 
+  useEffect(() => {
+    if (merchant?.google_place_id) {
+      fetch(`/api/v1/places/details?id=${merchant.google_place_id}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data?.photoUrl) setPlacePhotoUrl(data.photoUrl); })
+        .catch(() => setPlacePhotoUrl(null));
+    }
+  }, [merchant?.google_place_id]);
+
   const saveMerchant = async (updates: Partial<Merchant>) => {
     if (!merchant) return;
     const supabase = createClient();
@@ -148,6 +165,27 @@ const SettingsContent = () => {
       toast.error("Erreur lors de la sauvegarde");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!merchant) return;
+    setDeleting(true);
+    try {
+      const supabase = createClient();
+      // Delete merchant (cascade will remove practitioners, services, etc.)
+      const { error } = await supabase.from("merchants").delete().eq("id", merchant.id);
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        setDeleting(false);
+        return;
+      }
+      // Sign out
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+    } catch {
+      toast.error("Erreur lors de la suppression");
+      setDeleting(false);
     }
   };
 
@@ -193,6 +231,17 @@ const SettingsContent = () => {
               <CardTitle className="text-base">Informations du salon</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Photo Google Maps */}
+              {placePhotoUrl && (
+                <div className="rounded-lg overflow-hidden border border-gray-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={placePhotoUrl}
+                    alt={`Photo de ${salonName}`}
+                    className="w-full h-48 object-cover"
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -261,6 +310,59 @@ const SettingsContent = () => {
               {saving ? "Enregistrement..." : "Sauvegarder"}
             </Button>
           </div>
+
+          {/* Zone danger */}
+          <Card className="border-red-200">
+            <CardHeader>
+              <CardTitle className="text-base text-red-600 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Zone dangereuse
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-gray-600">
+                La suppression de votre compte est définitive. Toutes vos données (clients, réservations, praticiens, paramètres) seront supprimées.
+              </p>
+              {!confirmDelete ? (
+                <Button
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Supprimer mon compte
+                </Button>
+              ) : (
+                <div className="space-y-2 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm font-medium text-red-800">
+                    Tapez <strong>SUPPRIMER</strong> pour confirmer
+                  </p>
+                  <Input
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="SUPPRIMER"
+                    className="max-w-xs"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setConfirmDelete(false); setDeleteConfirmText(""); }}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={deleteConfirmText !== "SUPPRIMER" || deleting}
+                      onClick={handleDeleteAccount}
+                    >
+                      {deleting ? "Suppression..." : "Confirmer la suppression"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -503,31 +605,40 @@ const SettingsContent = () => {
                   </span>
                 </div>
               )}
-              <div className="pt-2 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={portalLoading || !merchant.stripe_subscription_id}
-                  onClick={async () => {
-                    setPortalLoading(true);
-                    try {
-                      const res = await fetch("/api/v1/stripe/customer-portal", { method: "POST" });
-                      if (res.ok) {
-                        const { url } = (await res.json()) as { url: string };
-                        window.location.href = url;
-                      } else {
-                        toast.error("Impossible d'ouvrir le portail Stripe");
+              <div className="pt-2">
+                {merchant.stripe_subscription_id ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={portalLoading}
+                    onClick={async () => {
+                      setPortalLoading(true);
+                      try {
+                        const res = await fetch("/api/v1/stripe/customer-portal", { method: "POST" });
+                        if (res.ok) {
+                          const { url } = (await res.json()) as { url: string };
+                          window.location.href = url;
+                        } else {
+                          toast.error("Impossible d'ouvrir le portail Stripe");
+                        }
+                      } catch {
+                        toast.error("Erreur réseau");
+                      } finally {
+                        setPortalLoading(false);
                       }
-                    } catch {
-                      toast.error("Erreur réseau");
-                    } finally {
-                      setPortalLoading(false);
-                    }
-                  }}
-                >
-                  {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Gérer mon abonnement
-                </Button>
+                    }}
+                  >
+                    {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Gérer mon abonnement
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <p className="text-sm text-amber-700">
+                      Période d&apos;essai — la gestion de l&apos;abonnement sera disponible après la configuration de Stripe.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
