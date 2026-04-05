@@ -432,6 +432,33 @@ const ServicesContent = () => {
                 if (!days) return null;
                 const pracVacations = vacationByPrac[prac.id] ?? [];
                 const vacInput = vacationInputs[prac.id] ?? { from: "", to: "" };
+
+                // Group consecutive vacation dates into ranges for display
+                const vacationRanges: { from: string; to: string }[] = [];
+                for (let vi = 0; vi < pracVacations.length; vi++) {
+                  const rangeStart = pracVacations[vi];
+                  let rangeEnd = rangeStart;
+                  while (vi + 1 < pracVacations.length) {
+                    const next = new Date(pracVacations[vi + 1]);
+                    const curr = new Date(rangeEnd);
+                    curr.setDate(curr.getDate() + 1);
+                    if (next.toISOString().slice(0, 10) === curr.toISOString().slice(0, 10)) {
+                      rangeEnd = pracVacations[vi + 1];
+                      vi++;
+                    } else break;
+                  }
+                  vacationRanges.push({ from: rangeStart, to: rangeEnd });
+                }
+
+                const BREAK_DURATIONS = [
+                  { value: 0, label: "Pas de pause" },
+                  { value: 30, label: "30 min" },
+                  { value: 45, label: "45 min" },
+                  { value: 60, label: "1h" },
+                  { value: 90, label: "1h30" },
+                  { value: 120, label: "2h" },
+                ];
+
                 return (
                   <Card key={prac.id}>
                     <CardHeader>
@@ -443,154 +470,203 @@ const ServicesContent = () => {
                         {prac.name}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Horaires hebdomadaires */}
-                      <div className="space-y-2">
-                        {DAY_LABELS.map((day, i) => (
-                          <div key={day} className="flex items-center gap-3 flex-wrap">
-                            <label className="flex items-center gap-2 w-28 text-sm cursor-pointer shrink-0">
-                              <input
-                                type="checkbox"
-                                checked={days[i].enabled}
-                                onChange={() =>
-                                  setScheduleByPrac((prev) => ({
-                                    ...prev,
-                                    [prac.id]: prev[prac.id].map((slot, j) =>
-                                      j === i ? { ...slot, enabled: !slot.enabled } : slot,
-                                    ),
-                                  }))
-                                }
-                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                              />
-                              <span className={days[i].enabled ? "text-gray-900" : "text-gray-400"}>
-                                {day}
-                              </span>
-                            </label>
-                            {days[i].enabled ? (
-                              <div className="flex items-center gap-1 text-sm flex-wrap">
-                                <input
-                                  type="time"
-                                  value={days[i].start}
-                                  onChange={(e) =>
-                                    setScheduleByPrac((prev) => ({
-                                      ...prev,
-                                      [prac.id]: prev[prac.id].map((slot, j) =>
-                                        j === i ? { ...slot, start: e.target.value } : slot,
-                                      ),
-                                    }))
-                                  }
-                                  className="border border-gray-200 rounded px-2 py-1 text-sm"
-                                />
-                                <span className="text-gray-400">—</span>
-                                <input
-                                  type="time"
-                                  value={days[i].end}
-                                  onChange={(e) =>
-                                    setScheduleByPrac((prev) => ({
-                                      ...prev,
-                                      [prac.id]: prev[prac.id].map((slot, j) =>
-                                        j === i ? { ...slot, end: e.target.value } : slot,
-                                      ),
-                                    }))
-                                  }
-                                  className="border border-gray-200 rounded px-2 py-1 text-sm"
-                                />
-                                <span className="text-xs text-gray-400 ml-2">Pause</span>
-                                <input
-                                  type="time"
-                                  value={days[i].breakStart}
-                                  onChange={(e) =>
-                                    setScheduleByPrac((prev) => ({
-                                      ...prev,
-                                      [prac.id]: prev[prac.id].map((slot, j) =>
-                                        j === i ? { ...slot, breakStart: e.target.value } : slot,
-                                      ),
-                                    }))
-                                  }
-                                  className="border border-gray-200 rounded px-1.5 py-1 text-xs w-20"
-                                />
-                                <span className="text-gray-400">—</span>
-                                <input
-                                  type="time"
-                                  value={days[i].breakEnd}
-                                  onChange={(e) =>
-                                    setScheduleByPrac((prev) => ({
-                                      ...prev,
-                                      [prac.id]: prev[prac.id].map((slot, j) =>
-                                        j === i ? { ...slot, breakEnd: e.target.value } : slot,
-                                      ),
-                                    }))
-                                  }
-                                  className="border border-gray-200 rounded px-1.5 py-1 text-xs w-20"
-                                />
+                    <CardContent>
+                      <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] gap-6">
+                        {/* Colonne gauche : Horaires */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Horaires de travail</p>
+                          {DAY_LABELS.map((day, i) => {
+                            const breakMinutes = (() => {
+                              const bs = days[i].breakStart.split(":").map(Number);
+                              const be = days[i].breakEnd.split(":").map(Number);
+                              return (be[0] * 60 + be[1]) - (bs[0] * 60 + bs[1]);
+                            })();
+                            return (
+                              <div key={day} className="flex items-center gap-2">
+                                <label className="flex items-center gap-2 w-24 text-sm cursor-pointer shrink-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={days[i].enabled}
+                                    onChange={() =>
+                                      setScheduleByPrac((prev) => ({
+                                        ...prev,
+                                        [prac.id]: prev[prac.id].map((slot, j) =>
+                                          j === i ? { ...slot, enabled: !slot.enabled } : slot,
+                                        ),
+                                      }))
+                                    }
+                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  <span className={days[i].enabled ? "text-gray-900 font-medium" : "text-gray-400"}>
+                                    {day}
+                                  </span>
+                                </label>
+                                {days[i].enabled ? (
+                                  <div className="flex items-center gap-1.5 text-sm">
+                                    {/* Horaires de travail */}
+                                    <input
+                                      type="time"
+                                      value={days[i].start}
+                                      onChange={(e) =>
+                                        setScheduleByPrac((prev) => ({
+                                          ...prev,
+                                          [prac.id]: prev[prac.id].map((slot, j) =>
+                                            j === i ? { ...slot, start: e.target.value } : slot,
+                                          ),
+                                        }))
+                                      }
+                                      className="border border-gray-200 rounded px-2 py-1 text-sm"
+                                    />
+                                    <span className="text-gray-400">—</span>
+                                    <input
+                                      type="time"
+                                      value={days[i].end}
+                                      onChange={(e) =>
+                                        setScheduleByPrac((prev) => ({
+                                          ...prev,
+                                          [prac.id]: prev[prac.id].map((slot, j) =>
+                                            j === i ? { ...slot, end: e.target.value } : slot,
+                                          ),
+                                        }))
+                                      }
+                                      className="border border-gray-200 rounded px-2 py-1 text-sm"
+                                    />
+                                    {/* Pause : début + durée */}
+                                    <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200">
+                                      <span className="text-xs text-amber-600 font-medium">Pause</span>
+                                      <input
+                                        type="time"
+                                        value={days[i].breakStart}
+                                        onChange={(e) =>
+                                          setScheduleByPrac((prev) => ({
+                                            ...prev,
+                                            [prac.id]: prev[prac.id].map((slot, j) =>
+                                              j === i ? { ...slot, breakStart: e.target.value } : slot,
+                                            ),
+                                          }))
+                                        }
+                                        className="border border-amber-200 bg-amber-50 rounded px-1.5 py-1 text-xs w-[76px]"
+                                      />
+                                      <select
+                                        value={breakMinutes}
+                                        onChange={(e) => {
+                                          const dur = Number(e.target.value);
+                                          const bs = days[i].breakStart.split(":").map(Number);
+                                          const endMin = bs[0] * 60 + bs[1] + dur;
+                                          const endH = String(Math.floor(endMin / 60)).padStart(2, "0");
+                                          const endM = String(endMin % 60).padStart(2, "0");
+                                          setScheduleByPrac((prev) => ({
+                                            ...prev,
+                                            [prac.id]: prev[prac.id].map((slot, j) =>
+                                              j === i ? { ...slot, breakEnd: `${endH}:${endM}` } : slot,
+                                            ),
+                                          }));
+                                        }}
+                                        className="border border-amber-200 bg-amber-50 rounded px-1 py-1 text-xs"
+                                      >
+                                        {BREAK_DURATIONS.map((bd) => (
+                                          <option key={bd.value} value={bd.value}>{bd.label}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-gray-400 italic">Fermé</span>
+                                )}
                               </div>
-                            ) : (
-                              <span className="text-xs text-gray-400 italic">Fermé</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Congés */}
-                      <div className="border-t pt-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-                          <CalendarOff className="h-4 w-4" />
-                          Congés
-                        </label>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs text-gray-500">Du</span>
-                          <input
-                            type="date"
-                            value={vacInput.from}
-                            onChange={(e) => setVacationInputs((prev) => ({ ...prev, [prac.id]: { ...vacInput, from: e.target.value } }))}
-                            className="border border-gray-200 rounded px-2 py-1 text-sm"
-                          />
-                          <span className="text-xs text-gray-500">au</span>
-                          <input
-                            type="date"
-                            value={vacInput.to}
-                            onChange={(e) => setVacationInputs((prev) => ({ ...prev, [prac.id]: { ...vacInput, to: e.target.value } }))}
-                            className="border border-gray-200 rounded px-2 py-1 text-sm"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={!vacInput.from || !vacInput.to || vacInput.from > vacInput.to}
-                            onClick={() => {
-                              const dates: string[] = [];
-                              const d = new Date(vacInput.from);
-                              const end = new Date(vacInput.to);
-                              while (d <= end) {
-                                const iso = d.toISOString().slice(0, 10);
-                                if (!pracVacations.includes(iso)) dates.push(iso);
-                                d.setDate(d.getDate() + 1);
-                              }
-                              setVacationByPrac((prev) => ({
-                                ...prev,
-                                [prac.id]: [...(prev[prac.id] ?? []), ...dates].sort(),
-                              }));
-                              setVacationInputs((prev) => ({ ...prev, [prac.id]: { from: "", to: "" } }));
-                            }}
-                          >
-                            Ajouter
-                          </Button>
+                            );
+                          })}
                         </div>
-                        {pracVacations.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {pracVacations.map((d) => (
-                              <span key={d} className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-700 px-2 py-1 rounded-full border border-red-200">
-                                {new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                                <button type="button" onClick={() => setVacationByPrac((prev) => ({
+
+                        {/* Colonne droite : Congés */}
+                        <div className="lg:border-l lg:pl-6">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                            <CalendarOff className="h-3.5 w-3.5" />
+                            Congés
+                          </p>
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-500">Du</span>
+                              <input
+                                type="date"
+                                value={vacInput.from}
+                                onChange={(e) => setVacationInputs((prev) => ({ ...prev, [prac.id]: { ...vacInput, from: e.target.value } }))}
+                                className="border border-gray-200 rounded px-2 py-1 text-xs flex-1"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-500">Au</span>
+                              <input
+                                type="date"
+                                value={vacInput.to}
+                                onChange={(e) => setVacationInputs((prev) => ({ ...prev, [prac.id]: { ...vacInput, to: e.target.value } }))}
+                                className="border border-gray-200 rounded px-2 py-1 text-xs flex-1"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              disabled={!vacInput.from || !vacInput.to || vacInput.from > vacInput.to}
+                              onClick={() => {
+                                const dates: string[] = [];
+                                const d = new Date(vacInput.from);
+                                const end = new Date(vacInput.to);
+                                while (d <= end) {
+                                  const iso = d.toISOString().slice(0, 10);
+                                  if (!pracVacations.includes(iso)) dates.push(iso);
+                                  d.setDate(d.getDate() + 1);
+                                }
+                                setVacationByPrac((prev) => ({
                                   ...prev,
-                                  [prac.id]: (prev[prac.id] ?? []).filter((v) => v !== d),
-                                }))} className="hover:text-red-900">×</button>
-                              </span>
-                            ))}
+                                  [prac.id]: [...(prev[prac.id] ?? []), ...dates].sort(),
+                                }));
+                                setVacationInputs((prev) => ({ ...prev, [prac.id]: { from: "", to: "" } }));
+                              }}
+                            >
+                              Ajouter
+                            </Button>
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-400 italic">Aucun congé planifié</p>
-                        )}
+                          {vacationRanges.length > 0 ? (
+                            <div className="space-y-1">
+                              {vacationRanges.map((r) => {
+                                const fromDate = new Date(r.from);
+                                const toDate = new Date(r.to);
+                                const isSingle = r.from === r.to;
+                                const label = isSingle
+                                  ? fromDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short", year: "numeric" })
+                                  : `${fromDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" })} au ${toDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}`;
+                                return (
+                                  <div key={r.from} className="flex items-center justify-between text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded border border-red-200">
+                                    <span>{isSingle ? label : `Du ${label}`}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const d = new Date(r.from);
+                                        const end = new Date(r.to);
+                                        const toRemove: string[] = [];
+                                        while (d <= end) {
+                                          toRemove.push(d.toISOString().slice(0, 10));
+                                          d.setDate(d.getDate() + 1);
+                                        }
+                                        setVacationByPrac((prev) => ({
+                                          ...prev,
+                                          [prac.id]: (prev[prac.id] ?? []).filter((v) => !toRemove.includes(v)),
+                                        }));
+                                      }}
+                                      className="hover:text-red-900 ml-2"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 italic">Aucun congé planifié</p>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
