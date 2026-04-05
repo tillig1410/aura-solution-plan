@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
 
-type Mode = "login" | "register" | "magic";
+type Mode = "login" | "register" | "magic" | "forgot";
 
 const LoginContent = () => {
   const [mode, setMode] = useState<Mode>("login");
@@ -72,6 +72,26 @@ const LoginContent = () => {
     router.push("/onboarding");
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    });
+
+    setLoading(false);
+
+    if (authError) {
+      setError(authError.message);
+      return;
+    }
+
+    setMagicSent(true);
+  };
+
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -100,8 +120,11 @@ const LoginContent = () => {
           <CardHeader className="text-center">
             <CardTitle>Vérifiez votre email</CardTitle>
             <CardDescription>
-              Un lien de connexion a été envoyé à <strong>{email}</strong>.
-              Cliquez dessus pour vous connecter.
+              {mode === "forgot"
+                ? <>Un lien de réinitialisation a été envoyé à <strong>{email}</strong>.</>
+                : <>Un lien de connexion a été envoyé à <strong>{email}</strong>.</>
+              }
+              {" "}Cliquez dessus pour continuer.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -117,6 +140,7 @@ const LoginContent = () => {
           <CardDescription>
             {mode === "login" && "Connectez-vous à votre espace"}
             {mode === "register" && "Créez votre compte professionnel"}
+            {mode === "forgot" && "Réinitialisez votre mot de passe"}
             {mode === "magic" && "Recevez un lien de connexion par email"}
           </CardDescription>
         </CardHeader>
@@ -127,7 +151,9 @@ const LoginContent = () => {
                 ? handleLogin
                 : mode === "register"
                   ? handleRegister
-                  : handleMagicLink
+                  : mode === "forgot"
+                    ? handleForgotPassword
+                    : handleMagicLink
             }
             className="space-y-4"
           >
@@ -138,7 +164,7 @@ const LoginContent = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            {mode !== "magic" && (
+            {mode !== "magic" && mode !== "forgot" && (
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
@@ -172,7 +198,9 @@ const LoginContent = () => {
                   ? "Se connecter"
                   : mode === "register"
                     ? "Créer mon compte"
-                    : "Envoyer le lien"}
+                    : mode === "forgot"
+                      ? "Envoyer le lien de réinitialisation"
+                      : "Envoyer le lien"}
             </Button>
           </form>
 
@@ -193,12 +221,23 @@ const LoginContent = () => {
                   <button
                     type="button"
                     className="text-gray-400 hover:underline"
-                    onClick={() => { setMode("magic"); setError(""); }}
+                    onClick={() => { setMode("forgot"); setError(""); }}
                   >
-                    Connexion par lien magique
+                    Mot de passe oublié ?
                   </button>
                 </p>
               </>
+            )}
+            {mode === "forgot" && (
+              <p>
+                <button
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => { setMode("login"); setError(""); }}
+                >
+                  Retour à la connexion
+                </button>
+              </p>
             )}
             {mode === "register" && (
               <p>

@@ -569,7 +569,7 @@ const OnboardingContent = () => {
           {step === "practitioners" && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Ajoutez les praticiens de votre salon.
+                Ajoutez les membres de votre équipe.
               </p>
 
               {practitioners.map((practitioner, index) => (
@@ -590,7 +590,7 @@ const OnboardingContent = () => {
                       }
                     />
                     <Input
-                      placeholder="Spécialités (séparées par des virgules)"
+                      placeholder="Services maîtrisés (ex: Coupe, Coloration, Barbe)"
                       value={practitioner.specialties}
                       onChange={(e) =>
                         updatePractitioner(
