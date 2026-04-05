@@ -10,6 +10,7 @@ import {
   Clock,
   CalendarOff,
   Save,
+  ArrowUpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -348,6 +349,17 @@ const ServicesContent = () => {
                 <Plus className="h-4 w-4" />
                 Nouveau service
               </Button>
+            )}
+            {tab === "praticiens" && (
+              practitioners.filter((p) => p.is_active).length >= seatCount ? (
+                <Button className="gap-2" onClick={() => {
+                  sessionStorage.setItem("settings_tab", "abonnement");
+                  window.location.href = "/settings";
+                }}>
+                  <ArrowUpCircle className="h-4 w-4" />
+                  Upgrader mon forfait
+                </Button>
+              ) : null
             )}
             {tab === "horaires" && (
               <Button
