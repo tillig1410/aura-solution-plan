@@ -8,6 +8,7 @@ import {
   Globe,
   Star,
   UsersRound,
+  Phone,
   Receipt,
   Save,
   ExternalLink,
@@ -203,7 +204,7 @@ const SettingsContent = () => {
       <h1 className="text-2xl font-bold text-gray-900 mb-4 shrink-0">Paramètres</h1>
 
       {/* Tabs — fixe en haut, ne scrolle jamais */}
-      <div className="flex gap-1 border-b border-gray-200 mb-0 overflow-x-auto shrink-0">
+      <div className="flex gap-1 border-b border-gray-200 mb-0 overflow-x-auto shrink-0 scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -570,7 +571,7 @@ const SettingsContent = () => {
       )}
 
       {tab === "abonnement" && merchant && (
-        <div className="max-w-2xl">
+        <div className="max-w-2xl space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Mon abonnement</CardTitle>
@@ -579,7 +580,7 @@ const SettingsContent = () => {
               <div className="flex items-center justify-between py-3 border-b border-gray-100">
                 <div>
                   <p className="font-medium text-gray-900">
-                    AurA Pro — {merchant.seat_count} siège{merchant.seat_count > 1 ? "s" : ""}
+                    Resaapp Pro — {merchant.seat_count} siège{merchant.seat_count > 1 ? "s" : ""}
                   </p>
                   <p className="text-sm text-gray-500">
                     {merchant.voice_enabled ? "Option Tél. IA incluse" : "Sans option Tél. IA"}
@@ -594,17 +595,15 @@ const SettingsContent = () => {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Statut</span>
                 <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                  Actif
+                  {merchant.stripe_subscription_id ? "Actif" : "Période d'essai"}
                 </span>
               </div>
-              {merchant.stripe_subscription_id && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">ID abonnement</span>
-                  <span className="text-gray-700 font-mono text-xs">
-                    {merchant.stripe_subscription_id}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Prochain renouvellement</span>
+                <span className="text-gray-700">
+                  {merchant.stripe_subscription_id ? "Géré par Stripe" : "—"}
+                </span>
+              </div>
               <div className="pt-2">
                 {merchant.stripe_subscription_id ? (
                   <Button
@@ -635,10 +634,52 @@ const SettingsContent = () => {
                   <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
                     <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
                     <p className="text-sm text-amber-700">
-                      Période d&apos;essai — la gestion de l&apos;abonnement sera disponible après la configuration de Stripe.
+                      Période d&apos;essai — la gestion sera disponible après la configuration de Stripe.
                     </p>
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Option Tél IA */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                Option Téléphone IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    L&apos;IA décroche vos appels et réserve automatiquement.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    +7€ à +52€/mois selon le nombre de sièges
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await saveMerchant({ voice_enabled: !merchant.voice_enabled });
+                      toast.success(merchant.voice_enabled ? "Option Tél. IA désactivée" : "Option Tél. IA activée");
+                    } catch {
+                      toast.error("Erreur");
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                    merchant.voice_enabled ? "bg-indigo-600" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                      merchant.voice_enabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
               </div>
             </CardContent>
           </Card>

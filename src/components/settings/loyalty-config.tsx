@@ -15,6 +15,7 @@ const LoyaltyConfig = () => {
 
   // Form state
   const [isActive, setIsActive] = useState(false);
+  const [pointsMode, setPointsMode] = useState<"visit" | "euro">("visit");
   const [pointsPerVisit, setPointsPerVisit] = useState(10);
   const [pointsPerEuro, setPointsPerEuro] = useState(1);
   const [silverThreshold, setSilverThreshold] = useState(100);
@@ -31,6 +32,7 @@ const LoyaltyConfig = () => {
           setIsActive(data.is_active);
           setPointsPerVisit(data.points_per_visit);
           setPointsPerEuro(data.points_per_euro);
+          setPointsMode(data.points_per_euro > 0 && data.points_per_visit === 0 ? "euro" : "visit");
           setSilverThreshold(data.silver_threshold);
           setGoldThreshold(data.gold_threshold);
         }
@@ -57,8 +59,8 @@ const LoyaltyConfig = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           is_active: isActive,
-          points_per_visit: pointsPerVisit,
-          points_per_euro: pointsPerEuro,
+          points_per_visit: pointsMode === "visit" ? pointsPerVisit : 0,
+          points_per_euro: pointsMode === "euro" ? pointsPerEuro : 0,
           silver_threshold: silverThreshold,
           gold_threshold: goldThreshold,
         }),
@@ -103,7 +105,7 @@ const LoyaltyConfig = () => {
             <div>
               <p className="text-sm font-medium text-gray-900">Activer le programme</p>
               <p className="text-xs text-gray-500">
-                Vos clients accumulent des points à chaque visite et euro dépensé
+                Vos clients accumulent des points et montent en palier
               </p>
             </div>
             <button
@@ -130,30 +132,69 @@ const LoyaltyConfig = () => {
               <CardTitle className="text-base">Règles d&apos;accumulation</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Points par visite
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={pointsPerVisit}
-                    onChange={(e) => setPointsPerVisit(parseInt(e.target.value, 10) || 0)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Points par euro dépensé
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={pointsPerEuro}
-                    onChange={(e) => setPointsPerEuro(parseInt(e.target.value, 10) || 0)}
-                  />
-                </div>
+              <p className="text-sm text-gray-500">
+                Choisissez comment vos clients gagnent des points :
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPointsMode("visit")}
+                  className={`rounded-lg border p-4 text-left transition-all ${
+                    pointsMode === "visit"
+                      ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-900">Par visite</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Points fixes à chaque passage
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPointsMode("euro")}
+                  className={`rounded-lg border p-4 text-left transition-all ${
+                    pointsMode === "euro"
+                      ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-900">Par euro dépensé</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Proportionnel au montant
+                  </p>
+                </button>
               </div>
+
+              {pointsMode === "visit" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Points gagnés par visite
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={pointsPerVisit}
+                    onChange={(e) => setPointsPerVisit(parseInt(e.target.value, 10) || 1)}
+                    className="max-w-xs"
+                  />
+                </div>
+              )}
+
+              {pointsMode === "euro" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Points gagnés par euro dépensé
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={pointsPerEuro}
+                    onChange={(e) => setPointsPerEuro(parseInt(e.target.value, 10) || 1)}
+                    className="max-w-xs"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
