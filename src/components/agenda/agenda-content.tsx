@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -103,129 +103,9 @@ const statusColor: Record<Booking["status"], string> = {
   no_show: "bg-orange-100 text-orange-600",
 };
 
-// ---------- mock data (to be replaced with real fetches) ----------
-const MOCK_PRACTITIONERS: Practitioner[] = [
-  {
-    id: "p1",
-    merchant_id: "m1",
-    name: "Alice",
-    email: null,
-    color: "#6366f1",
-    specialties: [],
-    is_active: true,
-    sort_order: 0,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "p2",
-    merchant_id: "m1",
-    name: "Bob",
-    email: null,
-    color: "#ec4899",
-    specialties: [],
-    is_active: true,
-    sort_order: 1,
-    created_at: "",
-    updated_at: "",
-  },
-];
+// ---------- (mock data removed — real fetches below) ----------
 
-const MOCK_SERVICES: Service[] = [
-  {
-    id: "s1",
-    merchant_id: "m1",
-    name: "Coupe homme",
-    description: null,
-    duration_minutes: 30,
-    price_cents: 2500,
-    is_active: true,
-    sort_order: 0,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "s2",
-    merchant_id: "m1",
-    name: "Coloration",
-    description: null,
-    duration_minutes: 90,
-    price_cents: 7500,
-    is_active: true,
-    sort_order: 1,
-    created_at: "",
-    updated_at: "",
-  },
-];
-
-const MOCK_CLIENTS: Client[] = [
-  {
-    id: "c1",
-    merchant_id: "m1",
-    name: "Jean Dupont",
-    phone: "0601020304",
-    email: null,
-    whatsapp_id: null,
-    messenger_id: null,
-    telegram_id: null,
-    preferred_practitioner_id: null,
-    preferred_service_id: null,
-    preferred_language: "fr",
-    loyalty_points: 0,
-    loyalty_tier: "bronze",
-    no_show_count: 0,
-    is_blocked: false,
-    notes: null,
-    created_at: "",
-    updated_at: "",
-  },
-];
-
-const buildMockBookings = (): BookingWithDetails[] => {
-  const now = new Date();
-  const today9h = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
-  const today11h = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0);
-  return [
-    {
-      id: "b1",
-      merchant_id: "m1",
-      client_id: "c1",
-      practitioner_id: "p1",
-      service_id: "s1",
-      starts_at: today9h.toISOString(),
-      ends_at: new Date(today9h.getTime() + 30 * 60000).toISOString(),
-      status: "confirmed",
-      source_channel: "whatsapp",
-      cancelled_at: null,
-      cancelled_by: null,
-      version: 1,
-      created_at: "",
-      updated_at: "",
-      client: { id: "c1", name: "Jean Dupont", phone: "0601020304", preferred_language: "fr" },
-      practitioner: { id: "p1", name: "Alice", color: "#6366f1" },
-      service: { id: "s1", name: "Coupe homme", duration_minutes: 30, price_cents: 2500 },
-    },
-    {
-      id: "b2",
-      merchant_id: "m1",
-      client_id: "c1",
-      practitioner_id: "p2",
-      service_id: "s2",
-      starts_at: today11h.toISOString(),
-      ends_at: new Date(today11h.getTime() + 90 * 60000).toISOString(),
-      status: "pending",
-      source_channel: "dashboard",
-      cancelled_at: null,
-      cancelled_by: null,
-      version: 1,
-      created_at: "",
-      updated_at: "",
-      client: { id: "c1", name: "Jean Dupont", phone: "0601020304", preferred_language: "fr" },
-      practitioner: { id: "p2", name: "Bob", color: "#ec4899" },
-      service: { id: "s2", name: "Coloration", duration_minutes: 90, price_cents: 7500 },
-    },
-  ];
-};
+// Real data is now fetched from the API in the component below
 
 // ---------- component ----------
 
@@ -233,13 +113,41 @@ const AgendaContent = () => {
   const [view, setView] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [selectedPractitionerIds, setSelectedPractitionerIds] = useState<string[]>([]);
-  const [bookings, setBookings] = useState<BookingWithDetails[]>(() => buildMockBookings());
+  const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
-  const practitioners = MOCK_PRACTITIONERS;
-  const services = MOCK_SERVICES;
-  const clients = MOCK_CLIENTS;
+  const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [pracRes, svcRes, clientRes, bookRes] = await Promise.all([
+        fetch("/api/v1/practitioners"),
+        fetch("/api/v1/services"),
+        fetch("/api/v1/clients"),
+        fetch("/api/v1/bookings"),
+      ]);
+      if (pracRes.ok) {
+        const json = await pracRes.json();
+        setPractitioners(json.data ?? json);
+      }
+      if (svcRes.ok) {
+        const json = await svcRes.json();
+        setServices(json.data ?? json);
+      }
+      if (clientRes.ok) {
+        const json = await clientRes.json();
+        setClients(json.data ?? json);
+      }
+      if (bookRes.ok) {
+        const json = await bookRes.json();
+        setBookings(json.data ?? json);
+      }
+    };
+    fetchData();
+  }, []);
 
   const weekStart = useMemo(() => getMonday(currentDate), [currentDate]);
 

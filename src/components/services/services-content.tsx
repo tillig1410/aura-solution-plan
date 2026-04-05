@@ -105,9 +105,13 @@ const ServicesContent = () => {
         fetch("/api/v1/services?include_inactive=true"),
         fetch("/api/v1/practitioners?include_inactive=true"),
       ]);
-      if (svcRes.ok) setServices((await svcRes.json()) as ServiceWithPractitioners[]);
+      if (svcRes.ok) {
+        const svcJson = await svcRes.json();
+        setServices((svcJson.data ?? svcJson) as ServiceWithPractitioners[]);
+      }
       if (pracRes.ok) {
-        const pracs = (await pracRes.json()) as PractitionerWithServices[];
+        const pracJson = await pracRes.json();
+        const pracs = (pracJson.data ?? pracJson) as PractitionerWithServices[];
         setPractitioners(pracs);
 
         // Build schedule from availability data

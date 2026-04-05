@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Globe, Clock, Save, Phone } from "lucide-react";
+import { Bot, Clock, Save, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,6 @@ const TONE_OPTIONS: { value: string; label: string; desc: string }[] = [
   { value: "casual", label: "Casual", desc: "Ton léger et spontané" },
 ];
 
-const LANGUAGE_OPTIONS: { code: string; label: string; flag: string }[] = [
-  { code: "fr", label: "Français", flag: "🇫🇷" },
-  { code: "en", label: "English", flag: "🇬🇧" },
-  { code: "es", label: "Español", flag: "🇪🇸" },
-  { code: "ar", label: "العربية", flag: "🇸🇦" },
-  { code: "pt", label: "Português", flag: "🇵🇹" },
-];
 
 const DELAY_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "Désactivé" },
@@ -46,15 +39,10 @@ const CHANNEL_LIST = [
 const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
   const [aiName, setAiName] = useState(merchant.ai_name ?? "");
   const [aiTone, setAiTone] = useState(merchant.ai_tone ?? "friendly");
-  const [aiLanguages, setAiLanguages] = useState<string[]>(merchant.ai_languages ?? ["fr"]);
+  const aiLanguages = ["fr"];
   const [cancellationDelay, setCancellationDelay] = useState(merchant.cancellation_delay_minutes ?? 0);
   const [saving, setSaving] = useState(false);
 
-  const toggleLanguage = (code: string) => {
-    setAiLanguages((prev) =>
-      prev.includes(code) ? prev.filter((l) => l !== code) : [...prev, code],
-    );
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -118,41 +106,6 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
                 </button>
               ))}
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Langues */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Globe className="h-5 w-5 text-indigo-600" />
-            Langues
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500 mb-3">
-            L&apos;IA répondra aux clients dans les langues sélectionnées.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {LANGUAGE_OPTIONS.map((lang) => {
-              const active = aiLanguages.includes(lang.code);
-              return (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => toggleLanguage(lang.code)}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium border transition-all ${
-                    active
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-gray-200 text-gray-600 hover:border-gray-300"
-                  }`}
-                >
-                  <span>{lang.flag}</span>
-                  <span>{lang.label}</span>
-                </button>
-              );
-            })}
           </div>
         </CardContent>
       </Card>
