@@ -96,6 +96,9 @@ const SettingsContent = () => {
   const [connectLoading, setConnectLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
 
+  // Seat selector
+  const [previewSeats, setPreviewSeats] = useState(0);
+
   // Delete account
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -589,7 +592,7 @@ const SettingsContent = () => {
               <div className="flex items-center justify-between py-3 border-b border-gray-100">
                 <div>
                   <p className="font-medium text-gray-900">
-                    Resaapp Pro — {merchant.seat_count} siège{merchant.seat_count > 1 ? "s" : ""}
+                    Resaapp — {merchant.seat_count} siège{merchant.seat_count > 1 ? "s" : ""}
                   </p>
                   <p className="text-sm text-gray-500">
                     {merchant.voice_enabled ? "Option Tél. IA incluse" : "Sans option Tél. IA"}
@@ -655,36 +658,48 @@ const SettingsContent = () => {
                         Vous êtes en période d&apos;essai (14 jours). Activez votre abonnement pour continuer après cette date.
                       </p>
                     </div>
-                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 space-y-3">
-                      <p className="text-sm font-medium text-indigo-800">Grille tarifaire</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {[
-                          { seats: 1, label: "Barbier solo" },
-                          { seats: 2, label: "Duo" },
-                          { seats: 3, label: "Salon 3" },
-                          { seats: 5, label: "Salon 5" },
-                        ].map((plan) => (
-                          <div
-                            key={plan.seats}
-                            className={`rounded-lg border p-3 text-center ${
-                              merchant.seat_count === plan.seats
-                                ? "border-indigo-500 bg-white ring-1 ring-indigo-500"
-                                : "border-gray-200 bg-white"
-                            }`}
-                          >
-                            <p className="text-xs font-medium text-gray-900">{plan.label}</p>
-                            <p className="text-lg font-bold text-indigo-600">
-                              {formatEur(calculatePrice(plan.seats, false))}
-                            </p>
-                            <p className="text-xs text-gray-500">/mois</p>
-                            <p className="text-xs text-gray-400">{plan.seats} siège{plan.seats > 1 ? "s" : ""}</p>
-                          </div>
-                        ))}
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 space-y-4">
+                      <p className="text-sm font-medium text-indigo-800">Choisir le nombre de sièges</p>
+
+                      {/* Sélecteur +/- */}
+                      <div className="flex items-center justify-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSeats(Math.max(1, (previewSeats || merchant.seat_count) - 1))}
+                          className="h-10 w-10 rounded-full border-2 border-indigo-300 bg-white text-indigo-600 text-xl font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center"
+                        >
+                          −
+                        </button>
+                        <div className="text-center min-w-[120px]">
+                          <p className="text-3xl font-bold text-indigo-700">
+                            {previewSeats || merchant.seat_count}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            siège{(previewSeats || merchant.seat_count) > 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSeats(Math.min(10, (previewSeats || merchant.seat_count) + 1))}
+                          className="h-10 w-10 rounded-full border-2 border-indigo-300 bg-white text-indigo-600 text-xl font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center"
+                        >
+                          +
+                        </button>
                       </div>
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <p>+ Option Tél. IA : dès +{formatEur(700)}/mois</p>
-                        <p className="text-green-600 font-medium">Early Adopter (50 premiers) : -30% à vie → dès {formatEur(calculateEarlyAdopterPrice(1, false))}/mois</p>
+
+                      {/* Prix affiché */}
+                      <div className="text-center space-y-1">
+                        <p className="text-2xl font-bold text-indigo-600">
+                          {formatEur(calculatePrice(previewSeats || merchant.seat_count, merchant.voice_enabled ?? false))}<span className="text-sm font-normal text-gray-500">/mois</span>
+                        </p>
+                        {merchant.voice_enabled && (
+                          <p className="text-xs text-gray-500">dont option Tél. IA incluse</p>
+                        )}
+                        <p className="text-xs text-green-600 font-medium">
+                          Early Adopter : {formatEur(calculateEarlyAdopterPrice(previewSeats || merchant.seat_count, merchant.voice_enabled ?? false))}/mois (-30%)
+                        </p>
                       </div>
+
                       <p className="text-xs text-gray-400 text-center">
                         Essai gratuit 14 jours · Sans carte bancaire · Sans engagement
                       </p>
