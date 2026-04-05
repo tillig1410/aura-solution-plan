@@ -613,6 +613,11 @@ const SettingsContent = () => {
                   <p className="text-lg font-bold text-indigo-600">
                     {formatEur(calculatePrice(merchant.seat_count, merchant.voice_enabled ?? false))}/mois
                   </p>
+                  {merchant.voice_enabled && (
+                    <p className="text-xs text-gray-400">
+                      {formatEur(calculatePrice(merchant.seat_count, false))} base + {formatEur(calculatePrice(merchant.seat_count, true) - calculatePrice(merchant.seat_count, false))} Tél. IA
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm">
