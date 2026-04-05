@@ -5,6 +5,18 @@
 
 ---
 
+## [1.5.4] — 2026-04-05 — Tests : validations booking, Stripe handlers complets (133/133 green)
+
+### Tests ajoutés
+- **`tests/unit/booking-validation.test.ts`** (15 tests) — Zod schemas `createBookingSchema` + `updateBookingSchema` : UUIDs, datetime offset, source_channel enum, version obligatoire, refine "au moins un champ"
+- **`tests/unit/subscription-handlers.test.ts`** (12 tests) — `handleSubscriptionUpdated` : mapping statuts Stripe, reset period_uses, early return metadata/UUID — `handleSubscriptionDeleted` : mark cancelled, guards
+- **`tests/unit/invoice-charge-handlers.test.ts`** (10 tests) — `handleInvoicePaid` : Plan SaaS vs client — `handleInvoicePaymentFailed` : log-only Plan vs past_due client — `handleChargeRefunded` : annule booking si UUIDs valides — `handleChargeDisputeCreated` : log critique sans BDD
+
+### Résultat
+- **15 suites, 133 tests, 0 échec** ✅
+
+---
+
 ## [1.5.3] — 2026-04-05 — Stride créneaux 30 min → 15 min
 
 ### Changement
