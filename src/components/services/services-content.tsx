@@ -235,6 +235,27 @@ const ServicesContent = () => {
         return;
       }
 
+      const savedService = await res.json();
+      const serviceId = editingService?.id ?? savedService.data?.id ?? savedService.id;
+
+      // Update practitioner-service assignments
+      if (serviceId) {
+        for (const prac of practitioners) {
+          const wasLinked = prac.service_ids.includes(serviceId);
+          const shouldBeLinked = svcPracIds.includes(prac.id);
+          if (wasLinked !== shouldBeLinked) {
+            const newServiceIds = shouldBeLinked
+              ? [...prac.service_ids, serviceId]
+              : prac.service_ids.filter((sid) => sid !== serviceId);
+            await fetch(`/api/v1/practitioners/${prac.id}/services`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ service_ids: newServiceIds }),
+            });
+          }
+        }
+      }
+
       setDialogOpen(false);
       toast.success(editingService ? "Service modifié" : "Service créé");
       fetchData();
@@ -471,7 +492,7 @@ const ServicesContent = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr,280px] gap-6">
                         {/* Colonne gauche : Horaires */}
                         <div className="space-y-2">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Horaires de travail</p>
@@ -579,7 +600,7 @@ const ServicesContent = () => {
                         </div>
 
                         {/* Colonne droite : Congés */}
-                        <div className="lg:border-l lg:pl-6">
+                        <div className="md:border-l md:pl-6">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
                             <CalendarOff className="h-3.5 w-3.5" />
                             Congés
