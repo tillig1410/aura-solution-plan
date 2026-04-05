@@ -5,6 +5,52 @@
 
 ---
 
+## [2.1.0] — 2026-04-05 — Onboarding, auth, UX agenda et paramètres
+
+### Authentification
+- **[FEAT]** Login email + mot de passe (remplace magic link seul)
+- **[FEAT]** Inscription avec création de compte
+- **[FEAT]** Mot de passe oublié (réinitialisation par email)
+- **[FEAT]** Toggle visibilité mot de passe (icône oeil)
+
+### Onboarding
+- **[FEAT]** Refonte complète — 2 onglets : Recherche Google Maps / Saisie manuelle
+- **[FEAT]** Auto-remplissage nom, adresse, téléphone depuis Google Places API
+- **[FEAT]** Formulaire réel ajout services (nom, durée, prix)
+- **[FEAT]** Formulaire réel ajout praticiens (nom, spécialités, couleur)
+- **[FEAT]** Boutons Retour/Passer sur chaque étape
+- **[FIX]** Gestion merchant existant (update au lieu de doublon)
+
+### Agenda
+- **[FIX]** Remplacement mock data (Alice/Bob) par vrais appels API
+- **[FEAT]** Nouveau RDV : bouton + pour créer un client inline
+- **[FEAT]** Nouveau RDV : Service sélectionné AVANT praticien (logique métier)
+- **[FEAT]** Filtrage automatique praticiens par service (via practitioner_services)
+- **[FEAT]** Auto-sélection praticien si un seul correspond
+- **[FEAT]** Date et heure séparés, paliers de 15 minutes
+- **[FEAT]** Créneaux filtrés selon horaires du praticien
+
+### Services
+- **[FIX]** Correction parsing JSON API `{ data: [...] }`
+- **[FEAT]** Badges colorés avec nom praticien sur chaque service
+
+### Paramètres
+- **[FIX]** Onglets fixes en haut (ne scrollent plus hors de vue)
+- **[FEAT]** Photo Google Maps du salon affichée dans Informations
+- **[FEAT]** Zone dangereuse : suppression de compte avec confirmation
+- **[FEAT]** Abonnement : message explicite quand Stripe non configuré
+- **[SUPPR]** Section langues IA retirée (français uniquement)
+
+### API
+- **[FEAT]** Routes `/api/v1/places/search` et `/api/v1/places/details` (proxy Google Places)
+- **[FEAT]** Validation seat_count à la création de praticien (erreur 403 si limite atteinte)
+
+### Infra
+- **[FEAT]** Variable `GOOGLE_PLACES_API_KEY` ajoutée sur Vercel
+- **[FEAT]** Branche `main` créée comme branche par défaut (auto-deploy Vercel)
+
+---
+
 ## [2.0.0] — 2026-04-05 — Déploiement production complet
 
 ### Déploiement
