@@ -492,9 +492,9 @@ const ServicesContent = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-[1fr,250px] gap-4">
+                      <div className="flex gap-4">
                         {/* Colonne gauche : Horaires */}
-                        <div className="space-y-2">
+                        <div className="flex-1 min-w-0 space-y-2 overflow-x-auto">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Horaires de travail</p>
                           {DAY_LABELS.map((day, i) => {
                             const breakMinutes = (() => {
@@ -600,7 +600,7 @@ const ServicesContent = () => {
                         </div>
 
                         {/* Colonne droite : Congés */}
-                        <div className="border-l pl-4">
+                        <div className="w-64 shrink-0 border-l pl-4">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
                             <CalendarOff className="h-3.5 w-3.5" />
                             Congés
