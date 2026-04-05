@@ -773,9 +773,11 @@ const SettingsContent = () => {
                         {merchant.stripe_subscription_id ? "Valider le changement" : "Activer mon abonnement"}
                       </Button>
 
-                      <p className="text-xs text-gray-400 text-center">
-                        Essai gratuit 14 jours · Sans carte bancaire · Sans engagement
-                      </p>
+                      {!merchant.stripe_subscription_id && (
+                        <p className="text-xs text-gray-400 text-center">
+                          Essai gratuit 14 jours · Sans carte bancaire · Sans engagement
+                        </p>
+                      )}
                     </div>
                   </div>
                 </>

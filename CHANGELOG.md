@@ -5,6 +5,45 @@
 
 ---
 
+## [2.2.0] — 2026-04-05 — Abonnement, praticiens, fidélité, sécurité
+
+### Abonnement
+- **[FEAT]** Sélecteur +/- pour choisir le nombre de sièges (1 à 10)
+- **[FEAT]** Toggle Mensuel / Annuel (2 mois offerts)
+- **[FEAT]** Prix recalculé en temps réel (base + Tél IA + Early Adopter -30%)
+- **[FEAT]** Bouton "Activer mon abonnement" (en attente Stripe)
+- **[FEAT]** Date de fin de période d'essai (14 jours après création)
+- **[FEAT]** Option Tél IA avec dialog de confirmation avant activation
+- **[FIX]** Grille tarifaire corrigée selon Pricing_AurA_v2.pdf
+- **[FIX]** Mention essai gratuit uniquement pour les non-abonnés
+- **[FIX]** Supprimé "Pro" du titre abonnement
+
+### Praticiens
+- **[FEAT]** Suppression de praticien (bouton + confirmation)
+- **[FEAT]** Jours de congé par praticien (dates, badges supprimables)
+- **[FEAT]** Compteur "X / Y praticiens" avec seat_count
+- **[FEAT]** Badge dépassement rouge si plus de praticiens que de sièges
+- **[FEAT]** Bouton "Upgrader" → lien direct vers onglet Abonnement
+- **[FIX]** Blocage réel création/réactivation au-delà du forfait (onboarding + manager + API)
+- **[FIX]** Endpoint DELETE /api/v1/practitioners/:id ajouté
+
+### Fidélité
+- **[FEAT]** Choix du modèle : Paliers cumulatifs OU Porte-monnaie de points
+- **[FEAT]** Explications détaillées avec exemples pour chaque modèle
+- **[FEAT]** Choix exclusif : points par visite OU par euro dépensé
+
+### Paramètres
+- **[FIX]** Onglets fixes en haut (contenu seul scrollable)
+- **[FIX]** Scrollbar horizontale masquée sur les onglets
+- **[FEAT]** Photo Google Maps du salon dans Informations
+- **[FEAT]** Suppression de compte commerçant (zone dangereuse + confirmation SUPPRIMER)
+
+### Sécurité
+- **[FEAT]** Blocage inscriptions via NEXT_PUBLIC_REGISTRATION_OPEN=false
+- **[FEAT]** Pricing: support 8+ sièges (54,90€ + 6€/siège supplémentaire)
+
+---
+
 ## [2.1.0] — 2026-04-05 — Onboarding, auth, UX agenda et paramètres
 
 ### Authentification
