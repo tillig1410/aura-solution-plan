@@ -10,6 +10,8 @@ import { Eye, EyeOff } from "lucide-react";
 
 type Mode = "login" | "register" | "magic" | "forgot";
 
+const registrationOpen = process.env.NEXT_PUBLIC_REGISTRATION_OPEN !== "false";
+
 const LoginContent = () => {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
@@ -48,6 +50,11 @@ const LoginContent = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!registrationOpen) {
+      setError("Les inscriptions sont fermées pour le moment.");
+      return;
+    }
 
     if (password.length < 6) {
       setError("Le mot de passe doit contenir au moins 6 caractères.");
@@ -207,16 +214,22 @@ const LoginContent = () => {
           <div className="mt-4 space-y-2 text-center text-sm">
             {mode === "login" && (
               <>
-                <p>
-                  Pas encore de compte ?{" "}
-                  <button
-                    type="button"
-                    className="text-blue-600 hover:underline"
-                    onClick={() => { setMode("register"); setError(""); }}
-                  >
-                    Créer un compte
-                  </button>
-                </p>
+                {registrationOpen ? (
+                  <p>
+                    Pas encore de compte ?{" "}
+                    <button
+                      type="button"
+                      className="text-blue-600 hover:underline"
+                      onClick={() => { setMode("register"); setError(""); }}
+                    >
+                      Créer un compte
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-gray-400">
+                    Les inscriptions sont fermées pour le moment.
+                  </p>
+                )}
                 <p>
                   <button
                     type="button"

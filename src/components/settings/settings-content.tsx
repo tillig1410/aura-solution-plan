@@ -26,7 +26,7 @@ import ErrorBoundary from "@/components/ui/error-boundary";
 import LoyaltyConfig from "@/components/settings/loyalty-config";
 import PackagesConfig from "@/components/settings/packages-config";
 import { generateQrCodeDataUrl } from "@/lib/utils/qr-code";
-import { calculatePrice, formatEur } from "@/lib/stripe/pricing";
+import { calculatePrice, calculateEarlyAdopterPrice, formatEur } from "@/lib/stripe/pricing";
 import type { Merchant } from "@/types/supabase";
 
 // ---------- Types ----------
@@ -656,12 +656,13 @@ const SettingsContent = () => {
                       </p>
                     </div>
                     <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 space-y-3">
-                      <p className="text-sm font-medium text-indigo-800">Changer de forfait</p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <p className="text-sm font-medium text-indigo-800">Grille tarifaire</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {[
-                          { seats: 1, label: "Solo" },
-                          { seats: 3, label: "Équipe" },
-                          { seats: 7, label: "Salon" },
+                          { seats: 1, label: "Barbier solo" },
+                          { seats: 2, label: "Duo" },
+                          { seats: 3, label: "Salon 3" },
+                          { seats: 5, label: "Salon 5" },
                         ].map((plan) => (
                           <div
                             key={plan.seats}
@@ -675,12 +676,17 @@ const SettingsContent = () => {
                             <p className="text-lg font-bold text-indigo-600">
                               {formatEur(calculatePrice(plan.seats, false))}
                             </p>
-                            <p className="text-xs text-gray-500">/mois · {plan.seats} siège{plan.seats > 1 ? "s" : ""}</p>
+                            <p className="text-xs text-gray-500">/mois</p>
+                            <p className="text-xs text-gray-400">{plan.seats} siège{plan.seats > 1 ? "s" : ""}</p>
                           </div>
                         ))}
                       </div>
-                      <p className="text-xs text-gray-500 text-center">
-                        L&apos;activation de l&apos;abonnement sera disponible après la configuration de Stripe.
+                      <div className="text-xs text-gray-500 space-y-1">
+                        <p>+ Option Tél. IA : dès +{formatEur(700)}/mois</p>
+                        <p className="text-green-600 font-medium">Early Adopter (50 premiers) : -30% à vie → dès {formatEur(calculateEarlyAdopterPrice(1, false))}/mois</p>
+                      </div>
+                      <p className="text-xs text-gray-400 text-center">
+                        Essai gratuit 14 jours · Sans carte bancaire · Sans engagement
                       </p>
                     </div>
                   </div>
