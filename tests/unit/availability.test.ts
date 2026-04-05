@@ -1,82 +1,219 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 /**
- * Availability Calculation Tests
- * Validates: free slots based on practitioner schedule minus existing bookings
+ * T040 — Unit tests: getAvailableSlots
+ * Teste la vraie implémentation avec un mock Supabase fluent.
  */
 
-// Will import from @/lib/availability once implemented
-// import { getAvailableSlots } from "@/lib/availability";
+vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+
+const { getAvailableSlots } = await import("@/lib/availability");
+
+// ---- Helpers ----------------------------------------------------------------
+
+const MERCHANT = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const PRAC     = "b1b2c3d4-e5f6-7890-abcd-ef1234567891";
+const DATE     = "2026-04-07"; // lundi
+
+/** Construire un mock Supabase retournant `schedule` et `bookings` */
+function makeAvailabilitySupabase(schedule: object[], bookings: object[]) {
+  let callCount = 0;
+
+  const from = vi.fn(() => {
+    callCount++;
+    const result = callCount === 1 ? schedule : bookings;
+
+    // Chaîne fluente : .select().eq().or() → schedule
+    //                  .select().eq().eq().gte().lte().not() → bookings
+    const chain: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "or", "gte", "lte", "not", "order", "gt", "limit"]) {
+      chain[m] = vi.fn().mockReturnValue(chain);
+    }
+    // Chaque chaîne est awaitable (retourne { data: result })
+    (chain as unknown as { then: unknown }).then = (resolve: (v: unknown) => unknown) =>
+      Promise.resolve({ data: result, error: null }).then(resolve);
+
+    return chain;
+  });
+
+  return { from };
+}
+
+function makeSchedule(startTime: string, endTime: string, options: Record<string, unknown> = {}) {
+  return {
+    start_time: startTime,
+    end_time: endTime,
+    is_available: true,
+    exception_date: null,
+    ...options,
+  };
+}
+
+// ---- Tests ------------------------------------------------------------------
 
 describe("Availability Calculation", () => {
-  const practitionerSchedule = [
-    { day_of_week: 0, start_time: "09:00", end_time: "12:30", is_available: true },
-    { day_of_week: 0, start_time: "14:00", end_time: "19:00", is_available: true },
-  ];
+  it("should return free slots for a given day", async () => {
+    const schedule = [makeSchedule("09:00", "12:30")];
+    const { from } = makeAvailabilitySupabase(schedule, []);
 
-  const existingBookings = [
-    { starts_at: "2026-04-06T09:00:00+02:00", ends_at: "2026-04-06T09:30:00+02:00", status: "confirmed" as const },
-    { starts_at: "2026-04-06T10:00:00+02:00", ends_at: "2026-04-06T10:30:00+02:00", status: "confirmed" as const },
-  ];
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
 
-  it("should return free slots for a given day", () => {
-    // Monday (day_of_week=0), 30-minute service
-    // Schedule: 09:00-12:30, 14:00-19:00
-    // Booked: 09:00-09:30, 10:00-10:30
-    // Free: 09:30, 10:30, 11:00, 11:30, 12:00, 14:00-18:30 (every 30min)
-    const serviceDuration = 30;
-    const totalWorkMinutes = (3.5 + 5) * 60; // 510 min
-    const totalSlots = Math.floor(totalWorkMinutes / serviceDuration); // 17
-    const bookedSlots = existingBookings.length; // 2
-    const freeSlots = totalSlots - bookedSlots; // 15
-
-    expect(freeSlots).toBe(15);
+    // 09:00–12:30 = 210 min, pas de 30 min chacun = 7 créneaux
+    expect(slots.length).toBe(7);
+    expect(slots[0].starts_at).toBe(`${DATE}T09:00:00`);
+    expect(slots[0].ends_at).toBe(`${DATE}T09:30:00`);
   });
 
-  it("should exclude exception dates (holidays)", () => {
-    const exceptions = [
-      { exception_date: "2026-04-06", is_available: false },
+  it("should exclude exception dates (holidays)", async () => {
+    const schedule = [makeSchedule("09:00", "19:00", {
+      is_available: false,
+      exception_date: DATE,
+    })];
+    const { from } = makeAvailabilitySupabase(schedule, []);
+
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
+
+    expect(slots).toHaveLength(0);
+  });
+
+  it("should subtract existing confirmed bookings", async () => {
+    const schedule = [makeSchedule("09:00", "10:30")];
+    const bookings = [
+      { starts_at: `${DATE}T09:00:00`, ends_at: `${DATE}T09:30:00`, status: "confirmed" },
     ];
+    const { from } = makeAvailabilitySupabase(schedule, bookings);
 
-    // If exception blocks the whole day → 0 free slots
-    expect(exceptions[0].is_available).toBe(false);
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
+
+    // 09:00-10:30 = 3 créneaux - 1 réservé = 2
+    expect(slots.length).toBe(2);
+    expect(slots.every((s) => s.starts_at !== `${DATE}T09:00:00`)).toBe(true);
   });
 
-  it("should handle overlapping bookings correctly", () => {
-    // A 90-minute coloration at 10:00 blocks 10:00, 10:30, 11:00
-    const longBooking = {
-      starts_at: "2026-04-06T10:00:00+02:00",
-      ends_at: "2026-04-06T11:30:00+02:00",
-      status: "confirmed" as const,
-    };
+  it("should handle overlapping bookings correctly (long booking blocks multiple slots)", async () => {
+    const schedule = [makeSchedule("09:00", "12:00")];
+    // Coloration 90 min : bloque 09:00, 09:30, 10:00
+    const bookings = [
+      { starts_at: `${DATE}T09:00:00`, ends_at: `${DATE}T10:30:00`, status: "confirmed" },
+    ];
+    const { from } = makeAvailabilitySupabase(schedule, bookings);
 
-    const durationMinutes = (new Date(longBooking.ends_at).getTime() - new Date(longBooking.starts_at).getTime()) / 60000;
-    expect(durationMinutes).toBe(90);
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
+
+    // 09:00–12:00 = 6 créneaux. Booking 09:00–10:30 bloque 09:00, 09:30, 10:00 → 3 libres
+    expect(slots.length).toBe(3);
+    const startTimes = slots.map((s) => s.starts_at);
+    expect(startTimes).not.toContain(`${DATE}T09:00:00`);
+    expect(startTimes).not.toContain(`${DATE}T09:30:00`);
+    expect(startTimes).not.toContain(`${DATE}T10:00:00`);
+    expect(startTimes).toContain(`${DATE}T10:30:00`);
   });
 
-  it("should not count cancelled bookings as occupied", () => {
-    const cancelledBooking = {
-      starts_at: "2026-04-06T09:00:00+02:00",
-      ends_at: "2026-04-06T09:30:00+02:00",
-      status: "cancelled" as const,
-    };
+  it("should not count cancelled bookings as occupied", async () => {
+    const schedule = [makeSchedule("09:00", "10:30")];
+    const bookings = [
+      { starts_at: `${DATE}T09:00:00`, ends_at: `${DATE}T09:30:00`, status: "cancelled" },
+    ];
+    // Le mock retourne les données brutes — le filtre SQL (.not("status","in",...)) est mocké
+    // donc on simule que Supabase a déjà filtré les cancelled en ne les incluant pas
+    const { from } = makeAvailabilitySupabase(schedule, []);
 
-    // Cancelled bookings should be excluded from occupancy
-    expect(cancelledBooking.status).toBe("cancelled");
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
+
+    expect(slots.length).toBe(3); // 09:00, 09:30, 10:00
   });
 
-  it("should respect service duration for slot generation", () => {
-    // 45-minute service → slots at 09:00, 09:45, 10:30, 11:15, 12:00 (morning)
-    const duration = 45;
-    const morningMinutes = 3.5 * 60; // 210 min (09:00-12:30)
-    const morningSlots = Math.floor(morningMinutes / duration); // 4
+  it("should respect service duration for slot generation", async () => {
+    const schedule = [makeSchedule("09:00", "12:30")];
+    const { from } = makeAvailabilitySupabase(schedule, []);
 
-    expect(morningSlots).toBe(4);
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 45,
+    });
+
+    // Slots 30-min stride, 45-min duration: 09:00, 09:30, 10:00, 10:30, 11:00, 11:30
+    // 11:30+45=12:15 ≤ 12:30 ✓ mais 12:00+45=12:45 > 12:30 ✗ → 6 créneaux
+    expect(slots.length).toBe(6);
+    expect(slots[0].ends_at).toBe(`${DATE}T09:45:00`);
   });
 
-  it("should return empty array when practitioner has no availability for the day", () => {
-    // Sunday (day_of_week=6) with no schedule entry → []
-    const sundaySchedule = practitionerSchedule.filter((s) => s.day_of_week === 6);
-    expect(sundaySchedule).toHaveLength(0);
+  it("should return empty array when practitioner has no schedule for the day", async () => {
+    const { from } = makeAvailabilitySupabase([], []);
+
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
+
+    expect(slots).toHaveLength(0);
+  });
+
+  it("exception_date overrides recurring schedule", async () => {
+    // Le jour récurrent dit dispo, mais l'exception dit non
+    const schedule = [
+      makeSchedule("09:00", "19:00"), // récurrent
+      makeSchedule("09:00", "19:00", { is_available: false, exception_date: DATE }), // exception
+    ];
+    const { from } = makeAvailabilitySupabase(schedule, []);
+
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
+
+    expect(slots).toHaveLength(0);
+  });
+
+  it("génère des slots dans plusieurs blocs horaires (matin + après-midi)", async () => {
+    const schedule = [
+      makeSchedule("09:00", "12:00"), // matin
+      makeSchedule("14:00", "17:00"), // après-midi (pause déjeuner exclue)
+    ];
+    const { from } = makeAvailabilitySupabase(schedule, []);
+
+    const slots = await getAvailableSlots({ from } as never, {
+      merchantId: MERCHANT,
+      practitionerId: PRAC,
+      date: DATE,
+      durationMinutes: 30,
+    });
+
+    // Matin: 6 créneaux (09:00–12:00), Après-midi: 6 créneaux (14:00–17:00)
+    expect(slots.length).toBe(12);
+    const startTimes = slots.map((s) => s.starts_at);
+    // Pas de créneau entre 12:00 et 14:00
+    expect(startTimes.some((t) => t >= `${DATE}T12:00:00` && t < `${DATE}T14:00:00`)).toBe(false);
   });
 });

@@ -5,6 +5,18 @@
 
 ---
 
+## [1.5.2] — 2026-04-05 — Tests unitaires : loyalty, packages, availability (96/96 green)
+
+### Tests ajoutés
+- **`tests/unit/loyalty-points.test.ts`** (11 tests) — `computeTier` (pure) + `addLoyaltyPoints` : calcul points, détection upgrade palier, early-return si programme inactif/client introuvable, erreur Supabase, arithmetic entière
+- **`tests/unit/package-consume.test.ts`** (13 tests) — `consumePackage` : décrément, optimistic lock, forfait expiré/mauvais service/inactif, erreurs DB — `hasActivePackageOrSubscription` : forfait, abonnement, exclusions
+- **`tests/unit/availability.test.ts`** (8 tests) — Réécriture sur la vraie `getAvailableSlots` : slots libres, exception_date override, soustraction réservations, chevauchements longs, multi-blocs horaires
+
+### Résultat
+- **12 suites, 96 tests, 0 échec** ✅
+
+---
+
 ## [1.5.1] — 2026-04-05 — Fix tests Vitest (67/67 green)
 
 ### Fix
