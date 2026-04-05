@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -99,6 +99,7 @@ const ServicesContent = () => {
   interface DaySlot { enabled: boolean; start: string; end: string; breakStart: string; breakEnd: string }
   const [scheduleByPrac, setScheduleByPrac] = useState<Record<string, DaySlot[]>>({});
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  const pracNewRef = useRef<(() => void) | null>(null);
 
   // Congés state
   const [vacationByPrac, setVacationByPrac] = useState<Record<string, string[]>>({});
@@ -359,7 +360,12 @@ const ServicesContent = () => {
                   <ArrowUpCircle className="h-4 w-4" />
                   Upgrader mon forfait
                 </Button>
-              ) : null
+              ) : (
+                <Button className="gap-2" onClick={() => pracNewRef.current?.()}>
+                  <Plus className="h-4 w-4" />
+                  Nouveau praticien
+                </Button>
+              )
             )}
             {tab === "horaires" && (
               <Button
@@ -464,6 +470,7 @@ const ServicesContent = () => {
               services={services}
               seatCount={seatCount}
               onUpdate={fetchData}
+              onOpenNewRef={pracNewRef}
             />
           )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, type MutableRefObject } from "react";
 import { Plus, Pencil, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ interface PractitionerManagerProps {
   services: Service[];
   seatCount: number;
   onUpdate: () => void;
+  onOpenNewRef?: MutableRefObject<(() => void) | null>;
 }
 
 const PRESET_COLORS = [
@@ -81,7 +82,7 @@ const defaultSchedule = (): ScheduleSlot[] =>
     end: "19:00",
   }));
 
-const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: PractitionerManagerProps) => {
+const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onOpenNewRef }: PractitionerManagerProps) => {
   const activePracCount = practitioners.filter((p) => p.is_active).length;
   const seatLimitReached = activePracCount >= seatCount;
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,6 +100,12 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
     setError(null);
     setDialogOpen(true);
   };
+
+  // Expose openNew to parent via ref
+  useEffect(() => {
+    if (onOpenNewRef) onOpenNewRef.current = openNew;
+    return () => { if (onOpenNewRef) onOpenNewRef.current = null; };
+  });
 
   const openEdit = (prac: PractitionerWithServices) => {
     setEditingId(prac.id);
@@ -226,25 +233,17 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">
-            {activePracCount} / {seatCount} praticien{seatCount > 1 ? "s" : ""}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-sm text-gray-500">
+          {activePracCount} / {seatCount} praticien{seatCount > 1 ? "s" : ""}
+        </span>
+        {activePracCount > seatCount && (
+          <span className="text-xs px-2 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200">
+            Dépassement
           </span>
-          {activePracCount > seatCount && (
-            <span className="text-xs px-2 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200">
-              Dépassement
-            </span>
-          )}
-          {seatLimitReached && activePracCount <= seatCount && (
-            <span className="text-xs text-amber-600">Limite atteinte</span>
-          )}
-        </div>
-        {!seatLimitReached && (
-          <Button onClick={openNew} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nouveau praticien
-          </Button>
+        )}
+        {seatLimitReached && activePracCount <= seatCount && (
+          <span className="text-xs text-amber-600">Limite atteinte</span>
         )}
       </div>
 
