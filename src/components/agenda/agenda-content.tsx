@@ -121,32 +121,41 @@ const AgendaContent = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
+  const fetchAllData = useCallback(async () => {
+    const [pracRes, svcRes, clientRes, bookRes] = await Promise.all([
+      fetch("/api/v1/practitioners"),
+      fetch("/api/v1/services"),
+      fetch("/api/v1/clients"),
+      fetch("/api/v1/bookings"),
+    ]);
+    if (pracRes.ok) {
+      const json = await pracRes.json();
+      setPractitioners(json.data ?? json);
+    }
+    if (svcRes.ok) {
+      const json = await svcRes.json();
+      setServices(json.data ?? json);
+    }
+    if (clientRes.ok) {
+      const json = await clientRes.json();
+      setClients(json.data ?? json);
+    }
+    if (bookRes.ok) {
+      const json = await bookRes.json();
+      setBookings(json.data ?? json);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchData = async () => {
-      const [pracRes, svcRes, clientRes, bookRes] = await Promise.all([
-        fetch("/api/v1/practitioners"),
-        fetch("/api/v1/services"),
-        fetch("/api/v1/clients"),
-        fetch("/api/v1/bookings"),
-      ]);
-      if (pracRes.ok) {
-        const json = await pracRes.json();
-        setPractitioners(json.data ?? json);
-      }
-      if (svcRes.ok) {
-        const json = await svcRes.json();
-        setServices(json.data ?? json);
-      }
-      if (clientRes.ok) {
-        const json = await clientRes.json();
-        setClients(json.data ?? json);
-      }
-      if (bookRes.ok) {
-        const json = await bookRes.json();
-        setBookings(json.data ?? json);
-      }
-    };
-    fetchData();
+    fetchAllData();
+  }, [fetchAllData]);
+
+  const refreshClients = useCallback(async () => {
+    const res = await fetch("/api/v1/clients");
+    if (res.ok) {
+      const json = await res.json();
+      setClients(json.data ?? json);
+    }
   }, []);
 
   const weekStart = useMemo(() => getMonday(currentDate), [currentDate]);
@@ -523,10 +532,11 @@ const AgendaContent = () => {
 
       {/* Booking form dialog — key forces re-mount on each open so initial state is fresh */}
       <BookingForm
-        key={`${formOpen ? "open" : "closed"}-${selectedBooking?.id ?? "new"}`}
+        key={`${formOpen ? "open" : "closed"}-${selectedBooking?.id ?? "new"}-${clients.length}`}
         open={formOpen}
         onClose={handleFormClose}
         onSubmit={handleFormSubmit}
+        onClientCreated={refreshClients}
         initialDate={currentDate}
         editBooking={selectedBooking ?? undefined}
         practitioners={practitioners}
