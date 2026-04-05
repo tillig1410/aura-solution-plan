@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Save } from "lucide-react";
+import { Plus, Pencil, Save, Trash2, CalendarOff } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,6 +90,9 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
   const [schedule, setSchedule] = useState<ScheduleSlot[]>(defaultSchedule);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PractitionerWithServices | null>(null);
+  const [vacationDays, setVacationDays] = useState<string[]>([]);
+  const [newVacationDate, setNewVacationDate] = useState("");
 
   const openNew = () => {
     setEditingId(null);
@@ -120,8 +124,27 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
       }
     }
     setSchedule(sched);
+    // Load vacation days (exception_date entries where is_available = false)
+    const vacations = prac.availability
+      .filter((a) => a.exception_date !== null && !a.is_available)
+      .map((a) => a.exception_date as string)
+      .sort();
+    setVacationDays(vacations);
+    setNewVacationDate("");
     setError(null);
     setDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const res = await fetch(`/api/v1/practitioners/${deleteTarget.id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success(`${deleteTarget.name} supprimé`);
+      onUpdate();
+    } else {
+      toast.error("Erreur lors de la suppression");
+    }
+    setDeleteTarget(null);
   };
 
   const toggleService = (serviceId: string) => {
@@ -182,7 +205,7 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
       const practitioner = (await res.json()) as Practitioner;
       const practId = editingId ?? practitioner.id;
 
-      // Save availability
+      // Save availability (recurring + vacation days)
       const recurring = schedule.map((slot, i) => ({
         day_of_week: i,
         start_time: slot.start,
@@ -190,10 +213,17 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
         is_available: slot.enabled,
       }));
 
+      const exceptions = vacationDays.map((date) => ({
+        exception_date: date,
+        start_time: "00:00",
+        end_time: "23:59",
+        is_available: false,
+      }));
+
       await fetch(`${baseUrl}/${practId}/availability`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recurring }),
+        body: JSON.stringify({ recurring, exceptions }),
       });
 
       // Save service assignments
@@ -279,9 +309,14 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
                     {prac.service_ids.length} service{prac.service_ids.length > 1 ? "s" : ""} assigné{prac.service_ids.length > 1 ? "s" : ""}
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => openEdit(prac)} aria-label="Modifier">
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(prac)} aria-label="Modifier">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(prac)} aria-label="Supprimer">
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -429,6 +464,52 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
               </div>
             </div>
 
+            {/* Jours de congé */}
+            {editingId && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                  <CalendarOff className="h-4 w-4" />
+                  Jours de congé
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <Input
+                    type="date"
+                    value={newVacationDate}
+                    onChange={(e) => setNewVacationDate(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!newVacationDate || vacationDays.includes(newVacationDate)}
+                    onClick={() => {
+                      if (newVacationDate && !vacationDays.includes(newVacationDate)) {
+                        setVacationDays([...vacationDays, newVacationDate].sort());
+                        setNewVacationDate("");
+                      }
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {vacationDays.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {vacationDays.map((d) => (
+                      <span key={d} className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-700 px-2 py-1 rounded-full border border-red-200">
+                        {new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                        <button type="button" onClick={() => setVacationDays(vacationDays.filter((v) => v !== d))} className="hover:text-red-900">
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">Aucun congé planifié</p>
+                )}
+              </div>
+            )}
+
             {/* Actif */}
             {editingId && (
               <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -456,6 +537,27 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate }: P
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               <Save className="h-4 w-4" />
               {saving ? "Enregistrement..." : "Sauvegarder"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog confirmation suppression */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Supprimer le praticien</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            Voulez-vous vraiment supprimer <strong>{deleteTarget?.name}</strong> ?
+            Ses rendez-vous existants seront conservés mais il ne sera plus assignable.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Supprimer
             </Button>
           </DialogFooter>
         </DialogContent>

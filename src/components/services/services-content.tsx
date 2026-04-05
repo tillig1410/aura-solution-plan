@@ -402,6 +402,16 @@ const ServicesContent = () => {
           {/* ---- Onglet Horaires ---- */}
           {tab === "horaires" && (
             <div className="space-y-6">
+              <div className="flex justify-end sticky top-0 z-10 bg-gray-50 -mt-2 pt-2 pb-2">
+                <Button
+                  onClick={handleSaveSchedule}
+                  disabled={scheduleSaving}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {scheduleSaving ? "Enregistrement..." : "Sauvegarder les horaires"}
+                </Button>
+              </div>
               {activePractitioners.map((prac) => {
                 const days = scheduleByPrac[prac.id];
                 if (!days) return null;
@@ -478,16 +488,6 @@ const ServicesContent = () => {
                   </Card>
                 );
               })}
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleSaveSchedule}
-                  disabled={scheduleSaving}
-                  className="gap-2"
-                >
-                  <Save className="h-4 w-4" />
-                  {scheduleSaving ? "Enregistrement..." : "Sauvegarder les horaires"}
-                </Button>
-              </div>
             </div>
           )}
 
