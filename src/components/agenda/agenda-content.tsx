@@ -18,7 +18,6 @@ import WeekView from "@/components/agenda/week-view";
 import MonthView from "@/components/agenda/month-view";
 import BookingForm from "@/components/agenda/booking-form";
 import { createClient } from "@/lib/supabase/client";
-import { AlertCircle } from "lucide-react";
 import type { Booking, Practitioner, Service, Client } from "@/types/supabase";
 
 type ViewMode = "day" | "week" | "month";
@@ -334,21 +333,27 @@ const AgendaContent = () => {
     <div className="flex h-full gap-4">
       {/* Main calendar area */}
       <div className="flex flex-1 flex-col gap-3 min-w-0">
-        {/* Bannière statut abonnement */}
-        {merchantStatus && !merchantStatus.hasSubscription && merchantStatus.trialEnd && (
-          <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2">
-            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-            <p className="text-sm text-amber-700">
-              <span className="font-medium">Période d&apos;essai</span> — fin le{" "}
-              {new Date(merchantStatus.trialEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-            </p>
-          </div>
-        )}
-
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
+              {merchantStatus && (() => {
+                const isActive = merchantStatus.hasSubscription;
+                const trialExpired = !isActive && merchantStatus.trialEnd && new Date(merchantStatus.trialEnd) < new Date();
+                const label = isActive ? "Actif" : trialExpired ? "Essai expiré" : "Période d'essai";
+                const colors = isActive
+                  ? "bg-green-50 text-green-600"
+                  : trialExpired
+                    ? "bg-red-50 text-red-600"
+                    : "bg-amber-50 text-amber-600";
+                return (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors}`}>
+                    {label}
+                  </span>
+                );
+              })()}
+            </div>
             <p className="text-sm text-gray-500">
               {new Date().toLocaleDateString("fr-FR", {
                 weekday: "long",
@@ -356,6 +361,9 @@ const AgendaContent = () => {
                 month: "long",
                 year: "numeric",
               })}
+              {merchantStatus && !merchantStatus.hasSubscription && merchantStatus.trialEnd && (
+                <span className="text-gray-400"> · Essai jusqu&apos;au {new Date(merchantStatus.trialEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">

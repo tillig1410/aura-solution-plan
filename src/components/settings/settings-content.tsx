@@ -622,9 +622,22 @@ const SettingsContent = () => {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Statut</span>
-                <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                  {merchant.stripe_subscription_id ? "Actif" : "Période d'essai"}
-                </span>
+                {(() => {
+                  const isActive = !!merchant.stripe_subscription_id;
+                  const trialEnd = new Date(new Date(merchant.created_at).getTime() + 14 * 24 * 60 * 60 * 1000);
+                  const trialExpired = !isActive && trialEnd < new Date();
+                  const label = isActive ? "Actif" : trialExpired ? "Essai expiré" : "Période d'essai";
+                  const colors = isActive
+                    ? "text-green-600 bg-green-50"
+                    : trialExpired
+                      ? "text-red-600 bg-red-50"
+                      : "text-amber-600 bg-amber-50";
+                  return (
+                    <span className={`font-medium px-2 py-0.5 rounded-full ${colors}`}>
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
               {merchant.stripe_subscription_id ? (
                 <>
