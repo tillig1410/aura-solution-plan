@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+// Route throws at module scope if these are missing
+process.env.STRIPE_SECRET_KEY = "sk_test_fake123456789";
+process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_fake123456789";
+
 /**
  * T061 — Integration tests: POST /api/v1/webhooks/stripe
  * Validates signature verification, idempotency, and event routing.

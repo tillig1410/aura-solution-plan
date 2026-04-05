@@ -25,10 +25,10 @@ function makePaymentIntent(overrides: Record<string, unknown> = {}) {
     id: "pi_test_123",
     amount: 3500, // 35.00€
     metadata: {
-      merchant_id: "merchant-1",
-      booking_id: "booking-1",
-      client_id: "client-1",
-      practitioner_id: "practitioner-1",
+      merchant_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      booking_id: "b1b2c3d4-e5f6-7890-abcd-ef1234567891",
+      client_id: "c1b2c3d4-e5f6-7890-abcd-ef1234567892",
+      practitioner_id: "d1b2c3d4-e5f6-7890-abcd-ef1234567893",
       tip_amount_cents: "500", // 5.00€ tip
       ...overrides,
     },
@@ -75,11 +75,11 @@ describe("handlePaymentSucceeded — attribution pourboire", () => {
     expect(mock.from).toHaveBeenCalledWith("tips");
     expect(mock.insertFn).toHaveBeenCalledWith(
       expect.objectContaining({
-        practitioner_id: "practitioner-1",
+        practitioner_id: "d1b2c3d4-e5f6-7890-abcd-ef1234567893",
         amount_cents: 500,
-        merchant_id: "merchant-1",
-        client_id: "client-1",
-        booking_id: "booking-1",
+        merchant_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        client_id: "c1b2c3d4-e5f6-7890-abcd-ef1234567892",
+        booking_id: "b1b2c3d4-e5f6-7890-abcd-ef1234567891",
         stripe_payment_intent_id: "pi_test_123",
       }),
     );

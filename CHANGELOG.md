@@ -5,6 +5,18 @@
 
 ---
 
+## [1.5.1] — 2026-04-05 — Fix tests Vitest (67/67 green)
+
+### Fix
+- **[FIX]** `webhook-stripe.test.ts` — ajout `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` avant l'import dynamique (le module route throw à l'évaluation si elles sont absentes)
+- **[FIX]** `agenda-day-view.test.ts` — ajout `afterEach(cleanup)` explicite RTL (le DOM s'accumulait entre tests → `getByText` trouvait plusieurs éléments)
+- **[FIX]** `tip-attribution.test.ts` — remplacement des IDs `"merchant-1"` par de vrais UUIDs (la regex UUID dans `payment-succeeded.ts` provoquait un early return silencieux)
+
+### Résultat
+- **10 suites, 67 tests, 0 échec** ✅
+
+---
+
 ## [1.5.0] — 2026-04-04 — Audit antigravity (Next.js best practices + supply chain + perf)
 
 ### Critique
