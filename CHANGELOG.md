@@ -5,6 +5,25 @@
 
 ---
 
+## [1.5.6] — 2026-04-05 — Tests routes API v1 + fix sécurité token (272/272 green)
+
+### Sécurité
+- **[FIX]** `.claude/settings.local.json` — suppression token Supabase PAT (`sbp_…`) exposé en clair dans les permissions Bash → remplacé par `npx supabase:*` (token révoqué + nouveau en `.env.local`)
+
+### Tests ajoutés (98 tests, 7 fichiers)
+- **`tests/integration/api-bookings-post-patch.test.ts`** (14 tests) — POST /bookings (auth, validation JSON/UUID/source_channel, 201 nominal) + PATCH /bookings/:id (auth, cross-tenant 404, validation version/status, 200 nominal, 409 conflit version PGRST116)
+- **`tests/integration/api-clients.test.ts`** (15 tests) — GET /clients (auth, 400 filter invalide, 200 pagination, liste vide) + POST /clients (validation name/email/JSON, 201) + GET /clients/:id (auth, cross-tenant PGRST116, 200 recent_bookings+active_packages) + PATCH /clients/:id (validation, 200, cross-tenant 404)
+- **`tests/integration/api-services.test.ts`** (14 tests) — GET /services (auth, 200 practitioner_ids) + POST (validation name/duration/price/JSON, 201) + PATCH (auth, cross-tenant, validation duration>480, 200) + DELETE (auth, 200 soft-delete)
+- **`tests/integration/api-practitioners.test.ts`** (14 tests) — GET /practitioners (auth, 200 service_ids+availability) + POST (validation name/color hex/email/JSON, 201 hex minuscule) + PATCH (auth, cross-tenant, validation color, 200)
+- **`tests/integration/api-tips.test.ts`** (12 tests) — GET /tips (auth, UUID regex practitioner_id, ISO date from/to, 200 pagination, liste vide) + GET /tips/summary (auth, 200 grand_total+by_practitioner, agrégation multi-pourboires)
+- **`tests/integration/api-loyalty-packages.test.ts`** (17 tests) — GET /loyalty (auth, 200, data:null sans programme) + PUT /loyalty (validation points négatif/JSON, 200) + GET /packages (auth, 200 liste) + POST /packages (validation name/UUID/total_uses/JSON, 404 service cross-tenant, 201) + PATCH /packages/:id (auth, validation is_active, 200 toggle, 404 PGRST116)
+- **`tests/unit/api-health.test.ts`** (6 tests) — GET /health (200 healthy, 207 degraded 1 service, 207 degraded tous services externes, timestamp+services, latencyMs, 207 HTTP 503 Supabase)
+
+### Résultat
+- **27 suites, 272 tests, 0 échec** ✅
+
+---
+
 ## [1.5.5] — 2026-04-05 — Tests complets lib/ + fix open redirect (174/174 green)
 
 ### Critique
