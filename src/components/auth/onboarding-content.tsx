@@ -65,6 +65,8 @@ const OnboardingContent = () => {
     { name: "", specialties: "" },
   ]);
 
+  const [mode, setMode] = useState<"search" | "manual">("search");
+
   // --- Google Places search ---
   const searchPlaces = useCallback(async (query: string) => {
     if (query.length < 3) {
@@ -79,6 +81,7 @@ const OnboardingContent = () => {
       const data = await res.json();
       if (data.error === "no_api_key") {
         setNoApiKey(true);
+        setMode("manual");
       }
       setSearchResults(data.results ?? []);
     } catch {
@@ -90,11 +93,6 @@ const OnboardingContent = () => {
 
   const handleSearchInput = (value: string) => {
     setSearchQuery(value);
-    // Also update salon name as fallback (user might not select a result)
-    if (!googlePlaceId) {
-      setSalonName(value);
-      setSlug(value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, ""));
-    }
     if (value.length >= 3) {
       setTimeout(() => searchPlaces(value), 400);
     } else {
@@ -310,115 +308,143 @@ const OnboardingContent = () => {
           {/* STEP 1: Salon info */}
           {step === "salon" && (
             <div className="space-y-4">
-              {/* Google Places search */}
+              {/* Mode tabs */}
               {!noApiKey && (
-                <div className="relative">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      className="pl-10"
-                      placeholder="Rechercher votre salon sur Google Maps..."
-                      value={searchQuery}
-                      onChange={(e) => handleSearchInput(e.target.value)}
-                    />
-                  </div>
-                  {searching && (
-                    <p className="text-xs text-gray-400 mt-1">Recherche...</p>
-                  )}
-                  {searchResults.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
-                      {searchResults.map((place) => (
+                <div className="flex rounded-lg border overflow-hidden">
+                  <button
+                    type="button"
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                      mode === "search"
+                        ? "bg-blue-50 text-blue-700 border-b-2 border-blue-500"
+                        : "bg-white text-gray-500 hover:bg-gray-50"
+                    }`}
+                    onClick={() => setMode("search")}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Recherche Google Maps
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                      mode === "manual"
+                        ? "bg-blue-50 text-blue-700 border-b-2 border-blue-500"
+                        : "bg-white text-gray-500 hover:bg-gray-50"
+                    }`}
+                    onClick={() => setMode("manual")}
+                  >
+                    <Store className="h-4 w-4" />
+                    Saisie manuelle
+                  </button>
+                </div>
+              )}
+
+              {/* Google Maps search mode */}
+              {mode === "search" && !noApiKey && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500">
+                    Recherchez votre salon pour remplir automatiquement les informations.
+                  </p>
+
+                  {/* Selected place banner */}
+                  {salonName && googlePlaceId ? (
+                    <div className="rounded-md bg-blue-50 p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{salonName}</span>
                         <button
-                          key={place.placeId}
                           type="button"
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-b-0"
-                          onClick={() => selectPlace(place)}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                          onClick={() => {
+                            setSalonName("");
+                            setSalonAddress("");
+                            setSalonPhone("");
+                            setGooglePlaceId(null);
+                            setSlug("");
+                          }}
                         >
-                          <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                            <div>
-                              <p className="font-medium text-sm">{place.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {place.address}
-                              </p>
-                            </div>
-                          </div>
+                          Modifier
                         </button>
-                      ))}
+                      </div>
+                      {salonAddress && (
+                        <p className="text-xs text-gray-500">{salonAddress}</p>
+                      )}
+                      {salonPhone && (
+                        <p className="text-xs text-gray-500">{salonPhone}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          className="pl-10"
+                          placeholder="Nom du salon, adresse..."
+                          value={searchQuery}
+                          onChange={(e) => handleSearchInput(e.target.value)}
+                        />
+                      </div>
+                      {searching && (
+                        <p className="text-xs text-gray-400 mt-1">Recherche en cours...</p>
+                      )}
+                      {searchResults.length > 0 && (
+                        <div className="absolute z-10 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
+                          {searchResults.map((place) => (
+                            <button
+                              key={place.placeId}
+                              type="button"
+                              className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-b-0"
+                              onClick={() => selectPlace(place)}
+                            >
+                              <div className="flex items-start gap-2">
+                                <MapPin className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                                <div>
+                                  <p className="font-medium text-sm">{place.name}</p>
+                                  <p className="text-xs text-gray-500">{place.address}</p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchQuery.length >= 3 && !searching && searchResults.length === 0 && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Aucun résultat. Essayez un autre nom ou passez en saisie manuelle.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
               )}
 
-              {!noApiKey && !salonName && (
-                <div className="relative flex items-center gap-2 text-xs text-gray-400">
-                  <div className="flex-1 border-t" />
-                  <span>ou remplissez manuellement</span>
-                  <div className="flex-1 border-t" />
-                </div>
-              )}
-
-              {/* Filled info (from Places or manual) */}
-              {salonName && googlePlaceId && (
-                <div className="flex items-center gap-2 rounded-md bg-blue-50 p-3 text-sm">
-                  <Store className="h-4 w-4 text-blue-500" />
-                  <span className="font-medium">{salonName}</span>
-                  <button
-                    type="button"
-                    className="ml-auto text-xs text-gray-400 hover:text-gray-600"
-                    onClick={() => {
-                      setSalonName("");
-                      setSalonAddress("");
-                      setSalonPhone("");
-                      setGooglePlaceId(null);
-                      setSlug("");
+              {/* Manual mode */}
+              {(mode === "manual" || noApiKey) && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500">
+                    Remplissez les informations de votre salon.
+                  </p>
+                  <Input
+                    placeholder="Nom du salon *"
+                    value={salonName}
+                    onChange={(e) => {
+                      setSalonName(e.target.value);
+                      setSlug(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, "-")
+                          .replace(/-+$/, "")
+                      );
                     }}
-                  >
-                    Modifier
-                  </button>
+                  />
+                  <Input
+                    placeholder="Adresse"
+                    value={salonAddress}
+                    onChange={(e) => setSalonAddress(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Téléphone"
+                    value={salonPhone}
+                    onChange={(e) => setSalonPhone(e.target.value)}
+                  />
                 </div>
-              )}
-
-              <Input
-                placeholder="Nom du salon"
-                value={salonName}
-                onChange={(e) => {
-                  setSalonName(e.target.value);
-                  if (!googlePlaceId) {
-                    setSlug(
-                      e.target.value
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]+/g, "-")
-                        .replace(/-+$/, "")
-                    );
-                  }
-                }}
-              />
-              <Input
-                placeholder="Adresse"
-                value={salonAddress}
-                onChange={(e) => setSalonAddress(e.target.value)}
-              />
-              <Input
-                placeholder="Téléphone"
-                value={salonPhone}
-                onChange={(e) => setSalonPhone(e.target.value)}
-              />
-              <Input
-                placeholder="URL de réservation (ex: mon-salon)"
-                value={slug}
-                onChange={(e) =>
-                  setSlug(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]+/g, "-")
-                  )
-                }
-              />
-              {slug && (
-                <p className="text-xs text-gray-400">
-                  resaapp.fr/<strong>{slug}</strong>
-                </p>
               )}
 
               {salonError && (
