@@ -163,8 +163,8 @@ const SettingsContent = () => {
       {/* Header */}
       <h1 className="text-2xl font-bold text-gray-900 mb-4">Paramètres</h1>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
+      {/* Tabs — sticky pour rester visible au scroll */}
+      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto sticky top-0 bg-white z-10 -mx-4 px-4 sm:-mx-6 sm:px-6">
         {TABS.map((t) => (
           <button
             key={t.value}

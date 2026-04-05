@@ -104,12 +104,27 @@ export async function POST(request: NextRequest) {
 
   const { data: merchant } = await supabase
     .from("merchants")
-    .select("id")
+    .select("id, seat_count")
     .eq("user_id", user.id)
     .single();
 
   if (!merchant) {
     return apiError("Merchant not found", 404, { traceId });
+  }
+
+  // Vérifier le nombre de sièges disponibles
+  const { count: activePracCount } = await supabase
+    .from("practitioners")
+    .select("id", { count: "exact", head: true })
+    .eq("merchant_id", merchant.id)
+    .eq("is_active", true);
+
+  if ((activePracCount ?? 0) >= (merchant.seat_count ?? 1)) {
+    return apiError(
+      `Limite atteinte : votre abonnement permet ${merchant.seat_count} praticien${(merchant.seat_count ?? 1) > 1 ? "s" : ""}. Passez à un forfait supérieur.`,
+      403,
+      { traceId }
+    );
   }
 
   let body: unknown;

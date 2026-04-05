@@ -335,17 +335,19 @@ const ServicesContent = () => {
                     <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">
                       {formatPrice(svc.price_cents)}
                     </span>
-                    <div className="flex -space-x-1">
-                      {assignedPracs.slice(0, 4).map((p) => (
-                        <div
+                    <div className="flex flex-wrap gap-1">
+                      {assignedPracs.map((p) => (
+                        <span
                           key={p.id}
-                          className="h-6 w-6 rounded-full border-2 border-white text-[10px] text-white font-bold flex items-center justify-center"
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
                           style={{ backgroundColor: p.color }}
-                          title={p.name}
                         >
-                          {p.name[0]}
-                        </div>
+                          {p.name}
+                        </span>
                       ))}
+                      {assignedPracs.length === 0 && (
+                        <span className="text-xs text-gray-400 italic">Aucun praticien</span>
+                      )}
                     </div>
                     <div className="hidden group-hover:flex gap-1">
                       <Button
