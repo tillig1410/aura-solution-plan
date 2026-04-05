@@ -226,7 +226,7 @@ const BookingForm = ({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2 max-h-[70vh] overflow-y-auto">
           {/* Client */}
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Client</label>
