@@ -202,11 +202,10 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
                       />
                       <div className="flex-1 h-2 rounded-full bg-gray-100 min-w-0">
                         <div
-                          className="h-full rounded-full"
+                          className="h-full rounded-full bg-gray-400"
                           style={{
                             width: `${Math.round(ps.rate * 100)}%`,
-                            backgroundColor: ps.color,
-                            opacity: ps.count > 0 ? 1 : 0.2,
+                            opacity: ps.count > 0 ? 0.6 : 0.15,
                           }}
                         />
                       </div>
