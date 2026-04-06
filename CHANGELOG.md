@@ -17,9 +17,13 @@
 - **[FEAT]** Bulles adaptatives : remplissent leur colonne praticien (1 à 8 praticiens en parallèle)
 - **[FEAT]** Grille pleine hauteur dynamique (ResizeObserver), lignes plus hautes
 - **[FEAT]** Tous les canaux dans le résumé du jour (WhatsApp, Messenger, Telegram, SMS, Tél IA, Dashboard, Site résa)
-- **[FEAT]** Carte "Client actuel" fidèle maquette : cadre couleur praticien, ombre, badge fidélité, notes client, carrousel 1/N, bouton Encaissement
+- **[FEAT]** Carte "Client actuel" fidèle maquette : cadre couleur praticien, ombre, badge fidélité, notes, carrousel 1/N, statut paiement (à encaisser / paiement effectué), bouton Encaissement conditionnel
+- **[FEAT]** Infobulles custom arrondies avec couleurs (client, service, horaire, praticien)
+- **[FEAT]** Vue semaine : overlap intelligent Google Calendar-style (RDV côte à côte)
 - **[FEAT]** Résumé lecture seule pour RDV passés (au lieu du formulaire d'édition) + bouton Reprogrammer
+- **[FIX]** Client actuel affiché pile à l'heure du RDV (plus de doublon avec Prochains RDV)
 - **[FIX]** RDV dashboard/site résa créés directement en "Confirmé" (plus "En attente")
+- **[FIX]** Hauteur bulles respecte la durée réelle du créneau
 
 ### Paramètres IA
 - **[FEAT]** Toggle confirmation des RDV IA : validation manuelle ou automatique
@@ -27,6 +31,9 @@
 
 ### Clients
 - **[FEAT]** Colonne "Prochain RDV" dans le tableau (badge indigo si RDV planifié)
+
+### UI
+- **[FEAT]** Popups arrondis (rounded-2xl), ombre marquée, backdrop flou
 
 ### Sidebar
 - **[FEAT]** Bloc notifications en bas du menu : pourboires, annulations, no-show

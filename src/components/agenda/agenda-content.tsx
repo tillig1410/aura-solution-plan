@@ -571,10 +571,10 @@ const AgendaContent = () => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-col gap-3">
                 {/* Inner card with practitioner color border */}
                 <div
-                  className="rounded-xl p-3.5 bg-white relative"
+                  className="rounded-xl p-4 bg-white relative"
                   style={{
                     border: `3px solid ${practitioner?.color ?? "#6366f1"}`,
                     boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
@@ -594,12 +594,12 @@ const AgendaContent = () => {
 
                   {/* Client info */}
                   <div className="flex items-center gap-3 mt-1">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                    <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                       <User className="h-5 w-5 text-gray-500" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-gray-900 truncate">
+                        <p className="text-base font-bold text-gray-900 truncate">
                           {client?.name ?? "Client inconnu"}
                         </p>
                         {badge && (
@@ -608,30 +608,42 @@ const AgendaContent = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 truncate">{service?.name}</p>
+                      <p className="text-sm text-gray-500 truncate">{service?.name}</p>
                     </div>
                   </div>
 
                   {/* Notes */}
-                  {client?.notes && (
-                    <div className="mt-3 flex items-start gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2">
+                  <div className="mt-3 rounded-lg bg-green-50 border border-green-100 px-3 py-2.5">
+                    <div className="flex items-start gap-2">
                       <span className="text-green-500 mt-0.5 shrink-0">&#x1F4AC;</span>
-                      <p className="text-xs text-gray-600 leading-relaxed">{client.notes}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed italic">
+                        {client?.notes ? `"${client.notes}"` : "Aucune note"}
+                      </p>
                     </div>
-                  )}
+                  </div>
 
-                  {/* Price + status */}
-                  {price && (
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                      <div>
-                        <div className="text-[10px] text-gray-400 uppercase">Total</div>
-                        <div className="text-xl font-bold text-gray-900">{price} €</div>
+                  {/* Price + payment status */}
+                  {price && (() => {
+                    // TODO: check real payment status when Stripe is connected
+                    const paidOnline = false;
+                    return (
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                        <div>
+                          <div className="text-[10px] text-gray-400 uppercase">Total</div>
+                          <div className="text-2xl font-bold text-gray-900">{price} €</div>
+                        </div>
+                        {paidOnline ? (
+                          <span className="text-[10px] font-bold rounded-full px-2.5 py-1 bg-green-100 text-green-700 flex items-center gap-1">
+                            &#x2705; Paiement effectué
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold rounded-full px-2.5 py-1 bg-orange-100 text-orange-700">
+                            À encaisser
+                          </span>
+                        )}
                       </div>
-                      <span className={`text-[10px] font-semibold rounded-full px-2.5 py-1 ${statusColor[b.status]}`}>
-                        {statusLabel[b.status]}
-                      </span>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Encaissement button */}
                   <Button
@@ -639,6 +651,7 @@ const AgendaContent = () => {
                     size="sm"
                     className="w-full gap-2 mt-3"
                     onClick={() => handleBookingClick(b)}
+                    disabled={false /* TODO: disable when paidOnline */}
                   >
                     <CreditCard className="h-3.5 w-3.5" />
                     Encaissement
