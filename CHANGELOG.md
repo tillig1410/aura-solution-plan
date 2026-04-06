@@ -5,6 +5,27 @@
 
 ---
 
+## [2.4.0] — 2026-04-06 — Agenda refonte, client actuel, notifications
+
+### Agenda — Vue Jour / Semaine
+- **[FIX]** RDV sauvegardés en base (POST/PATCH API) — plus de perte au rechargement
+- **[FIX]** En-tête du tableau ne masque plus les heures (sticky retiré)
+- **[FIX]** Dimanche : hachures diagonales grises + texte "Fermé" centré
+- **[FIX]** Pause midi : hachures dorées distinctes du jour en cours
+- **[FEAT]** Bulles RDV fidèles à la maquette : horaire coloré, service en gras, nom client, coins arrondis, ombre, liseré 4px
+- **[FEAT]** Grille pleine hauteur dynamique (ResizeObserver), lignes plus hautes
+- **[FEAT]** Tous les canaux dans le résumé du jour (WhatsApp, Messenger, Telegram, SMS, Tél IA, Dashboard, Site résa)
+- **[FEAT]** Carte "Client actuel" : client en cours ou imminent, carrousel si plusieurs, badge praticien, prix, bouton Encaissement
+
+### Clients
+- **[FEAT]** Colonne "Prochain RDV" dans le tableau (badge indigo si RDV planifié)
+
+### Sidebar
+- **[FEAT]** Bloc notifications en bas du menu : pourboires, annulations, no-show
+- **[FEAT]** Badge compteur rouge, notifications dismissables, rafraîchissement auto 30s
+
+---
+
 ## [2.3.0] — 2026-04-05 — Services, clients, agenda
 
 ### Services / Horaires
