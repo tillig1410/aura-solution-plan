@@ -10,6 +10,7 @@ type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 export interface ClientWithStats extends ClientRow {
   booking_count: number;
   last_booking_at: string | null;
+  next_booking_at: string | null;
 }
 
 const createClientSchema = z.object({
@@ -121,10 +122,12 @@ export async function GET(request: NextRequest) {
     logger.error("clients.stats_failed", { error: statsError.message, traceId });
   }
 
-  const statsMap = new Map<string, { booking_count: number; last_booking_at: string | null }>();
+  const statsMap = new Map<string, { booking_count: number; last_booking_at: string | null; next_booking_at: string | null }>();
   for (const clientId of clientIds) {
-    statsMap.set(clientId, { booking_count: 0, last_booking_at: null });
+    statsMap.set(clientId, { booking_count: 0, last_booking_at: null, next_booking_at: null });
   }
+
+  const now = new Date().toISOString();
 
   if (bookingStats) {
     for (const b of bookingStats) {
@@ -134,11 +137,16 @@ export async function GET(request: NextRequest) {
       if (!existing.last_booking_at || b.starts_at > existing.last_booking_at) {
         existing.last_booking_at = b.starts_at;
       }
+      if (b.starts_at >= now) {
+        if (!existing.next_booking_at || b.starts_at < existing.next_booking_at) {
+          existing.next_booking_at = b.starts_at;
+        }
+      }
     }
   }
 
   const data: ClientWithStats[] = clients.map((c) => {
-    const stats = statsMap.get(c.id) ?? { booking_count: 0, last_booking_at: null };
+    const stats = statsMap.get(c.id) ?? { booking_count: 0, last_booking_at: null, next_booking_at: null };
     return { ...c, ...stats };
   });
 

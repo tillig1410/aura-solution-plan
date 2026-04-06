@@ -38,6 +38,7 @@ interface ClientWithStats {
   created_at: string;
   booking_count: number;
   last_booking_at: string | null;
+  next_booking_at: string | null;
 }
 
 interface ClientsResponse {
@@ -244,6 +245,7 @@ const ClientsContent = () => {
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Client</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Téléphone</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Dernière visite</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">Prochain RDV</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Visites</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Fidélité</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Canal</th>
@@ -252,7 +254,7 @@ const ClientsContent = () => {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400">
+                  <td colSpan={7} className="text-center py-12 text-gray-400">
                     <div className="flex justify-center">
                       <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                     </div>
@@ -261,7 +263,7 @@ const ClientsContent = () => {
               )}
               {!loading && clients.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400 italic">
+                  <td colSpan={7} className="text-center py-12 text-gray-400 italic">
                     Aucun client trouvé
                   </td>
                 </tr>
@@ -304,6 +306,15 @@ const ClientsContent = () => {
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {formatDate(client.last_booking_at)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {client.next_booking_at ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                            {formatDate(client.next_booking_at)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className="font-semibold text-gray-800">
