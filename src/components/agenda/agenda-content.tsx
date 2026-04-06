@@ -834,14 +834,16 @@ const AgendaContent = () => {
                       <span className="text-gray-300">·</span>
                       <span className="truncate">{b.service?.name}</span>
                     </div>
-                    <div className="flex items-center gap-1 mt-1">
+                    <div className="flex items-center mt-1">
                       {b.practitioner && (
                         <span
-                          className="h-2 w-2 rounded-full shrink-0"
+                          className="text-[10px] font-medium text-white rounded-full px-1.5 py-0.5 inline-flex items-center gap-1"
                           style={{ backgroundColor: b.practitioner.color }}
-                        />
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                          {b.practitioner.name}
+                        </span>
                       )}
-                      <span className="text-[10px] text-gray-400">{b.practitioner?.name}</span>
                     </div>
                   </button>
                   {b.status === "pending" && (

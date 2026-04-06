@@ -379,15 +379,17 @@ const WeekView = ({
                               <div className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</div>
                               <div className="text-[11px] text-gray-600 mt-0.5">{booking.service?.name}</div>
                               <div className="text-[11px] font-semibold mt-1" style={{ color }}>{timeStart} — {timeEnd}</div>
-                              {booking.practitioner && (
-                                <div className="mt-1.5 flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                                  <span className="text-[11px] font-medium" style={{ color }}>{booking.practitioner.name}</span>
-                                </div>
-                              )}
-                              <div className="mt-1.5 flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${booking.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
-                                <span className={`text-[10px] font-semibold ${booking.status === "pending" ? "text-amber-600" : "text-green-600"}`}>
+                              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                                {booking.practitioner && (
+                                  <span
+                                    className="text-[10px] font-medium text-white rounded-full px-1.5 py-0.5 inline-flex items-center gap-1"
+                                    style={{ backgroundColor: color }}
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                                    {booking.practitioner.name}
+                                  </span>
+                                )}
+                                <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${booking.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
                                   {booking.status === "pending" ? "À confirmer" : "Confirmé"}
                                 </span>
                               </div>
