@@ -587,7 +587,7 @@ const AgendaContent = () => {
             <div>
               <div className="text-xs font-medium text-gray-500 mb-1.5">Par canal</div>
               <div className="flex flex-col gap-1">
-                {(["dashboard", "booking_page", "whatsapp", "messenger", "telegram", "sms", "voice"] as Booking["source_channel"][])
+                {(["dashboard", "whatsapp", "messenger", "telegram", "sms", "voice"] as Booking["source_channel"][])
                   .filter((ch) => ch !== "voice" || merchantStatus?.voiceEnabled)
                   .map((channel) => {
                     const config = CHANNEL_CONFIG[channel];

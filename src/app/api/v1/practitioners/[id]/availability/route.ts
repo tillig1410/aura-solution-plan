@@ -229,6 +229,8 @@ export async function PUT(
         end_time: slot.end_time,
         is_available: slot.is_available,
         exception_date: null,
+        break_start: slot.break_start ?? null,
+        break_end: slot.break_end ?? null,
       }));
 
       const { error: insertError } = await supabase
