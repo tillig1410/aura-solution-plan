@@ -214,13 +214,15 @@ const AgendaContent = () => {
     [bookings, todayStr]
   );
 
-  // Current clients: bookings in_progress, or confirmed/pending that have started and not ended
+  // Current clients: bookings in_progress, confirmed/pending that have started, or recently marked no_show
   const currentClients = useMemo(() => {
     const now = new Date();
     return todayBookings
       .filter((b) => {
-        if (b.status === "cancelled" || b.status === "no_show" || b.status === "completed") return false;
+        if (b.status === "cancelled" || b.status === "completed") return false;
         if (b.status === "in_progress") return true;
+        // No-show: keep visible if the booking was during current time window
+        if (b.status === "no_show" && new Date(b.starts_at) <= now && new Date(b.ends_at) > new Date(now.getTime() - 30 * 60_000)) return true;
         // Confirmed or pending: show only if started and not yet ended
         if (new Date(b.starts_at) <= now && new Date(b.ends_at) > now) return true;
         return false;
@@ -587,14 +589,30 @@ const AgendaContent = () => {
           </CardContent>
         </Card>
 
-        {/* Client actuel */}
-        {currentClients.length > 0 && (() => {
+        {/* Client actuel — toujours visible */}
+        {(() => {
+          if (currentClients.length === 0) {
+            return (
+              <Card size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-indigo-600" />
+                    Client actuel
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-gray-400 text-center py-4">Aucun client en cours</p>
+                </CardContent>
+              </Card>
+            );
+          }
           const idx = Math.min(currentClientIdx, currentClients.length - 1);
           const b = currentClients[idx];
           const client = b.client;
           const practitioner = b.practitioner;
           const service = b.service;
           const price = service ? (service.price_cents / 100).toFixed(2) : null;
+          const isNoShow = b.status === "no_show";
           const loyaltyBadge: Record<string, { label: string; cls: string }> = {
             gold: { label: "GOLD", cls: "bg-yellow-100 text-yellow-700 border-yellow-300" },
             silver: { label: "SILVER", cls: "bg-gray-100 text-gray-600 border-gray-300" },
@@ -632,12 +650,20 @@ const AgendaContent = () => {
               <CardContent className="flex flex-col gap-3">
                 {/* Inner card with practitioner color border */}
                 <div
-                  className="rounded-xl p-4 bg-white relative"
+                  className={`rounded-xl p-4 bg-white relative ${isNoShow ? "opacity-50 grayscale" : ""}`}
                   style={{
-                    border: `3px solid ${practitioner?.color ?? "#6366f1"}`,
+                    border: `3px solid ${isNoShow ? "#9ca3af" : (practitioner?.color ?? "#6366f1")}`,
                     boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
                   }}
                 >
+                  {/* No-show overlay badge */}
+                  {isNoShow && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                      <span className="text-sm font-bold text-red-600 bg-red-50 border border-red-200 px-4 py-2 rounded-xl rotate-[-8deg] shadow">
+                        CLIENT ABSENT
+                      </span>
+                    </div>
+                  )}
                   {/* Practitioner badge — top right */}
                   {practitioner && (
                     <div className="absolute -top-3 right-3">
@@ -706,47 +732,48 @@ const AgendaContent = () => {
                   })()}
 
                   {/* Action buttons */}
-                  <div className="flex flex-col gap-2 mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-2"
-                      disabled={false /* TODO: disable when paidOnline */}
-                    >
-                      <CreditCard className="h-3.5 w-3.5" />
-                      Encaissement
-                    </Button>
-                    <div className="flex gap-2">
+                  {!isNoShow && (
+                    <div className="flex flex-col gap-2 mt-3">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 gap-1.5 text-xs"
-                        onClick={() => {
-                          setSelectedBooking(null);
-                          setFormOpen(true);
-                        }}
+                        className="w-full gap-2"
                       >
-                        <RotateCcw className="h-3 w-3" />
-                        Reprogrammer
+                        <CreditCard className="h-3.5 w-3.5" />
+                        Encaissement
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={async () => {
-                          await fetch(`/api/v1/bookings/${b.id}`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ version: b.version, status: "no_show" }),
-                          });
-                          await refreshBookings();
-                        }}
-                      >
-                        <UserX className="h-3 w-3" />
-                        Absent
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1.5 text-xs"
+                          onClick={() => {
+                            setSelectedBooking(null);
+                            setFormOpen(true);
+                          }}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Reprogrammer
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={async () => {
+                            await fetch(`/api/v1/bookings/${b.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ version: b.version, status: "no_show" }),
+                            });
+                            await refreshBookings();
+                          }}
+                        >
+                          <UserX className="h-3 w-3" />
+                          Absent
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
