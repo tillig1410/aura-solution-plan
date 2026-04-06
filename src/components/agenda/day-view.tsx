@@ -167,7 +167,7 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                     <button
                       key={booking.id}
                       onClick={() => onBookingClick(booking)}
-                      className="absolute left-1.5 right-[40%] rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
+                      className="absolute left-1.5 right-1.5 rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
                       style={{
                         top,
                         height,
