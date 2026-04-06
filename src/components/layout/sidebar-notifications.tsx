@@ -137,7 +137,7 @@ const SidebarNotifications = () => {
           Notifications
         </span>
         {activeNotifs.length > 0 && (
-          <span className="ml-auto text-[10px] font-bold text-white bg-red-500 rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+          <span className="ml-auto text-[10px] font-bold text-white bg-orange-500 rounded-full h-4 min-w-4 flex items-center justify-center px-1">
             {activeNotifs.length}
           </span>
         )}

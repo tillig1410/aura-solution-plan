@@ -287,8 +287,8 @@ const WeekView = ({
                   const dayAvail = firstPrac?.availability?.find(
                     (a) => a.day_of_week === dayOfWeek && a.exception_date === null
                   );
-                  const bs = dayAvail?.break_start?.slice(0, 5) ?? "13:00";
-                  const be = dayAvail?.break_end?.slice(0, 5) ?? "14:00";
+                  const bs = dayAvail?.break_start?.slice(0, 5) ?? "12:00";
+                  const be = dayAvail?.break_end?.slice(0, 5) ?? "13:00";
                   const [bsH, bsM] = bs.split(":").map(Number);
                   const [beH, beM] = be.split(":").map(Number);
                   const breakStartMins = bsH * 60 + bsM;

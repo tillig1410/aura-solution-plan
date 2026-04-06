@@ -244,8 +244,8 @@ const BookingForm = ({
       endH = parseInt(dayAvail.end_time.slice(0, 2)) + (parseInt(dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
     }
     // Exclude break period (from DB or default 13:00-14:00)
-    const breakStartStr = dayAvail?.break_start ?? "13:00";
-    const breakEndStr = dayAvail?.break_end ?? "14:00";
+    const breakStartStr = dayAvail?.break_start ?? "12:00";
+    const breakEndStr = dayAvail?.break_end ?? "13:00";
     const [bsH, bsM] = breakStartStr.slice(0, 5).split(":").map(Number);
     const [beH, beM] = breakEndStr.slice(0, 5).split(":").map(Number);
     const breakStartMins = bsH * 60 + bsM;
@@ -275,8 +275,8 @@ const BookingForm = ({
     // Block booking during break
     if (startTime && pracAvailability.dayAvail) {
       const dayAvail = pracAvailability.dayAvail as { break_start?: string | null; break_end?: string | null };
-      const bs = dayAvail.break_start ?? "13:00";
-      const be = dayAvail.break_end ?? "14:00";
+      const bs = dayAvail.break_start ?? "12:00";
+      const be = dayAvail.break_end ?? "13:00";
       const [bsH, bsM] = bs.slice(0, 5).split(":").map(Number);
       const [beH, beM] = be.slice(0, 5).split(":").map(Number);
       const breakStartMins = bsH * 60 + bsM;
