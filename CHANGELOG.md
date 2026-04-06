@@ -14,6 +14,8 @@
 - **[FEAT]** Pourcentage d'occupation affiché en haut à droite de chaque case
 - **[FIX]** Police agrandie pour lisibilité (badges, jauges, compteurs praticien)
 - **[FIX]** Alignement constant entre jours avec et sans RDV
+- **[FIX]** Jauges globale et praticien alignées (début et fin)
+- **[FIX]** Barres praticien en gris neutre (plus de confusion avec la jauge de remplissage colorée)
 
 ### Agenda — Vue Jour
 - **[FEAT]** Zones hors horaires praticien grisées (hachures avant ouverture / après fermeture)
