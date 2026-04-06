@@ -726,44 +726,64 @@ const AgendaContent = () => {
               <p className="text-xs text-muted-foreground">Aucun RDV à venir aujourd&apos;hui.</p>
             ) : (
               upcomingBookings.map((b) => (
-                <button
+                <div
                   key={b.id}
-                  onClick={() => handleBookingClick(b)}
-                  className="w-full text-left rounded-lg border border-gray-100 p-2.5 hover:bg-gray-50 transition-colors"
+                  className="rounded-lg border border-gray-100 p-2.5 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-xs font-medium text-gray-800 truncate">
-                      {b.client?.name ?? "Client inconnu"}
-                    </span>
-                    <span
-                      className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 shrink-0 ${statusColor[b.status]}`}
-                    >
-                      {statusLabel[b.status]}
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500 flex items-center gap-2">
-                    <span>
-                      {new Date(b.starts_at).toLocaleTimeString("fr-FR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <span className="text-gray-300">·</span>
-                    <span className="truncate">{b.service?.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    {b.practitioner && (
+                  <button
+                    onClick={() => handleBookingClick(b)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${b.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
+                        <span className="text-xs font-medium text-gray-800 truncate">
+                          {b.client?.name ?? "Client inconnu"}
+                        </span>
+                      </div>
                       <span
-                        className="h-2 w-2 rounded-full shrink-0"
-                        style={{ backgroundColor: b.practitioner.color }}
-                      />
-                    )}
-                    <span className="text-[10px] text-gray-400">{b.practitioner?.name}</span>
-                    <span className="ml-auto text-gray-400">
-                      {getChannelIcon(b.source_channel)}
-                    </span>
-                  </div>
-                </button>
+                        className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 shrink-0 ${statusColor[b.status]}`}
+                      >
+                        {statusLabel[b.status]}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <span>
+                        {new Date(b.starts_at).toLocaleTimeString("fr-FR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span className="text-gray-300">·</span>
+                      <span className="truncate">{b.service?.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1">
+                      {b.practitioner && (
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: b.practitioner.color }}
+                        />
+                      )}
+                      <span className="text-[10px] text-gray-400">{b.practitioner?.name}</span>
+                    </div>
+                  </button>
+                  {b.status === "pending" && (
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await fetch(`/api/v1/bookings/${b.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ version: b.version, status: "confirmed" }),
+                        });
+                        await refreshBookings();
+                      }}
+                      className="mt-2 w-full text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg py-1.5 transition-colors"
+                    >
+                      Confirmer ce RDV
+                    </button>
+                  )}
+                </div>
               ))
             )}
           </CardContent>

@@ -339,8 +339,11 @@ const WeekView = ({
                               boxShadow: "0 1px 3px rgba(0,0,0,0.10)",
                             }}
                           >
-                            <div className="text-[9px] font-semibold truncate" style={{ color }}>
-                              {timeStart}
+                            <div className="flex items-center gap-1">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${booking.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
+                              <span className="text-[9px] font-semibold truncate" style={{ color }}>
+                                {timeStart}
+                              </span>
                             </div>
                             <div className="text-[10px] font-bold text-gray-900 truncate leading-tight">
                               {booking.service?.name}
@@ -358,6 +361,12 @@ const WeekView = ({
                                   <span className="text-[11px] font-medium" style={{ color }}>{booking.practitioner.name}</span>
                                 </div>
                               )}
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${booking.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
+                                <span className={`text-[10px] font-semibold ${booking.status === "pending" ? "text-amber-600" : "text-green-600"}`}>
+                                  {booking.status === "pending" ? "À confirmer" : "Confirmé"}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
