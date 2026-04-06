@@ -345,9 +345,11 @@ const WeekView = ({
                                 {timeStart}
                               </span>
                             </div>
-                            <div className="text-[10px] font-bold text-gray-900 truncate leading-tight">
-                              {booking.service?.name}
-                            </div>
+                            {height >= 30 && (
+                              <div className="text-[10px] font-bold text-gray-900 truncate leading-tight">
+                                {booking.service?.name}
+                              </div>
+                            )}
                           </button>
                           {/* Custom tooltip */}
                           <div className="hidden group-hover/tip:block absolute left-0 top-full mt-1 z-30 pointer-events-none">

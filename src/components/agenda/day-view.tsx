@@ -184,9 +184,11 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                             {timeStart} — {timeEnd}
                           </span>
                         </div>
-                        <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
-                          {booking.service?.name}
-                        </div>
+                        {height >= 40 && (
+                          <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
+                            {booking.service?.name}
+                          </div>
+                        )}
                       </button>
                       {/* Custom tooltip */}
                       <div className="hidden group-hover/tip:block absolute left-0 top-full mt-1 z-30 pointer-events-none">

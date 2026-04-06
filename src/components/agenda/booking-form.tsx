@@ -233,13 +233,21 @@ const BookingForm = ({
     return { works: true, dayAvail: dayAvail ?? null };
   }, [practitioners, practitionerId, startDate]);
 
-  // Build available time slots based on practitioner availability
+  // Build available time slots based on practitioner availability (excluding lunch break 13:00-14:00)
   const timeSlots = useMemo(() => {
     if (!pracAvailability.works) return [];
-    if (!pracAvailability.dayAvail) return generateTimeSlots(8, 20);
-    const startH = parseInt(pracAvailability.dayAvail.start_time.slice(0, 2));
-    const endH = parseInt(pracAvailability.dayAvail.end_time.slice(0, 2)) + (parseInt(pracAvailability.dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
-    return generateTimeSlots(startH, endH);
+    let startH = 8;
+    let endH = 20;
+    if (pracAvailability.dayAvail) {
+      startH = parseInt(pracAvailability.dayAvail.start_time.slice(0, 2));
+      endH = parseInt(pracAvailability.dayAvail.end_time.slice(0, 2)) + (parseInt(pracAvailability.dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
+    }
+    // Exclude lunch break 13:00-14:00
+    return generateTimeSlots(startH, endH).filter((t) => {
+      const [h, m] = t.split(":").map(Number);
+      const mins = h * 60 + m;
+      return mins < 780 || mins >= 840; // 780 = 13:00, 840 = 14:00
+    });
   }, [pracAvailability]);
 
   const startDatetime = `${startDate}T${startTime}`;
@@ -254,6 +262,14 @@ const BookingForm = ({
     if (practitionerId && startDate && !pracAvailability.works) {
       const pracName = practitioners.find((p) => p.id === practitionerId)?.name ?? "Ce praticien";
       newErrors.startDate = `${pracName} ${pracAvailability.reason ?? "n'est pas disponible ce jour"}.`;
+    }
+    // Block booking during lunch break (13:00-14:00)
+    if (startTime) {
+      const [sh, sm] = startTime.split(":").map(Number);
+      const startMins = sh * 60 + sm;
+      if (startMins >= 780 && startMins < 840) {
+        newErrors.startTime = "Ce créneau est pendant la pause déjeuner (13h-14h).";
+      }
     }
     dispatch({ type: "SET_ERRORS", errors: newErrors });
     return Object.keys(newErrors).length === 0;
