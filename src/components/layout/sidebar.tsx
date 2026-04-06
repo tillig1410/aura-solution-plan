@@ -27,9 +27,13 @@ const Sidebar = () => {
 
   return (
     <aside className="flex h-full w-64 flex-col border-r bg-white">
-      <div className="flex h-16 items-center border-b px-6">
-        <Link href="/agenda" className="text-xl font-bold">
-          Resaapp
+      <div className="flex h-16 items-center border-b px-4 gap-3">
+        <Link href="/agenda" className="flex items-center gap-2.5">
+          <img src="/logo-aura.png" alt="Logo" className="h-9 w-9 rounded-full object-cover" />
+          <div className="flex flex-col">
+            <span className="text-lg font-bold leading-tight">Resa app</span>
+            <span className="text-[9px] text-gray-400 leading-none">par AURA Solutions</span>
+          </div>
         </Link>
       </div>
 

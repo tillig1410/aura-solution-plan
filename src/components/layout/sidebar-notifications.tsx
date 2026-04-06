@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Bell,
   Gift,
@@ -17,6 +18,7 @@ interface SidebarNotification {
   title: string;
   description: string;
   action?: string;
+  actionDate?: string;
   timestamp: string;
   dismissed: boolean;
 }
@@ -30,6 +32,8 @@ const NOTIF_ICON: Record<SidebarNotification["type"], { icon: React.ReactNode; c
 };
 
 const SidebarNotifications = () => {
+  const router = useRouter();
+  const pathname = usePathname();
   const [notifications, setNotifications] = useState<SidebarNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,6 +100,7 @@ const SidebarNotifications = () => {
             title: isCancelled ? "RDV annulé" : "Client absent",
             description: `${clientName} — ${new Date(b.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
             action: "VOIR",
+            actionDate: b.starts_at.slice(0, 10),
             timestamp: b.updated_at,
             dismissed: false,
           });
@@ -171,7 +176,23 @@ const SidebarNotifications = () => {
                     <p className="text-xs font-medium text-gray-800">{notif.title}</p>
                     <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">{notif.description}</p>
                     {notif.action && (
-                      <button className="text-[10px] font-semibold text-indigo-600 mt-1 hover:text-indigo-800">
+                      <button
+                        className="text-[10px] font-semibold text-indigo-600 mt-1 hover:text-indigo-800"
+                        onClick={() => {
+                          if (notif.actionDate) {
+                            // Navigate to agenda on the booking date
+                            if (pathname === "/agenda") {
+                              // Already on agenda — store date to trigger navigation
+                              sessionStorage.setItem("agenda_goto_date", notif.actionDate);
+                              window.dispatchEvent(new Event("agenda-goto-date"));
+                            } else {
+                              sessionStorage.setItem("agenda_goto_date", notif.actionDate);
+                              router.push("/agenda");
+                            }
+                          }
+                          dismiss(notif.id);
+                        }}
+                      >
                         {notif.action}
                       </button>
                     )}

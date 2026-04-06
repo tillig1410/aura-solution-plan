@@ -197,6 +197,22 @@ const AgendaContent = () => {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Listen for notification "VOIR" navigation
+  useEffect(() => {
+    const handler = () => {
+      const dateStr = sessionStorage.getItem("agenda_goto_date");
+      if (dateStr) {
+        sessionStorage.removeItem("agenda_goto_date");
+        setCurrentDate(new Date(dateStr + "T12:00:00"));
+        setView("day");
+      }
+    };
+    // Check on mount (when navigating from another page)
+    handler();
+    window.addEventListener("agenda-goto-date", handler);
+    return () => window.removeEventListener("agenda-goto-date", handler);
+  }, []);
+
   const refreshClients = useCallback(async () => {
     const res = await fetch("/api/v1/clients");
     if (res.ok) {
