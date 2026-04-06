@@ -141,6 +141,7 @@ const AgendaContent = () => {
     hasSubscription: boolean;
     trialEnd: string | null;
     voiceEnabled: boolean;
+    autoConfirm: boolean;
   } | null>(null);
 
   const fetchAllData = useCallback(async () => {
@@ -150,7 +151,7 @@ const AgendaContent = () => {
     if (user) {
       const { data: merchant } = await supabase
         .from("merchants")
-        .select("stripe_subscription_id, created_at, voice_enabled")
+        .select("stripe_subscription_id, created_at, voice_enabled, auto_confirm_bookings")
         .eq("user_id", user.id)
         .single();
       if (merchant) {
@@ -159,6 +160,7 @@ const AgendaContent = () => {
           hasSubscription: !!merchant.stripe_subscription_id,
           trialEnd: trialEnd.toISOString(),
           voiceEnabled: !!merchant.voice_enabled,
+          autoConfirm: !!merchant.auto_confirm_bookings,
         });
       }
     }
@@ -494,18 +496,35 @@ const AgendaContent = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-indigo-50 px-3 py-2 text-center">
-                <div className="text-2xl font-bold text-indigo-700">{todayBookings.length}</div>
-                <div className="text-xs text-indigo-500">RDV total</div>
-              </div>
-              <div className="rounded-lg bg-green-50 px-3 py-2 text-center">
-                <div className="text-2xl font-bold text-green-700">
-                  {todayBookings.filter((b) => b.status === "confirmed").length}
+            {(() => {
+              const confirmedCount = todayBookings.filter((b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed").length;
+              const pendingCount = todayBookings.filter((b) => b.status === "pending").length;
+              const showPending = !merchantStatus?.autoConfirm;
+              return (
+                <div className={`grid gap-2 ${showPending ? "grid-cols-3" : "grid-cols-2"}`}>
+                  <div className="rounded-lg bg-indigo-50 px-2 py-2 text-center">
+                    <div className="text-2xl font-bold text-indigo-700">{todayBookings.length}</div>
+                    <div className="text-xs text-indigo-500">RDV total</div>
+                  </div>
+                  <div className="rounded-lg bg-green-50 px-2 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      <span className="text-2xl font-bold text-green-700">{confirmedCount}</span>
+                    </div>
+                    <div className="text-xs text-green-500">Confirmés</div>
+                  </div>
+                  {showPending && (
+                    <div className="rounded-lg bg-amber-50 px-2 py-2 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span className="text-2xl font-bold text-amber-700">{pendingCount}</span>
+                      </div>
+                      <div className="text-xs text-amber-500">À confirmer</div>
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs text-green-500">Confirmés</div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Canaux */}
             <div>
