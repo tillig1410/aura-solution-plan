@@ -12,10 +12,18 @@
 - **[FIX]** En-tête du tableau ne masque plus les heures (sticky retiré)
 - **[FIX]** Dimanche : hachures diagonales grises + texte "Fermé" centré
 - **[FIX]** Pause midi : hachures dorées distinctes du jour en cours
-- **[FEAT]** Bulles RDV fidèles à la maquette : horaire coloré, service en gras, nom client, coins arrondis, ombre, liseré 4px
+- **[FEAT]** Bulles RDV fidèles à la maquette : horaire coloré, service en gras, coins arrondis, ombre, liseré 4px
+- **[FEAT]** Nom du client en infobulle au survol des bulles RDV (jour + semaine)
+- **[FEAT]** Bulles adaptatives : remplissent leur colonne praticien (1 à 8 praticiens en parallèle)
 - **[FEAT]** Grille pleine hauteur dynamique (ResizeObserver), lignes plus hautes
 - **[FEAT]** Tous les canaux dans le résumé du jour (WhatsApp, Messenger, Telegram, SMS, Tél IA, Dashboard, Site résa)
-- **[FEAT]** Carte "Client actuel" : client en cours ou imminent, carrousel si plusieurs, badge praticien, prix, bouton Encaissement
+- **[FEAT]** Carte "Client actuel" fidèle maquette : cadre couleur praticien, ombre, badge fidélité, notes client, carrousel 1/N, bouton Encaissement
+- **[FEAT]** Résumé lecture seule pour RDV passés (au lieu du formulaire d'édition) + bouton Reprogrammer
+- **[FIX]** RDV dashboard/site résa créés directement en "Confirmé" (plus "En attente")
+
+### Paramètres IA
+- **[FEAT]** Toggle confirmation des RDV IA : validation manuelle ou automatique
+- **[FEAT]** Migration `auto_confirm_bookings` dans la table merchants
 
 ### Clients
 - **[FEAT]** Colonne "Prochain RDV" dans le tableau (badge indigo si RDV planifié)
