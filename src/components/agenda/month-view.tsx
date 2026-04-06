@@ -18,13 +18,16 @@ interface MonthViewProps {
 
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
+// Default working capacity per practitioner per day (minutes)
+const DEFAULT_CAPACITY_MIN = 10 * 60; // 10h (ex: 8h-19h minus 1h break)
+
 const startOfMonth = (date: Date): Date =>
   new Date(date.getFullYear(), date.getMonth(), 1);
 
 const startOfWeekMonday = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1 - day);
+  const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -47,17 +50,23 @@ const isSameDay = (a: Date, b: Date): boolean =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
+const fillColor = (rate: number): string => {
+  if (rate <= 0) return "";
+  if (rate < 0.5) return "bg-green-50/60";
+  if (rate < 0.8) return "bg-amber-50/60";
+  return "bg-red-50/60";
+};
+
+const barColor = (rate: number): string => {
+  if (rate < 0.5) return "bg-green-400";
+  if (rate < 0.8) return "bg-amber-400";
+  return "bg-red-400";
+};
+
 const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProps) => {
   const today = useMemo(() => new Date(), []);
   const grid = useMemo(() => buildCalendarGrid(month), [month]);
-
-  const practitionerMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of practitioners) {
-      map.set(p.id, p.color);
-    }
-    return map;
-  }, [practitioners]);
+  const activePracs = useMemo(() => practitioners.filter((p) => p.is_active), [practitioners]);
 
   const bookingsByDay = useMemo(() => {
     const map = new Map<string, BookingWithDetails[]>();
@@ -97,54 +106,43 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
           const dayKey = day.toDateString();
           const dayBookings = bookingsByDay.get(dayKey) ?? [];
 
-          // Gather unique practitioner colors for this day (max 5 dots)
-          const practColorSet = new Set<string>();
-          for (const b of dayBookings) {
-            const color =
-              b.practitioner?.color ?? practitionerMap.get(b.practitioner_id) ?? "#6366f1";
-            practColorSet.add(color);
-          }
-          const dots = Array.from(practColorSet).slice(0, 5);
+          // Skip capacity calc for Sunday or empty
+          const activeCount = isSunday ? 0 : activePracs.length;
+          const totalCapacity = activeCount * DEFAULT_CAPACITY_MIN;
 
-          const confirmedCount = dayBookings.filter((b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed").length;
-          const pendingCount = dayBookings.filter((b) => b.status === "pending").length;
+          // Booked minutes
+          const bookedMinutes = dayBookings.reduce((sum, b) => {
+            if (b.status === "cancelled" || b.status === "no_show") return sum;
+            return sum + (b.service?.duration_minutes ?? 30);
+          }, 0);
+
+          const fillRate = totalCapacity > 0 ? Math.min(bookedMinutes / totalCapacity, 1) : 0;
+          const fillPct = Math.round(fillRate * 100);
+
+          // Per-practitioner stats
+          const pracStats = activePracs.map((p) => {
+            const pracBookings = dayBookings.filter(
+              (b) => b.practitioner_id === p.id && b.status !== "cancelled" && b.status !== "no_show"
+            );
+            const mins = pracBookings.reduce((s, b) => s + (b.service?.duration_minutes ?? 30), 0);
+            const rate = Math.min(mins / DEFAULT_CAPACITY_MIN, 1);
+            return { id: p.id, name: p.name, color: p.color, count: pracBookings.length, rate };
+          }).filter((s) => !isSunday);
+
+          const bgClass = isCurrentMonth && !isSunday ? fillColor(fillRate) : "";
 
           return (
             <button
               key={dayKey}
               onClick={() => onDayClick(day)}
-              className={`relative border-r border-b p-1.5 text-left transition-colors flex flex-col ${
-                isCurrentMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50/60 hover:bg-gray-100/60"
-              } ${isSunday ? "bg-gray-50/80" : ""}`}
+              className={`relative border-r border-b p-1 text-left transition-colors flex flex-col overflow-hidden ${
+                isCurrentMonth ? "hover:brightness-95" : "bg-gray-50/60"
+              } ${isSunday ? "bg-gray-50/80" : ""} ${bgClass}`}
             >
-              {/* Top row: stats + day number */}
-              <div className="flex items-start justify-between w-full">
-                {/* Stats */}
-                {dayBookings.length > 0 ? (
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 rounded px-1 py-0.5">
-                      {dayBookings.length}
-                    </span>
-                    {confirmedCount > 0 && (
-                      <span className="text-[9px] font-semibold text-green-600 bg-green-50 rounded px-1 py-0.5 flex items-center gap-0.5">
-                        <span className="w-1 h-1 rounded-full bg-green-500" />
-                        {confirmedCount}
-                      </span>
-                    )}
-                    {pendingCount > 0 && (
-                      <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 rounded px-1 py-0.5 flex items-center gap-0.5">
-                        <span className="w-1 h-1 rounded-full bg-amber-500" />
-                        {pendingCount}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div />
-                )}
-
-                {/* Day number */}
+              {/* Top row: day number + fill % */}
+              <div className="flex items-center justify-between w-full">
                 <div
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-sm font-medium shrink-0 ${
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold shrink-0 ${
                     isToday
                       ? "bg-indigo-600 text-white"
                       : isCurrentMonth
@@ -154,27 +152,56 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
                 >
                   {day.getDate()}
                 </div>
+                {dayBookings.length > 0 && !isSunday && (
+                  <span className={`text-[9px] font-bold ${fillRate >= 0.8 ? "text-red-500" : fillRate >= 0.5 ? "text-amber-500" : "text-green-500"}`}>
+                    {fillPct}%
+                  </span>
+                )}
               </div>
 
-              {/* Practitioner color dots */}
-              {dots.length > 0 && (
-                <div className="mt-auto pt-1 flex flex-wrap gap-0.5">
-                  {dots.map((color) => (
-                    <span
-                      key={color}
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: color }}
-                    />
+              {/* Fill gauge bar */}
+              {dayBookings.length > 0 && !isSunday && (
+                <div className="w-full h-1 rounded-full bg-gray-100 mt-1">
+                  <div
+                    className={`h-full rounded-full transition-all ${barColor(fillRate)}`}
+                    style={{ width: `${fillPct}%` }}
+                  />
+                </div>
+              )}
+
+              {/* Per-practitioner mini bars */}
+              {pracStats.length > 0 && (
+                <div className="mt-1 flex flex-col gap-0.5 flex-1 min-h-0 overflow-hidden">
+                  {pracStats.slice(0, 4).map((ps) => (
+                    <div key={ps.id} className="flex items-center gap-1">
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: ps.color }}
+                      />
+                      <div className="flex-1 h-1 rounded-full bg-gray-100 min-w-0">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.round(ps.rate * 100)}%`,
+                            backgroundColor: ps.color,
+                            opacity: ps.count > 0 ? 1 : 0.2,
+                          }}
+                        />
+                      </div>
+                      {ps.count > 0 && (
+                        <span className="text-[8px] font-semibold text-gray-500 shrink-0">{ps.count}</span>
+                      )}
+                    </div>
                   ))}
-                  {practColorSet.size > 5 && (
-                    <span className="text-[9px] text-gray-400">+{practColorSet.size - 5}</span>
+                  {pracStats.length > 4 && (
+                    <span className="text-[8px] text-gray-400">+{pracStats.length - 4}</span>
                   )}
                 </div>
               )}
 
-              {/* Closed label for Sunday */}
+              {/* Sunday */}
               {isSunday && (
-                <div className="absolute inset-x-0 bottom-1 flex justify-center">
+                <div className="flex-1 flex items-center justify-center">
                   <span className="text-[9px] text-gray-400">Fermé</span>
                 </div>
               )}

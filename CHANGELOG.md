@@ -5,6 +5,23 @@
 
 ---
 
+## [2.6.0] — 2026-04-06 — Vue mois remplissage, badges uniformisés
+
+### Agenda — Vue Mois
+- **[FEAT]** Taux de remplissage par jour : jauge colorée (vert < 50%, orange 50-80%, rouge > 80%)
+- **[FEAT]** Fond de case coloré selon le taux d'occupation
+- **[FEAT]** Mini barres par praticien : remplissage individuel avec pastille couleur + compteur RDV
+- **[FEAT]** Pourcentage d'occupation affiché en haut à droite de chaque case
+
+### Agenda — Général
+- **[FEAT]** Compteur "restants" déplacé dans le header Prochains RDV
+- **[FEAT]** Notification sidebar lors d'un déplacement de RDV
+- **[FEAT]** Badges uniformisés : praticien (pill colorée) + statut (pill outline) partout
+- **[FIX]** Impossible de réserver dans le passé (date/heure bloquées)
+- **[FIX]** Doublon pastille/badge supprimé dans Prochains RDV
+
+---
+
 ## [2.5.0] — 2026-04-06 — Confirmations, pauses, branding
 
 ### Agenda
