@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Bell,
   CalendarDays,
   MessageSquare,
   MessageCircle,
@@ -412,13 +411,6 @@ const AgendaContent = () => {
           </div>
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Notifications"
-              >
-                <Bell className="h-5 w-5" />
-              </Button>
               <Button onClick={() => { setSelectedBooking(null); setFormOpen(true); }}>
                 <Plus className="h-4 w-4" />
                 Nouveau RDV
@@ -554,31 +546,39 @@ const AgendaContent = () => {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {(() => {
+              const now = new Date();
               const confirmedCount = todayBookings.filter((b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed").length;
               const pendingCount = todayBookings.filter((b) => b.status === "pending").length;
+              const remainingCount = todayBookings.filter((b) => new Date(b.starts_at) > now && b.status !== "cancelled" && b.status !== "no_show").length;
               const showPending = !merchantStatus?.autoConfirm;
               return (
-                <div className={`grid gap-2 ${showPending ? "grid-cols-3" : "grid-cols-2"}`}>
-                  <div className="rounded-lg bg-indigo-50 px-2 py-2 text-center">
-                    <div className="text-2xl font-bold text-indigo-700">{todayBookings.length}</div>
-                    <div className="text-xs text-indigo-500">RDV total</div>
-                  </div>
-                  <div className="rounded-lg bg-green-50 px-2 py-2 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-green-500" />
-                      <span className="text-2xl font-bold text-green-700">{confirmedCount}</span>
+                <div>
+                  <div className={`grid gap-2 ${showPending ? "grid-cols-3" : "grid-cols-2"}`}>
+                    <div className="rounded-lg bg-indigo-50 px-2 py-2 text-center">
+                      <div className="text-2xl font-bold text-indigo-700">{todayBookings.length}</div>
+                      <div className="text-xs text-indigo-500">RDV total</div>
                     </div>
-                    <div className="text-xs text-green-500">Confirmés</div>
-                  </div>
-                  {showPending && (
-                    <div className="rounded-lg bg-amber-50 px-2 py-2 text-center">
+                    <div className="rounded-lg bg-green-50 px-2 py-2 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-amber-500" />
-                        <span className="text-2xl font-bold text-amber-700">{pendingCount}</span>
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-2xl font-bold text-green-700">{confirmedCount}</span>
                       </div>
-                      <div className="text-xs text-amber-500">À confirmer</div>
+                      <div className="text-xs text-green-500">Confirmés</div>
                     </div>
-                  )}
+                    {showPending && (
+                      <div className="rounded-lg bg-amber-50 px-2 py-2 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          <span className="text-2xl font-bold text-amber-700">{pendingCount}</span>
+                        </div>
+                        <div className="text-xs text-amber-500">À confirmer</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                    <span><span className="font-semibold text-indigo-600">{remainingCount}</span> restant{remainingCount > 1 ? "s" : ""}</span>
+                  </div>
                 </div>
               );
             })()}
@@ -609,15 +609,15 @@ const AgendaContent = () => {
         {(() => {
           if (currentClients.length === 0) {
             return (
-              <Card size="sm">
+              <Card size="sm" className="min-h-[200px]">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-sm">
                     <User className="h-4 w-4 text-indigo-600" />
                     Client actuel
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-gray-400 text-center py-4">Aucun client en cours</p>
+                <CardContent className="flex items-center justify-center flex-1">
+                  <p className="text-xs text-gray-400 text-center">Aucun client en cours</p>
                 </CardContent>
               </Card>
             );

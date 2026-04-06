@@ -5,6 +5,38 @@
 
 ---
 
+## [2.5.0] — 2026-04-06 — Confirmations, pauses, branding
+
+### Agenda
+- **[FEAT]** Compteur "restants" dans le Résumé du jour
+- **[FEAT]** Dialogue de validation RDV pending : Confirmer / Refuser / Modifier l'horaire
+- **[FEAT]** Pastilles statut (vert/orange) dans les bulles RDV + infobulles
+- **[FEAT]** Bouton "Confirmer ce RDV" dans Prochains RDV
+- **[FEAT]** Boutons Reprogrammer + Absent dans la carte Client actuel
+- **[FEAT]** Client actuel : hauteur fixe, notes, statut paiement, état absent grisé
+- **[FIX]** Pause midi dynamique depuis la base (plus de 13h-14h hardcodé)
+- **[FIX]** Congés visibles dans vue jour (pastilles praticien grisées)
+- **[FIX]** Bulles no_show/annulées grisées dans jour et semaine
+- **[FIX]** Client actuel pile à l'heure du RDV (plus de doublon)
+- **[FIX]** Hauteur bulles respecte la durée réelle du créneau
+- **[FIX]** Cloche notifications supprimée (redondant avec sidebar)
+
+### Paramètres
+- **[FEAT]** Toggle auto-confirmation des RDV IA (manuelle/automatique)
+- **[FIX]** Sauvegarde break_start/break_end en base (migration 018)
+- **[FIX]** Onglet "Mon site" supprimé + "Site résa" retiré des canaux
+
+### Branding
+- **[FEAT]** Logo AURA Solutions dans la sidebar
+- **[FEAT]** Nom séparé "Resa app" + mention "par AURA Solutions"
+- **[FEAT]** Bouton VOIR dans les notifications connecté (navigation agenda)
+- **[FIX]** Badge compteur notifications orange au lieu de rouge
+
+### UI
+- **[FEAT]** Popups arrondis (rounded-2xl), ombre, backdrop flou
+
+---
+
 ## [2.4.0] — 2026-04-06 — Agenda refonte, client actuel, notifications
 
 ### Agenda — Vue Jour / Semaine
