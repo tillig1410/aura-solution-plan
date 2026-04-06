@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
   // Get merchant
   const { data: merchant } = await supabase
     .from("merchants")
-    .select("id")
+    .select("id, auto_confirm_bookings")
     .eq("user_id", user.id)
     .single();
 
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     service_id: body.service_id,
     starts_at: body.starts_at,
     ends_at: body.ends_at,
-    status: body.source_channel === "dashboard" || body.source_channel === "booking_page" ? "confirmed" : "pending",
+    status: body.source_channel === "dashboard" || body.source_channel === "booking_page" || merchant.auto_confirm_bookings ? "confirmed" : "pending",
     source_channel: body.source_channel,
   };
 

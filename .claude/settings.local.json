@@ -49,7 +49,21 @@
       "Bash(for f in \"C:/Users/User/.Plan/.env\" \"C:/Users/User/.env\" \"C:/Users/User/AppData/Roaming/npm/node_modules/n8n-mcp/.env\")",
       "Skill(statusline)",
       "Bash(bash:*)",
-      "Bash(claude doctor:*)"
+      "Bash(claude doctor:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@76.13.62.226 \"echo connected\")",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(printf \"plan-whatsapp-2026\")",
+      "Bash(printf \"AIzaSyA6UAyFfXTqb7V2wcRckhTv_iTsJBOQ4xU\")",
+      "mcp__playwright__browser_navigate",
+      "Bash(where pdftotext:*)",
+      "Bash(where pdftoppm:*)",
+      "Bash(pdftotext:*)",
+      "Bash(printf \"false\")"
     ]
   }
 }

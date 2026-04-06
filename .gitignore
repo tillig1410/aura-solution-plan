@@ -44,3 +44,5 @@ supabase/.temp/
 
 # docker
 docker-compose.override.yml
+
+.vercel

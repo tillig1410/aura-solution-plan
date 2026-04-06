@@ -26,6 +26,7 @@ export interface Database {
           ai_languages: string[];
           cancellation_delay_minutes: number | null;
           voice_enabled: boolean;
+          auto_confirm_bookings: boolean;
           telnyx_phone_number: string | null;
           google_place_id: string | null;
           created_at: string;
@@ -49,6 +50,7 @@ export interface Database {
           ai_languages?: string[];
           cancellation_delay_minutes?: number | null;
           voice_enabled?: boolean;
+          auto_confirm_bookings?: boolean;
           telnyx_phone_number?: string | null;
           google_place_id?: string | null;
           created_at?: string;
@@ -72,6 +74,7 @@ export interface Database {
           ai_languages?: string[];
           cancellation_delay_minutes?: number | null;
           voice_enabled?: boolean;
+          auto_confirm_bookings?: boolean;
           telnyx_phone_number?: string | null;
           google_place_id?: string | null;
           created_at?: string;

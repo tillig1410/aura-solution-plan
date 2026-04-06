@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Clock, Save, Phone } from "lucide-react";
+import { Bot, Clock, Save, Phone, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
   const [aiTone, setAiTone] = useState(merchant.ai_tone ?? "friendly");
   const aiLanguages = ["fr"];
   const [cancellationDelay, setCancellationDelay] = useState(merchant.cancellation_delay_minutes ?? 0);
+  const [autoConfirm, setAutoConfirm] = useState(merchant.auto_confirm_bookings ?? false);
   const [saving, setSaving] = useState(false);
 
 
@@ -52,6 +53,7 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
         ai_tone: aiTone || null,
         ai_languages: aiLanguages,
         cancellation_delay_minutes: cancellationDelay || null,
+        auto_confirm_bookings: autoConfirm,
       });
     } finally {
       setSaving(false);
@@ -133,6 +135,51 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
           <p className="text-xs text-gray-400 mt-3">
             L&apos;activation par canal se configure dans les paramètres de chaque intégration (WhatsApp Business, Telnyx, etc.).
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Confirmation automatique */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarCheck className="h-5 w-5 text-indigo-600" />
+            Confirmation des RDV IA
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-500">
+            Choisissez si les rendez-vous pris par l&apos;IA (WhatsApp, SMS, Messenger, Telegram, Téléphone) sont confirmés automatiquement ou nécessitent votre validation manuelle.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setAutoConfirm(false)}
+              className={`flex-1 rounded-lg border p-3 text-left transition-all ${
+                !autoConfirm
+                  ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className="text-sm font-medium text-gray-900">Validation manuelle</div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                Les RDV IA arrivent &quot;En attente&quot;, vous confirmez depuis l&apos;agenda
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAutoConfirm(true)}
+              className={`flex-1 rounded-lg border p-3 text-left transition-all ${
+                autoConfirm
+                  ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className="text-sm font-medium text-gray-900">Automatique</div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                Tous les RDV sont confirmés immédiatement, vous êtes notifié
+              </div>
+            </button>
+          </div>
         </CardContent>
       </Card>
 

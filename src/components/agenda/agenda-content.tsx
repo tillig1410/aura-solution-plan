@@ -208,14 +208,16 @@ const AgendaContent = () => {
     [bookings, todayStr]
   );
 
-  // Current clients: bookings in_progress or confirmed starting within 15 min
+  // Current clients: bookings in_progress, or confirmed/pending that overlap now or start within 15 min
   const currentClients = useMemo(() => {
     const now = new Date();
     const soon = new Date(now.getTime() + 15 * 60_000);
     return todayBookings
       .filter((b) => {
+        if (b.status === "cancelled" || b.status === "no_show" || b.status === "completed") return false;
         if (b.status === "in_progress") return true;
-        if (b.status === "confirmed" && new Date(b.starts_at) <= soon && new Date(b.ends_at) > now) return true;
+        // Confirmed or pending: show if currently happening or starting within 15 min
+        if (new Date(b.starts_at) <= soon && new Date(b.ends_at) > now) return true;
         return false;
       })
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
