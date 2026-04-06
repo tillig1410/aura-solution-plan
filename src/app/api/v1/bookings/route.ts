@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     .select(
       `
       *,
-      client:clients(id, name, phone, preferred_language),
+      client:clients(id, name, phone, preferred_language, notes, loyalty_tier, loyalty_points),
       practitioner:practitioners(id, name, color),
       service:services(id, name, duration_minutes, price_cents)
       `,

@@ -14,7 +14,7 @@ import { Plus } from "lucide-react";
 import type { Practitioner, Service, Client, Booking } from "@/types/supabase";
 
 interface BookingWithDetails extends Booking {
-  client: { id: string; name: string | null; phone: string | null; preferred_language: string } | null;
+  client: { id: string; name: string | null; phone: string | null; preferred_language: string; notes: string | null; loyalty_tier: string; loyalty_points: number } | null;
   practitioner: { id: string; name: string; color: string } | null;
   service: { id: string; name: string; duration_minutes: number; price_cents: number } | null;
 }

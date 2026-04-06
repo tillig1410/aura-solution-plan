@@ -30,7 +30,7 @@ import type { Booking, Practitioner, Service, Client } from "@/types/supabase";
 type ViewMode = "day" | "week" | "month";
 
 interface BookingWithDetails extends Booking {
-  client: { id: string; name: string | null; phone: string | null; preferred_language: string } | null;
+  client: { id: string; name: string | null; phone: string | null; preferred_language: string; notes: string | null; loyalty_tier: string; loyalty_points: number } | null;
   practitioner: { id: string; name: string; color: string } | null;
   service: { id: string; name: string; duration_minutes: number; price_cents: number } | null;
 }
@@ -535,79 +535,93 @@ const AgendaContent = () => {
           const practitioner = b.practitioner;
           const service = b.service;
           const price = service ? (service.price_cents / 100).toFixed(2) : null;
-          const timeRange = `${new Date(b.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} — ${new Date(b.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+          const loyaltyBadge: Record<string, { label: string; cls: string }> = {
+            gold: { label: "GOLD", cls: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+            silver: { label: "SILVER", cls: "bg-gray-100 text-gray-600 border-gray-300" },
+            bronze: { label: "BRONZE", cls: "bg-amber-100 text-amber-700 border-amber-300" },
+          };
+          const badge = client?.loyalty_tier ? loyaltyBadge[client.loyalty_tier] : null;
 
           return (
-            <Card size="sm">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-indigo-600" />
-                    Client actuel
-                  </CardTitle>
-                  {currentClients.length > 1 && (
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <button
-                        onClick={() => setCurrentClientIdx((i) => Math.max(0, i - 1))}
-                        disabled={idx === 0}
-                        className="px-1 hover:text-gray-600 disabled:opacity-30"
-                      >
-                        &lt;
-                      </button>
-                      <span>{idx + 1} / {currentClients.length}</span>
-                      <button
-                        onClick={() => setCurrentClientIdx((i) => Math.min(currentClients.length - 1, i + 1))}
-                        disabled={idx === currentClients.length - 1}
-                        className="px-1 hover:text-gray-600 disabled:opacity-30"
-                      >
-                        &gt;
-                      </button>
-                    </div>
-                  )}
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Client actuel</span>
+                <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <button
+                    onClick={() => setCurrentClientIdx((i) => Math.max(0, i - 1))}
+                    disabled={idx === 0}
+                    className="w-5 h-5 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </button>
+                  <span className="text-xs font-medium">{idx + 1} / {currentClients.length}</span>
+                  <button
+                    onClick={() => setCurrentClientIdx((i) => Math.min(currentClients.length - 1, i + 1))}
+                    disabled={idx === currentClients.length - 1}
+                    className="w-5 h-5 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
                 </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2.5">
-                {/* Practitioner badge */}
+              </div>
+
+              {/* Card with practitioner color border */}
+              <div
+                className="rounded-xl p-4 bg-white relative"
+                style={{
+                  border: `3px solid ${practitioner?.color ?? "#6366f1"}`,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
+                }}
+              >
+                {/* Practitioner badge — top right */}
                 {practitioner && (
-                  <div className="flex justify-end">
+                  <div className="absolute -top-3 right-3">
                     <span
-                      className="text-[10px] font-semibold text-white px-2 py-0.5 rounded-full"
+                      className="text-[10px] font-bold text-white px-2.5 py-1 rounded-full uppercase tracking-wide"
                       style={{ backgroundColor: practitioner.color }}
                     >
-                      AVEC {practitioner.name.toUpperCase()}
+                      Avec {practitioner.name}
                     </span>
                   </div>
                 )}
 
                 {/* Client info */}
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-                    <User className="h-5 w-5 text-indigo-600" />
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                    <User className="h-5 w-5 text-gray-500" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
-                      {client?.name ?? "Client inconnu"}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-gray-900 truncate">
+                        {client?.name ?? "Client inconnu"}
+                      </p>
+                      {badge && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 truncate">{service?.name}</p>
                   </div>
                 </div>
 
-                {/* Time + service details */}
-                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                  <span className="font-medium text-gray-800">{timeRange}</span>
-                  {service && (
-                    <span className="text-gray-400 ml-2">({service.duration_minutes} min)</span>
-                  )}
-                </div>
+                {/* Notes */}
+                {client?.notes && (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">&#x1F4AC;</span>
+                    <p className="text-xs text-gray-600 leading-relaxed">{client.notes}</p>
+                  </div>
+                )}
 
                 {/* Price + status */}
                 {price && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                     <div>
                       <div className="text-[10px] text-gray-400 uppercase">Total</div>
-                      <div className="text-lg font-bold text-gray-900">{price} €</div>
+                      <div className="text-xl font-bold text-gray-900">{price} €</div>
                     </div>
-                    <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${statusColor[b.status]}`}>
+                    <span className={`text-[10px] font-semibold rounded-full px-2.5 py-1 ${statusColor[b.status]}`}>
                       {statusLabel[b.status]}
                     </span>
                   </div>
@@ -617,14 +631,14 @@ const AgendaContent = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full gap-2"
+                  className="w-full gap-2 mt-3"
                   onClick={() => handleBookingClick(b)}
                 >
                   <CreditCard className="h-3.5 w-3.5" />
                   Encaissement
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           );
         })()}
 
