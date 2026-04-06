@@ -23,6 +23,7 @@ import DayView from "@/components/agenda/day-view";
 import WeekView from "@/components/agenda/week-view";
 import MonthView from "@/components/agenda/month-view";
 import BookingForm from "@/components/agenda/booking-form";
+import BookingSummary from "@/components/agenda/booking-summary";
 import { createClient } from "@/lib/supabase/client";
 import type { Booking, Practitioner, Service, Client } from "@/types/supabase";
 
@@ -131,6 +132,7 @@ const AgendaContent = () => {
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -256,8 +258,13 @@ const AgendaContent = () => {
 
   // Booking handlers
   const handleBookingClick = useCallback((b: BookingWithDetails) => {
+    const isPast = b.status === "completed" || b.status === "cancelled" || b.status === "no_show" || new Date(b.ends_at) < new Date();
     setSelectedBooking(b);
-    setFormOpen(true);
+    if (isPast) {
+      setSummaryOpen(true);
+    } else {
+      setFormOpen(true);
+    }
   }, []);
 
   const handleDayClick = useCallback((d: Date) => {
@@ -309,6 +316,18 @@ const AgendaContent = () => {
   const handleFormClose = useCallback(() => {
     setFormOpen(false);
     setSelectedBooking(null);
+  }, []);
+
+  const handleSummaryClose = useCallback(() => {
+    setSummaryOpen(false);
+    setSelectedBooking(null);
+  }, []);
+
+  const handleReschedule = useCallback(() => {
+    // Close summary, open form in create mode with same client/service pre-filled
+    setSummaryOpen(false);
+    setSelectedBooking(null);
+    setFormOpen(true);
   }, []);
 
   return (
@@ -674,6 +693,16 @@ const AgendaContent = () => {
         services={services}
         clients={clients}
       />
+
+      {/* Past booking summary dialog */}
+      {selectedBooking && summaryOpen && (
+        <BookingSummary
+          open={summaryOpen}
+          onClose={handleSummaryClose}
+          onReschedule={handleReschedule}
+          booking={selectedBooking}
+        />
+      )}
     </div>
   );
 };
