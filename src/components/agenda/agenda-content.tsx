@@ -16,6 +16,8 @@ import {
   Globe,
   User,
   CreditCard,
+  RotateCcw,
+  UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -616,20 +618,22 @@ const AgendaContent = () => {
                     <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                       <User className="h-5 w-5 text-gray-500" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-base font-bold text-gray-900 truncate">
-                          {client?.name ?? "Client inconnu"}
-                        </p>
-                        {badge && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${badge.cls}`}>
-                            {badge.label}
-                          </span>
-                        )}
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-bold text-gray-900 truncate">
+                        {client?.name ?? "Client inconnu"}
+                      </p>
                       <p className="text-sm text-gray-500 truncate">{service?.name}</p>
                     </div>
                   </div>
+
+                  {/* Loyalty badge — own row */}
+                  {badge && (
+                    <div className="mt-2">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Notes */}
                   <div className="mt-3 rounded-lg bg-green-50 border border-green-100 px-3 py-2.5">
@@ -664,17 +668,48 @@ const AgendaContent = () => {
                     );
                   })()}
 
-                  {/* Encaissement button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2 mt-3"
-                    onClick={() => handleBookingClick(b)}
-                    disabled={false /* TODO: disable when paidOnline */}
-                  >
-                    <CreditCard className="h-3.5 w-3.5" />
-                    Encaissement
-                  </Button>
+                  {/* Action buttons */}
+                  <div className="flex flex-col gap-2 mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      disabled={false /* TODO: disable when paidOnline */}
+                    >
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Encaissement
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1.5 text-xs"
+                        onClick={() => {
+                          setSelectedBooking(null);
+                          setFormOpen(true);
+                        }}
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Reprogrammer
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={async () => {
+                          await fetch(`/api/v1/bookings/${b.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ version: b.version, status: "no_show" }),
+                          });
+                          await refreshBookings();
+                        }}
+                      >
+                        <UserX className="h-3 w-3" />
+                        Absent
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
