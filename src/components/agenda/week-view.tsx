@@ -320,28 +320,47 @@ const WeekView = ({
                       const leftPct = pos.col * widthPct;
 
                       return (
-                        <button
+                        <div
                           key={booking.id}
-                          onClick={() => onBookingClick(booking)}
-                          className="absolute rounded-lg text-left overflow-hidden hover:brightness-90 transition-all px-1 py-0.5"
-                          title={`${booking.client?.name ?? "Client inconnu"}\n${booking.service?.name ?? ""}\n${timeStart} — ${timeEnd}\n${booking.practitioner?.name ?? ""}`}
+                          className="absolute group/tip"
                           style={{
                             top,
                             height,
                             left: `calc(${leftPct}% + 2px)`,
                             width: `calc(${widthPct}% - 4px)`,
-                            backgroundColor: `${color}20`,
-                            borderLeft: `3px solid ${color}`,
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.10)",
                           }}
                         >
-                          <div className="text-[9px] font-semibold truncate" style={{ color }}>
-                            {timeStart}
+                          <button
+                            onClick={() => onBookingClick(booking)}
+                            className="w-full h-full rounded-lg text-left overflow-hidden hover:brightness-90 transition-all px-1 py-0.5"
+                            style={{
+                              backgroundColor: `${color}20`,
+                              borderLeft: `3px solid ${color}`,
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.10)",
+                            }}
+                          >
+                            <div className="text-[9px] font-semibold truncate" style={{ color }}>
+                              {timeStart}
+                            </div>
+                            <div className="text-[10px] font-bold text-gray-900 truncate leading-tight">
+                              {booking.service?.name}
+                            </div>
+                          </button>
+                          {/* Custom tooltip */}
+                          <div className="hidden group-hover/tip:block absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 pointer-events-none">
+                            <div className="rounded-xl bg-white shadow-lg ring-1 ring-black/10 px-3 py-2.5 min-w-[160px] max-w-[220px]">
+                              <div className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</div>
+                              <div className="text-[11px] text-gray-600 mt-0.5">{booking.service?.name}</div>
+                              <div className="text-[11px] font-semibold mt-1" style={{ color }}>{timeStart} — {timeEnd}</div>
+                              {booking.practitioner && (
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-[11px] font-medium" style={{ color }}>{booking.practitioner.name}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-[10px] font-bold text-gray-900 truncate leading-tight">
-                            {booking.service?.name}
-                          </div>
-                        </button>
+                        </div>
                       );
                     });
                   })()}

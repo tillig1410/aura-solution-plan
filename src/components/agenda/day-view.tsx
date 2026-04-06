@@ -164,26 +164,42 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                   const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
                   return (
-                    <button
+                    <div
                       key={booking.id}
-                      onClick={() => onBookingClick(booking)}
-                      className="absolute left-1.5 right-1.5 rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
-                      title={`${booking.client?.name ?? "Client inconnu"} — ${booking.service?.name ?? ""} (${timeStart} — ${timeEnd})`}
-                      style={{
-                        top,
-                        height,
-                        backgroundColor: `${color}15`,
-                        borderLeft: `4px solid ${color}`,
-                        boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                      }}
+                      className="absolute left-1.5 right-1.5 group/tip"
+                      style={{ top, height }}
                     >
-                      <div className="text-[11px] font-semibold truncate" style={{ color }}>
-                        {timeStart} — {timeEnd}
+                      <button
+                        onClick={() => onBookingClick(booking)}
+                        className="w-full h-full rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
+                        style={{
+                          backgroundColor: `${color}15`,
+                          borderLeft: `4px solid ${color}`,
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                        }}
+                      >
+                        <div className="text-[11px] font-semibold truncate" style={{ color }}>
+                          {timeStart} — {timeEnd}
+                        </div>
+                        <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
+                          {booking.service?.name}
+                        </div>
+                      </button>
+                      {/* Custom tooltip */}
+                      <div className="hidden group-hover/tip:block absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 pointer-events-none">
+                        <div className="rounded-xl bg-white shadow-lg ring-1 ring-black/10 px-3 py-2.5 min-w-[180px] max-w-[240px]">
+                          <div className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</div>
+                          <div className="text-[11px] text-gray-600 mt-0.5">{booking.service?.name}</div>
+                          <div className="text-[11px] font-semibold mt-1" style={{ color }}>{timeStart} — {timeEnd}</div>
+                          {booking.practitioner && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                              <span className="text-[11px] font-medium" style={{ color }}>{booking.practitioner.name}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
-                        {booking.service?.name}
-                      </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
