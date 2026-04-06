@@ -136,7 +136,7 @@ const WeekView = ({
   return (
     <div className="flex flex-col h-full">
       {/* Days header */}
-      <div className="flex border-b bg-white sticky top-0 z-10">
+      <div className="flex border-b bg-white relative z-10">
         <div className="w-14 shrink-0 border-r" />
         {weekDays.map((day, idx) => {
           const isToday = day.toDateString() === todayStr;

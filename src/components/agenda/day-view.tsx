@@ -102,7 +102,7 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
   return (
     <div className="flex flex-col h-full">
       {/* Practitioners header */}
-      <div className="flex border-b bg-white sticky top-0 z-10">
+      <div className="flex border-b bg-white relative z-10">
         <div className="w-14 shrink-0 border-r" />
         {activePractitioners.map((p) => (
           <div
