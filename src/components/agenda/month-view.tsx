@@ -106,37 +106,59 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
           }
           const dots = Array.from(practColorSet).slice(0, 5);
 
+          const confirmedCount = dayBookings.filter((b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed").length;
+          const pendingCount = dayBookings.filter((b) => b.status === "pending").length;
+
           return (
             <button
               key={dayKey}
               onClick={() => onDayClick(day)}
-              className={`relative border-r border-b p-1.5 text-left transition-colors ${
+              className={`relative border-r border-b p-1.5 text-left transition-colors flex flex-col ${
                 isCurrentMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50/60 hover:bg-gray-100/60"
               } ${isSunday ? "bg-gray-50/80" : ""}`}
             >
-              {/* Day number */}
-              <div
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-sm font-medium ${
-                  isToday
-                    ? "bg-indigo-600 text-white"
-                    : isCurrentMonth
-                    ? "text-gray-800"
-                    : "text-gray-400"
-                } ${isSunday && !isToday ? "text-gray-400" : ""}`}
-              >
-                {day.getDate()}
-              </div>
+              {/* Top row: stats + day number */}
+              <div className="flex items-start justify-between w-full">
+                {/* Stats */}
+                {dayBookings.length > 0 ? (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 rounded px-1 py-0.5">
+                      {dayBookings.length}
+                    </span>
+                    {confirmedCount > 0 && (
+                      <span className="text-[9px] font-semibold text-green-600 bg-green-50 rounded px-1 py-0.5 flex items-center gap-0.5">
+                        <span className="w-1 h-1 rounded-full bg-green-500" />
+                        {confirmedCount}
+                      </span>
+                    )}
+                    {pendingCount > 0 && (
+                      <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 rounded px-1 py-0.5 flex items-center gap-0.5">
+                        <span className="w-1 h-1 rounded-full bg-amber-500" />
+                        {pendingCount}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div />
+                )}
 
-              {/* Booking count label */}
-              {dayBookings.length > 0 && (
-                <div className="mt-1 text-[10px] text-gray-500 font-medium">
-                  {dayBookings.length} RDV
+                {/* Day number */}
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-sm font-medium shrink-0 ${
+                    isToday
+                      ? "bg-indigo-600 text-white"
+                      : isCurrentMonth
+                      ? "text-gray-800"
+                      : "text-gray-400"
+                  } ${isSunday && !isToday ? "text-gray-400" : ""}`}
+                >
+                  {day.getDate()}
                 </div>
-              )}
+              </div>
 
               {/* Practitioner color dots */}
               {dots.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-0.5">
+                <div className="mt-auto pt-1 flex flex-wrap gap-0.5">
                   {dots.map((color) => (
                     <span
                       key={color}
