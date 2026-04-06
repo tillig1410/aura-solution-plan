@@ -78,7 +78,7 @@ const WeekView = ({
     if (!el) return;
     const update = () => {
       const available = el.clientHeight - PADDING_TOP;
-      setPxPerMinute(Math.max(1, available / TOTAL_MINUTES));
+      setPxPerMinute(Math.max(1.3, available / TOTAL_MINUTES));
     };
     update();
     const ro = new ResizeObserver(update);
@@ -145,8 +145,8 @@ const WeekView = ({
             <div
               key={idx}
               className={`flex-1 px-2 py-2 text-center border-r last:border-r-0 ${
-                isToday ? "bg-indigo-50" : ""
-              } ${isSunday ? "bg-gray-50" : ""}`}
+                isToday ? "bg-blue-50" : ""
+              } ${isSunday ? "bg-slate-100" : ""}`}
             >
               <div className="text-xs text-gray-500 uppercase tracking-wide">
                 {DAY_LABELS[idx]}
@@ -209,8 +209,8 @@ const WeekView = ({
               <div
                 key={idx}
                 className={`flex-1 relative border-r last:border-r-0 ${
-                  isToday ? "bg-indigo-50/30" : ""
-                } ${isSunday ? "bg-gray-50/60" : ""}`}
+                  isToday ? "bg-blue-50/40" : ""
+                }`}
               >
                 {/* Hour lines */}
                 {HOURS.map((hour) => (
@@ -231,18 +231,26 @@ const WeekView = ({
                 ))}
 
                 {/* Lunch break */}
-                <div
-                  className="absolute left-0 right-0 bg-gray-100/60 border-y border-gray-200/60"
-                  style={{
-                    top: (13 - HOUR_START) * 60 * pxPerMinute + PADDING_TOP,
-                    height: 60 * pxPerMinute,
-                  }}
-                />
+                {!isSunday && (
+                  <div
+                    className="absolute left-0 right-0 border-y border-amber-200/60"
+                    style={{
+                      top: (13 - HOUR_START) * 60 * pxPerMinute + PADDING_TOP,
+                      height: 60 * pxPerMinute,
+                      background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(251,191,36,0.08) 4px, rgba(251,191,36,0.08) 8px)",
+                    }}
+                  />
+                )}
 
                 {/* Sunday closed overlay */}
                 {isSunday && (
-                  <div className="absolute inset-0 bg-gray-100/50 flex items-center justify-center pointer-events-none">
-                    <span className="text-xs text-gray-400 font-medium rotate-[-90deg] whitespace-nowrap">
+                  <div
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    style={{
+                      background: "repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(148,163,184,0.15) 5px, rgba(148,163,184,0.15) 10px)",
+                    }}
+                  >
+                    <span className="text-sm text-gray-400 font-medium">
                       Fermé
                     </span>
                   </div>

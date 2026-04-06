@@ -59,7 +59,7 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
     if (!el) return;
     const update = () => {
       const available = el.clientHeight - PADDING_TOP;
-      setPxPerMinute(Math.max(1, available / TOTAL_MINUTES));
+      setPxPerMinute(Math.max(1.3, available / TOTAL_MINUTES));
     };
     update();
     const ro = new ResizeObserver(update);
@@ -160,13 +160,14 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
 
                 {/* Lunch break */}
                 <div
-                  className="absolute left-0 right-0 bg-gray-50 border-y border-gray-200 flex items-center justify-center"
+                  className="absolute left-0 right-0 border-y border-amber-200/60 flex items-center justify-center"
                   style={{
                     top: (13 - HOUR_START) * 60 * pxPerMinute + PADDING_TOP,
                     height: 60 * pxPerMinute,
+                    background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(251,191,36,0.08) 4px, rgba(251,191,36,0.08) 8px)",
                   }}
                 >
-                  <span className="text-xs text-gray-400">Pause déjeuner</span>
+                  <span className="text-xs text-amber-400">Pause déjeuner</span>
                 </div>
 
                 {/* Booking blocks */}
