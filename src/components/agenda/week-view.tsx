@@ -10,7 +10,7 @@ interface BookingWithDetails extends Booking {
 }
 
 interface PractitionerWithAvailability extends Practitioner {
-  availability?: { day_of_week: number | null; is_available: boolean; exception_date: string | null }[];
+  availability?: { day_of_week: number | null; start_time: string; end_time: string; is_available: boolean; exception_date: string | null; break_start: string | null; break_end: string | null }[];
 }
 
 interface WeekViewProps {
@@ -280,17 +280,31 @@ const WeekView = ({
                   />
                 ))}
 
-                {/* Lunch break */}
-                {!isSunday && (
-                  <div
-                    className="absolute left-0 right-0 border-y border-amber-200/60"
-                    style={{
-                      top: (13 - HOUR_START) * 60 * pxPerMinute + PADDING_TOP,
-                      height: 60 * pxPerMinute,
-                      background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(251,191,36,0.08) 4px, rgba(251,191,36,0.08) 8px)",
-                    }}
-                  />
-                )}
+                {/* Lunch break — dynamic from first active practitioner */}
+                {!isSunday && (() => {
+                  const dayOfWeek = idx;
+                  const firstPrac = practitioners.find((p) => p.is_active);
+                  const dayAvail = firstPrac?.availability?.find(
+                    (a) => a.day_of_week === dayOfWeek && a.exception_date === null
+                  );
+                  const bs = dayAvail?.break_start?.slice(0, 5) ?? "13:00";
+                  const be = dayAvail?.break_end?.slice(0, 5) ?? "14:00";
+                  const [bsH, bsM] = bs.split(":").map(Number);
+                  const [beH, beM] = be.split(":").map(Number);
+                  const breakStartMins = bsH * 60 + bsM;
+                  const breakEndMins = beH * 60 + beM;
+                  if (breakStartMins >= breakEndMins) return null;
+                  return (
+                    <div
+                      className="absolute left-0 right-0 border-y border-amber-200/60"
+                      style={{
+                        top: (breakStartMins - HOUR_START * 60) * pxPerMinute + PADDING_TOP,
+                        height: (breakEndMins - breakStartMins) * pxPerMinute,
+                        background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(251,191,36,0.08) 4px, rgba(251,191,36,0.08) 8px)",
+                      }}
+                    />
+                  );
+                })()}
 
                 {/* Sunday closed overlay */}
                 {isSunday && (
@@ -319,6 +333,8 @@ const WeekView = ({
                         booking.practitioner?.color ??
                         visiblePractitioners.find((p) => p.id === booking.practitioner_id)?.color ??
                         "#6366f1";
+                      const isNoShow = booking.status === "no_show";
+                      const isCancelled = booking.status === "cancelled";
                       const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
                       const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
                       const pos = layout.get(booking.id) ?? { col: 0, total: 1 };
@@ -328,7 +344,7 @@ const WeekView = ({
                       return (
                         <div
                           key={booking.id}
-                          className="absolute group/tip"
+                          className={`absolute group/tip ${isNoShow || isCancelled ? "opacity-40 grayscale" : ""}`}
                           style={{
                             top,
                             height,

@@ -9,9 +9,13 @@ interface BookingWithDetails extends Booking {
   service: { id: string; name: string; duration_minutes: number; price_cents: number } | null;
 }
 
+interface PractitionerWithAvailability extends Practitioner {
+  availability?: { day_of_week: number | null; start_time: string; end_time: string; is_available: boolean; exception_date: string | null; break_start: string | null; break_end: string | null }[];
+}
+
 interface DayViewProps {
   bookings: BookingWithDetails[];
-  practitioners: Practitioner[];
+  practitioners: PractitionerWithAvailability[];
   date: Date;
   onBookingClick: (b: BookingWithDetails) => void;
 }
@@ -87,18 +91,24 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
       {/* Practitioners header */}
       <div className="flex border-b bg-white relative z-10">
         <div className="w-14 shrink-0 border-r" />
-        {activePractitioners.map((p) => (
-          <div
-            key={p.id}
-            className="flex-1 flex items-center gap-2 px-3 py-2 border-r last:border-r-0"
-          >
-            <span
-              className="h-3 w-3 rounded-full shrink-0"
-              style={{ backgroundColor: p.color }}
-            />
-            <span className="text-sm font-medium text-gray-700 truncate">{p.name}</span>
-          </div>
-        ))}
+        {activePractitioners.map((p) => {
+          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+          const onVacation = p.availability?.some((a) => a.exception_date === dateStr && !a.is_available) ?? false;
+          return (
+            <div
+              key={p.id}
+              className={`flex-1 flex items-center gap-2 px-3 py-2 border-r last:border-r-0 ${onVacation ? "opacity-40" : ""}`}
+            >
+              <span
+                className="h-3 w-3 rounded-full shrink-0"
+                style={{ backgroundColor: p.color }}
+              />
+              <span className="text-sm font-medium text-gray-700 truncate">
+                {p.name}{onVacation ? " (congé)" : ""}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Scrollable grid */}
@@ -141,17 +151,32 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                   />
                 ))}
 
-                {/* Lunch break */}
-                <div
-                  className="absolute left-0 right-0 border-y border-amber-200/60 flex items-center justify-center"
-                  style={{
-                    top: (13 - HOUR_START) * 60 * pxPerMinute + PADDING_TOP,
-                    height: 60 * pxPerMinute,
-                    background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(251,191,36,0.08) 4px, rgba(251,191,36,0.08) 8px)",
-                  }}
-                >
-                  <span className="text-xs text-amber-400">Pause déjeuner</span>
-                </div>
+                {/* Lunch break — dynamic per practitioner */}
+                {(() => {
+                  const dayOfWeek = (date.getDay() + 6) % 7;
+                  const dayAvail = p.availability?.find(
+                    (a) => a.day_of_week === dayOfWeek && a.exception_date === null
+                  );
+                  const bs = dayAvail?.break_start?.slice(0, 5) ?? "13:00";
+                  const be = dayAvail?.break_end?.slice(0, 5) ?? "14:00";
+                  const [bsH, bsM] = bs.split(":").map(Number);
+                  const [beH, beM] = be.split(":").map(Number);
+                  const breakStartMins = bsH * 60 + bsM;
+                  const breakEndMins = beH * 60 + beM;
+                  if (breakStartMins >= breakEndMins) return null;
+                  return (
+                    <div
+                      className="absolute left-0 right-0 border-y border-amber-200/60 flex items-center justify-center"
+                      style={{
+                        top: (breakStartMins - HOUR_START * 60) * pxPerMinute + PADDING_TOP,
+                        height: (breakEndMins - breakStartMins) * pxPerMinute,
+                        background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(251,191,36,0.08) 4px, rgba(251,191,36,0.08) 8px)",
+                      }}
+                    >
+                      <span className="text-xs text-amber-400">Pause</span>
+                    </div>
+                  );
+                })()}
 
                 {/* Booking blocks */}
                 {colBookings.map((booking) => {
@@ -160,21 +185,23 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                   const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
                   const height = Math.max((endMin - startMin) * pxPerMinute, 28);
                   const color = booking.practitioner?.color ?? p.color;
+                  const isNoShow = booking.status === "no_show";
+                  const isCancelled = booking.status === "cancelled";
                   const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
                   const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
                   return (
                     <div
                       key={booking.id}
-                      className="absolute left-1.5 right-1.5 group/tip"
+                      className={`absolute left-1.5 right-1.5 group/tip ${isNoShow || isCancelled ? "opacity-40 grayscale" : ""}`}
                       style={{ top, height }}
                     >
                       <button
                         onClick={() => onBookingClick(booking)}
                         className="w-full h-full rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
                         style={{
-                          backgroundColor: `${color}15`,
-                          borderLeft: `4px solid ${color}`,
+                          backgroundColor: `${isNoShow || isCancelled ? "#9ca3af" : color}15`,
+                          borderLeft: `4px solid ${isNoShow || isCancelled ? "#9ca3af" : color}`,
                           boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                         }}
                       >
