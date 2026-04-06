@@ -72,6 +72,16 @@ const SidebarNotifications = () => {
         .order("updated_at", { ascending: false })
         .limit(5);
 
+      // Fetch recently rescheduled bookings (updated today, confirmed, updated_at != created_at)
+      const { data: rescheduled } = await supabase
+        .from("bookings")
+        .select("id, status, starts_at, updated_at, created_at, client:clients(name)")
+        .eq("merchant_id", merchant.id)
+        .eq("status", "confirmed")
+        .gte("updated_at", todayStart.toISOString())
+        .order("updated_at", { ascending: false })
+        .limit(5);
+
       const notifs: SidebarNotification[] = [];
 
       if (tips) {
@@ -104,6 +114,28 @@ const SidebarNotifications = () => {
             timestamp: b.updated_at,
             dismissed: false,
           });
+        }
+      }
+
+      // Rescheduled bookings (updated_at significantly after created_at)
+      if (rescheduled) {
+        for (const b of rescheduled) {
+          const created = new Date(b.created_at).getTime();
+          const updated = new Date(b.updated_at).getTime();
+          // Only show if updated at least 1 min after creation (= real modification)
+          if (updated - created > 60_000) {
+            const clientName = (b.client as { name: string | null } | null)?.name ?? "Un client";
+            notifs.push({
+              id: `reschedule-${b.id}`,
+              type: "booking_change",
+              title: "RDV déplacé",
+              description: `${clientName} → ${new Date(b.starts_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} à ${new Date(b.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
+              action: "VOIR",
+              actionDate: b.starts_at.slice(0, 10),
+              timestamp: b.updated_at,
+              dismissed: false,
+            });
+          }
         }
       }
 

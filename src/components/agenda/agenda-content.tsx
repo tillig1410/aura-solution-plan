@@ -546,10 +546,8 @@ const AgendaContent = () => {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {(() => {
-              const now = new Date();
               const confirmedCount = todayBookings.filter((b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed").length;
               const pendingCount = todayBookings.filter((b) => b.status === "pending").length;
-              const remainingCount = todayBookings.filter((b) => new Date(b.starts_at) > now && b.status !== "cancelled" && b.status !== "no_show").length;
               const showPending = !merchantStatus?.autoConfirm;
               return (
                 <div>
@@ -574,10 +572,6 @@ const AgendaContent = () => {
                         <div className="text-xs text-amber-500">À confirmer</div>
                       </div>
                     )}
-                  </div>
-                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                    <span><span className="font-semibold text-indigo-600">{remainingCount}</span> restant{remainingCount > 1 ? "s" : ""}</span>
                   </div>
                 </div>
               );
@@ -799,7 +793,10 @@ const AgendaContent = () => {
         {/* RDV à venir */}
         <Card size="sm" className="flex-1 overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-sm">Prochains RDV</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Prochains RDV</CardTitle>
+              <span className="text-xs text-indigo-600 font-semibold">{upcomingBookings.length} restant{upcomingBookings.length > 1 ? "s" : ""}</span>
+            </div>
           </CardHeader>
           <CardContent className="overflow-y-auto flex flex-col gap-2 max-h-96">
             {upcomingBookings.length === 0 ? (
