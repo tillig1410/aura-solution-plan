@@ -815,12 +815,9 @@ const AgendaContent = () => {
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${b.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
-                        <span className="text-xs font-medium text-gray-800 truncate">
-                          {b.client?.name ?? "Client inconnu"}
-                        </span>
-                      </div>
+                      <span className="text-xs font-medium text-gray-800 truncate min-w-0">
+                        {b.client?.name ?? "Client inconnu"}
+                      </span>
                       <span
                         className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 shrink-0 ${statusColor[b.status]}`}
                       >

@@ -287,6 +287,13 @@ const BookingForm = ({
         newErrors.startTime = `Ce créneau est pendant la pause (${bs.slice(0,5)}-${be.slice(0,5)}).`;
       }
     }
+    // Block past date/time
+    if (startDate && startTime && !newErrors.startDate && !newErrors.startTime) {
+      const selected = new Date(`${startDate}T${startTime}`);
+      if (selected < new Date()) {
+        newErrors.startTime = "Impossible de réserver dans le passé.";
+      }
+    }
     dispatch({ type: "SET_ERRORS", errors: newErrors });
     return Object.keys(newErrors).length === 0;
   };
