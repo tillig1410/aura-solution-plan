@@ -208,22 +208,23 @@ const AgendaContent = () => {
     [bookings, todayStr]
   );
 
-  // Current clients: bookings in_progress, or confirmed/pending that overlap now or start within 15 min
+  // Current clients: bookings in_progress, or confirmed/pending that have started and not ended
   const currentClients = useMemo(() => {
     const now = new Date();
-    const soon = new Date(now.getTime() + 15 * 60_000);
     return todayBookings
       .filter((b) => {
         if (b.status === "cancelled" || b.status === "no_show" || b.status === "completed") return false;
         if (b.status === "in_progress") return true;
-        // Confirmed or pending: show if currently happening or starting within 15 min
-        if (new Date(b.starts_at) <= soon && new Date(b.ends_at) > now) return true;
+        // Confirmed or pending: show only if started and not yet ended
+        if (new Date(b.starts_at) <= now && new Date(b.ends_at) > now) return true;
         return false;
       })
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
   }, [todayBookings]);
 
   const [currentClientIdx, setCurrentClientIdx] = useState(0);
+
+  const currentClientIds = useMemo(() => new Set(currentClients.map((b) => b.id)), [currentClients]);
 
   const upcomingBookings = useMemo(() => {
     const now = new Date();
@@ -232,7 +233,8 @@ const AgendaContent = () => {
         (b) =>
           new Date(b.starts_at) >= now &&
           b.status !== "cancelled" &&
-          b.status !== "no_show"
+          b.status !== "no_show" &&
+          !currentClientIds.has(b.id)
       )
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
       .slice(0, 5);
