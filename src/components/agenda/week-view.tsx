@@ -347,7 +347,7 @@ const WeekView = ({
                             </div>
                           </button>
                           {/* Custom tooltip */}
-                          <div className="hidden group-hover/tip:block absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 pointer-events-none">
+                          <div className="hidden group-hover/tip:block absolute left-0 top-full mt-1 z-30 pointer-events-none">
                             <div className="rounded-xl bg-white shadow-lg ring-1 ring-black/10 px-3 py-2.5 min-w-[160px] max-w-[220px]">
                               <div className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</div>
                               <div className="text-[11px] text-gray-600 mt-0.5">{booking.service?.name}</div>
