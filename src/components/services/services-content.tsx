@@ -42,6 +42,8 @@ interface PractitionerAvailabilityRow {
   end_time: string;
   is_available: boolean;
   exception_date: string | null;
+  break_start: string | null;
+  break_end: string | null;
   created_at: string;
 }
 
@@ -142,7 +144,7 @@ const ServicesContent = () => {
               (a) => a.day_of_week === i && a.exception_date === null,
             );
             return match
-              ? { enabled: match.is_available, start: match.start_time.slice(0, 5), end: match.end_time.slice(0, 5), breakStart: "12:00", breakEnd: "13:00" }
+              ? { enabled: match.is_available, start: match.start_time.slice(0, 5), end: match.end_time.slice(0, 5), breakStart: match.break_start?.slice(0, 5) ?? "12:00", breakEnd: match.break_end?.slice(0, 5) ?? "13:00" }
               : { enabled: i < 6, start: "09:00", end: "19:00", breakStart: "12:00", breakEnd: "13:00" };
           });
           sched[p.id] = days;
@@ -277,6 +279,8 @@ const ServicesContent = () => {
           start_time: slot.start,
           end_time: slot.end,
           is_available: slot.enabled,
+          break_start: slot.breakStart !== slot.breakEnd ? slot.breakStart : null,
+          break_end: slot.breakStart !== slot.breakEnd ? slot.breakEnd : null,
         }));
         const exceptions = (vacationByPrac[pracId] ?? []).map((date) => ({
           exception_date: date,

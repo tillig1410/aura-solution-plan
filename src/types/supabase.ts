@@ -139,6 +139,8 @@ export interface Database {
           end_time: string;
           is_available: boolean;
           exception_date: string | null;
+          break_start: string | null;
+          break_end: string | null;
           created_at: string;
         };
         Insert: {
@@ -150,6 +152,8 @@ export interface Database {
           end_time: string;
           is_available: boolean;
           exception_date?: string | null;
+          break_start?: string | null;
+          break_end?: string | null;
           created_at?: string;
         };
         Update: {
@@ -161,6 +165,8 @@ export interface Database {
           end_time?: string;
           is_available?: boolean;
           exception_date?: string | null;
+          break_start?: string | null;
+          break_end?: string | null;
           created_at?: string;
         };
         Relationships: [

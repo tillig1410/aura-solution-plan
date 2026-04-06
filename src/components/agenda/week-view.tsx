@@ -208,16 +208,22 @@ const WeekView = ({
               <div className="flex justify-center gap-0.5 mt-1">
                 {practitioners.filter((p) => p.is_active).map((p) => {
                   const dayOfWeek = idx; // 0=Lun, 6=Dim
+                  const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+                  // Check vacation (exception_date)
+                  const isVacation = p.availability?.some(
+                    (a) => a.exception_date === dateStr && !a.is_available
+                  );
+                  // Check recurring schedule
                   const avail = p.availability?.find(
                     (a) => a.day_of_week === dayOfWeek && a.exception_date === null
                   );
-                  const works = avail ? avail.is_available : dayOfWeek < 6; // défaut: travaille lun-sam
+                  const works = !isVacation && (avail ? avail.is_available : dayOfWeek < 6);
                   return (
                     <div
                       key={p.id}
                       className={`h-2 w-2 rounded-full ${works ? "" : "opacity-20"}`}
                       style={{ backgroundColor: p.color }}
-                      title={`${p.name}${works ? "" : " (absent)"}`}
+                      title={`${p.name}${isVacation ? " (congé)" : works ? "" : " (absent)"}`}
                     />
                   );
                 })}

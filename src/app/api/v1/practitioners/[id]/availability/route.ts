@@ -28,6 +28,16 @@ const availabilitySlotSchema = z.object({
     .string()
     .regex(/^\d{2}:\d{2}(:\d{2})?$/, "end_time doit être au format HH:MM ou HH:MM:SS"),
   is_available: z.boolean(),
+  break_start: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+    .nullable()
+    .optional(),
+  break_end: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+    .nullable()
+    .optional(),
 });
 
 const exceptionSlotSchema = z.object({

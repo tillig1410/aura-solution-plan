@@ -233,20 +233,29 @@ const BookingForm = ({
     return { works: true, dayAvail: dayAvail ?? null };
   }, [practitioners, practitionerId, startDate]);
 
-  // Build available time slots based on practitioner availability (excluding lunch break 13:00-14:00)
+  // Build available time slots based on practitioner availability (excluding break)
   const timeSlots = useMemo(() => {
     if (!pracAvailability.works) return [];
     let startH = 8;
     let endH = 20;
-    if (pracAvailability.dayAvail) {
-      startH = parseInt(pracAvailability.dayAvail.start_time.slice(0, 2));
-      endH = parseInt(pracAvailability.dayAvail.end_time.slice(0, 2)) + (parseInt(pracAvailability.dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
+    const dayAvail = pracAvailability.dayAvail as { start_time: string; end_time: string; break_start?: string | null; break_end?: string | null } | null;
+    if (dayAvail) {
+      startH = parseInt(dayAvail.start_time.slice(0, 2));
+      endH = parseInt(dayAvail.end_time.slice(0, 2)) + (parseInt(dayAvail.end_time.slice(3, 5)) > 0 ? 1 : 0);
     }
-    // Exclude lunch break 13:00-14:00
+    // Exclude break period (from DB or default 13:00-14:00)
+    const breakStartStr = dayAvail?.break_start ?? "13:00";
+    const breakEndStr = dayAvail?.break_end ?? "14:00";
+    const [bsH, bsM] = breakStartStr.slice(0, 5).split(":").map(Number);
+    const [beH, beM] = breakEndStr.slice(0, 5).split(":").map(Number);
+    const breakStartMins = bsH * 60 + bsM;
+    const breakEndMins = beH * 60 + beM;
+
+    if (breakStartMins >= breakEndMins) return generateTimeSlots(startH, endH); // pas de pause
     return generateTimeSlots(startH, endH).filter((t) => {
       const [h, m] = t.split(":").map(Number);
       const mins = h * 60 + m;
-      return mins < 780 || mins >= 840; // 780 = 13:00, 840 = 14:00
+      return mins < breakStartMins || mins >= breakEndMins;
     });
   }, [pracAvailability]);
 
@@ -263,12 +272,19 @@ const BookingForm = ({
       const pracName = practitioners.find((p) => p.id === practitionerId)?.name ?? "Ce praticien";
       newErrors.startDate = `${pracName} ${pracAvailability.reason ?? "n'est pas disponible ce jour"}.`;
     }
-    // Block booking during lunch break (13:00-14:00)
-    if (startTime) {
+    // Block booking during break
+    if (startTime && pracAvailability.dayAvail) {
+      const dayAvail = pracAvailability.dayAvail as { break_start?: string | null; break_end?: string | null };
+      const bs = dayAvail.break_start ?? "13:00";
+      const be = dayAvail.break_end ?? "14:00";
+      const [bsH, bsM] = bs.slice(0, 5).split(":").map(Number);
+      const [beH, beM] = be.slice(0, 5).split(":").map(Number);
+      const breakStartMins = bsH * 60 + bsM;
+      const breakEndMins = beH * 60 + beM;
       const [sh, sm] = startTime.split(":").map(Number);
       const startMins = sh * 60 + sm;
-      if (startMins >= 780 && startMins < 840) {
-        newErrors.startTime = "Ce créneau est pendant la pause déjeuner (13h-14h).";
+      if (breakStartMins < breakEndMins && startMins >= breakStartMins && startMins < breakEndMins) {
+        newErrors.startTime = `Ce créneau est pendant la pause (${bs.slice(0,5)}-${be.slice(0,5)}).`;
       }
     }
     dispatch({ type: "SET_ERRORS", errors: newErrors });
