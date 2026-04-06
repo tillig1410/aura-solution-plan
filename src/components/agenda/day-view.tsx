@@ -158,7 +158,7 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                   const startMin = minutesFromMidnight(booking.starts_at);
                   const endMin = minutesFromMidnight(booking.ends_at);
                   const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
-                  const height = Math.max((endMin - startMin) * pxPerMinute, 24);
+                  const height = Math.max((endMin - startMin) * pxPerMinute, 52);
                   const color = booking.practitioner?.color ?? p.color;
                   const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
                   const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -167,7 +167,7 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                     <button
                       key={booking.id}
                       onClick={() => onBookingClick(booking)}
-                      className="absolute left-1.5 right-1.5 rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
+                      className="absolute left-1.5 rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all max-w-[70%]"
                       style={{
                         top,
                         height,
@@ -179,16 +179,12 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                       <div className="text-[11px] font-semibold truncate" style={{ color }}>
                         {timeStart} — {timeEnd}
                       </div>
-                      {height >= 38 && (
-                        <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
-                          {booking.service?.name}
-                        </div>
-                      )}
-                      {height >= 54 && (
-                        <div className="text-xs text-gray-500 truncate mt-0.5">
-                          {booking.client?.name ?? "Client inconnu"}
-                        </div>
-                      )}
+                      <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
+                        {booking.service?.name}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate mt-0.5">
+                        {booking.client?.name ?? "Client inconnu"}
+                      </div>
                     </button>
                   );
                 })}

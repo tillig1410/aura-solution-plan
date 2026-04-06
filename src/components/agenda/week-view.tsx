@@ -245,7 +245,7 @@ const WeekView = ({
                     const startMin = minutesFromMidnight(booking.starts_at);
                     const endMin = minutesFromMidnight(booking.ends_at);
                     const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
-                    const height = Math.max((endMin - startMin) * pxPerMinute, 22);
+                    const height = Math.max((endMin - startMin) * pxPerMinute, 42);
                     const color =
                       booking.practitioner?.color ??
                       visiblePractitioners.find((p) => p.id === booking.practitioner_id)?.color ??
@@ -269,16 +269,12 @@ const WeekView = ({
                         <div className="text-[10px] font-semibold truncate" style={{ color }}>
                           {timeStart} — {timeEnd}
                         </div>
-                        {height >= 34 && (
-                          <div className="text-xs font-bold text-gray-900 truncate leading-tight">
-                            {booking.service?.name}
-                          </div>
-                        )}
-                        {height >= 48 && (
-                          <div className="text-[10px] text-gray-500 truncate">
-                            {booking.client?.name ?? "?"}
-                          </div>
-                        )}
+                        <div className="text-xs font-bold text-gray-900 truncate leading-tight">
+                          {booking.service?.name}
+                        </div>
+                        <div className="text-[10px] text-gray-500 truncate">
+                          {booking.client?.name ?? "?"}
+                        </div>
                       </button>
                     );
                   })}
