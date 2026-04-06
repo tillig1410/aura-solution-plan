@@ -130,6 +130,12 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
           {/* Practitioner columns */}
           {activePractitioners.map((p) => {
             const colBookings = dayBookings.filter((b) => b.practitioner_id === p.id);
+            const dayOfWeek = (date.getDay() + 6) % 7;
+            const pracDayAvail = p.availability?.find(
+              (a) => a.day_of_week === dayOfWeek && a.exception_date === null
+            );
+            const pracStart = pracDayAvail ? parseInt(pracDayAvail.start_time.slice(0, 2)) * 60 + parseInt(pracDayAvail.start_time.slice(3, 5)) : HOUR_START * 60;
+            const pracEnd = pracDayAvail ? parseInt(pracDayAvail.end_time.slice(0, 2)) * 60 + parseInt(pracDayAvail.end_time.slice(3, 5)) : HOUR_END * 60;
 
             return (
               <div key={p.id} className="flex-1 relative border-r last:border-r-0">
@@ -150,6 +156,30 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                     style={{ top: (hour - HOUR_START) * 60 * pxPerMinute + 30 * pxPerMinute + PADDING_TOP }}
                   />
                 ))}
+
+                {/* Closed hours overlay — before opening */}
+                {pracStart > HOUR_START * 60 && (
+                  <div
+                    className="absolute left-0 right-0 pointer-events-none"
+                    style={{
+                      top: PADDING_TOP,
+                      height: (pracStart - HOUR_START * 60) * pxPerMinute,
+                      background: "repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(148,163,184,0.08) 5px, rgba(148,163,184,0.08) 10px)",
+                    }}
+                  />
+                )}
+
+                {/* Closed hours overlay — after closing */}
+                {pracEnd < HOUR_END * 60 && (
+                  <div
+                    className="absolute left-0 right-0 pointer-events-none"
+                    style={{
+                      top: (pracEnd - HOUR_START * 60) * pxPerMinute + PADDING_TOP,
+                      height: (HOUR_END * 60 - pracEnd) * pxPerMinute,
+                      background: "repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(148,163,184,0.08) 5px, rgba(148,163,184,0.08) 10px)",
+                    }}
+                  />
+                )}
 
                 {/* Lunch break — dynamic per practitioner */}
                 {(() => {

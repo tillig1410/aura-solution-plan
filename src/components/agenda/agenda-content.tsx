@@ -196,6 +196,15 @@ const AgendaContent = () => {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Re-fetch when page becomes visible (user comes back from another page/tab)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === "visible") fetchAllData();
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [fetchAllData]);
+
   // Listen for notification "VOIR" navigation
   useEffect(() => {
     const handler = () => {

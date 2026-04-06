@@ -12,6 +12,12 @@
 - **[FEAT]** Fond de case coloré selon le taux d'occupation
 - **[FEAT]** Mini barres par praticien : remplissage individuel avec pastille couleur + compteur RDV
 - **[FEAT]** Pourcentage d'occupation affiché en haut à droite de chaque case
+- **[FIX]** Police agrandie pour lisibilité (badges, jauges, compteurs praticien)
+- **[FIX]** Alignement constant entre jours avec et sans RDV
+
+### Agenda — Vue Jour
+- **[FEAT]** Zones hors horaires praticien grisées (hachures avant ouverture / après fermeture)
+- **[FIX]** Re-fetch automatique quand on revient sur la page agenda (données fraîches)
 
 ### Agenda — Général
 - **[FEAT]** Compteur "restants" déplacé dans le header Prochains RDV
