@@ -178,7 +178,7 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
 
               {/* Global fill gauge — always visible on working days */}
               {!isSunday && (
-                <div className="flex items-center gap-1.5 mt-1">
+                <div className="flex items-center gap-1 mt-1 pl-3.5 pr-6">
                   <div className="flex-1 h-2 rounded-full bg-gray-100">
                     <div
                       className={`h-full rounded-full transition-all ${barColor(fillRate)}`}
@@ -210,7 +210,7 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
                           }}
                         />
                       </div>
-                      <span className="text-xs font-bold text-gray-600 shrink-0">{ps.count}</span>
+                      <span className="text-xs font-bold text-gray-600 w-4 text-right shrink-0">{ps.count}</span>
                     </div>
                   ))}
                   {pracStats.length > 4 && (
