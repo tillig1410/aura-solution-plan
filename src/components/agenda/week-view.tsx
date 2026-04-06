@@ -25,8 +25,8 @@ interface WeekViewProps {
 const HOUR_START = 8;
 const HOUR_END = 19;
 const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
-const PX_PER_MINUTE = 1;
 const TOTAL_MINUTES = (HOUR_END - HOUR_START) * 60;
+const PADDING_TOP = 24;
 
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -67,10 +67,24 @@ const WeekView = ({
   onBookingClick,
 }: WeekViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [pxPerMinute, setPxPerMinute] = useState(1);
   const [currentMinute, setCurrentMinute] = useState<number>(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
   });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const available = el.clientHeight - PADDING_TOP;
+      setPxPerMinute(Math.max(1, available / TOTAL_MINUTES));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -78,13 +92,6 @@ const WeekView = ({
       setCurrentMinute(now.getHours() * 60 + now.getMinutes());
     }, 60_000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      const offset = (9 * 60 - HOUR_START * 60) * PX_PER_MINUTE;
-      scrollRef.current.scrollTop = offset;
-    }
   }, []);
 
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
@@ -121,7 +128,7 @@ const WeekView = ({
 
   const currentLineTop =
     currentMinute >= HOUR_START * 60 && currentMinute <= HOUR_END * 60
-      ? (currentMinute - HOUR_START * 60) * PX_PER_MINUTE
+      ? (currentMinute - HOUR_START * 60) * pxPerMinute + PADDING_TOP
       : null;
 
   const todayColIndex = weekDays.findIndex((d) => d.toDateString() === todayStr);
@@ -178,14 +185,14 @@ const WeekView = ({
 
       {/* Scrollable grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="flex relative" style={{ height: TOTAL_MINUTES * PX_PER_MINUTE + 32 }}>
+        <div className="flex relative" style={{ height: TOTAL_MINUTES * pxPerMinute + PADDING_TOP }}>
           {/* Time gutter */}
           <div className="w-14 shrink-0 border-r relative">
             {HOURS.map((hour) => (
               <div
                 key={hour}
                 className="absolute left-0 right-0 flex items-start justify-end pr-2"
-                style={{ top: (hour - HOUR_START) * 60 * PX_PER_MINUTE - 8 }}
+                style={{ top: (hour - HOUR_START) * 60 * pxPerMinute + PADDING_TOP - 8 }}
               >
                 <span className="text-xs text-gray-400">{hour}:00</span>
               </div>
@@ -210,7 +217,7 @@ const WeekView = ({
                   <div
                     key={hour}
                     className="absolute left-0 right-0 border-t border-gray-100"
-                    style={{ top: (hour - HOUR_START) * 60 * PX_PER_MINUTE }}
+                    style={{ top: (hour - HOUR_START) * 60 * pxPerMinute + PADDING_TOP }}
                   />
                 ))}
 
@@ -219,7 +226,7 @@ const WeekView = ({
                   <div
                     key={`${hour}-30`}
                     className="absolute left-0 right-0 border-t border-dashed border-gray-50"
-                    style={{ top: (hour - HOUR_START) * 60 * PX_PER_MINUTE + 30 }}
+                    style={{ top: (hour - HOUR_START) * 60 * pxPerMinute + 30 * pxPerMinute + PADDING_TOP }}
                   />
                 ))}
 
@@ -227,8 +234,8 @@ const WeekView = ({
                 <div
                   className="absolute left-0 right-0 bg-gray-100/60 border-y border-gray-200/60"
                   style={{
-                    top: (13 - HOUR_START) * 60 * PX_PER_MINUTE,
-                    height: 60 * PX_PER_MINUTE,
+                    top: (13 - HOUR_START) * 60 * pxPerMinute + PADDING_TOP,
+                    height: 60 * pxPerMinute,
                   }}
                 />
 
@@ -246,8 +253,8 @@ const WeekView = ({
                   dayBookings.map((booking) => {
                     const startMin = minutesFromMidnight(booking.starts_at);
                     const endMin = minutesFromMidnight(booking.ends_at);
-                    const top = (startMin - HOUR_START * 60) * PX_PER_MINUTE;
-                    const height = Math.max((endMin - startMin) * PX_PER_MINUTE, 18);
+                    const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
+                    const height = Math.max((endMin - startMin) * pxPerMinute, 18);
                     const color =
                       booking.practitioner?.color ??
                       visiblePractitioners.find((p) => p.id === booking.practitioner_id)?.color ??
