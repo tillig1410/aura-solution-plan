@@ -35,6 +35,67 @@ const minutesFromMidnight = (isoStr: string): number => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
+/** Compute side-by-side column layout for overlapping bookings (Google Calendar style) */
+const computeOverlapLayout = (dayBookings: BookingWithDetails[]): Map<string, { col: number; total: number }> => {
+  if (dayBookings.length === 0) return new Map();
+
+  const sorted = [...dayBookings].sort(
+    (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+  );
+
+  // Group into clusters of overlapping bookings
+  const clusters: BookingWithDetails[][] = [];
+  let cluster: BookingWithDetails[] = [sorted[0]];
+  let clusterEnd = minutesFromMidnight(sorted[0].ends_at);
+
+  for (let i = 1; i < sorted.length; i++) {
+    const startMin = minutesFromMidnight(sorted[i].starts_at);
+    if (startMin < clusterEnd) {
+      cluster.push(sorted[i]);
+      clusterEnd = Math.max(clusterEnd, minutesFromMidnight(sorted[i].ends_at));
+    } else {
+      clusters.push(cluster);
+      cluster = [sorted[i]];
+      clusterEnd = minutesFromMidnight(sorted[i].ends_at);
+    }
+  }
+  clusters.push(cluster);
+
+  // Assign columns within each cluster
+  const result = new Map<string, { col: number; total: number }>();
+
+  for (const group of clusters) {
+    const cols: number[] = []; // tracks end-time per column
+    const assignments: { id: string; col: number }[] = [];
+
+    for (const booking of group) {
+      const start = minutesFromMidnight(booking.starts_at);
+      const end = minutesFromMidnight(booking.ends_at);
+
+      let placed = -1;
+      for (let c = 0; c < cols.length; c++) {
+        if (start >= cols[c]) {
+          cols[c] = end;
+          placed = c;
+          break;
+        }
+      }
+      if (placed === -1) {
+        placed = cols.length;
+        cols.push(end);
+      }
+      assignments.push({ id: booking.id, col: placed });
+    }
+
+    const total = cols.length;
+    for (const a of assignments) {
+      result.set(a.id, { col: a.col, total });
+    }
+  }
+
+  return result;
+};
+
 const getWeekDays = (weekStart: Date): Date[] =>
   Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -239,43 +300,51 @@ const WeekView = ({
                   </div>
                 )}
 
-                {/* Booking blocks */}
+                {/* Booking blocks — overlap layout */}
                 {!isSunday &&
-                  dayBookings.map((booking) => {
-                    const startMin = minutesFromMidnight(booking.starts_at);
-                    const endMin = minutesFromMidnight(booking.ends_at);
-                    const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
-                    const height = Math.max((endMin - startMin) * pxPerMinute, 42);
-                    const color =
-                      booking.practitioner?.color ??
-                      visiblePractitioners.find((p) => p.id === booking.practitioner_id)?.color ??
-                      "#6366f1";
-                    const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-                    const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+                  (() => {
+                    const layout = computeOverlapLayout(dayBookings);
+                    return dayBookings.map((booking) => {
+                      const startMin = minutesFromMidnight(booking.starts_at);
+                      const endMin = minutesFromMidnight(booking.ends_at);
+                      const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
+                      const height = Math.max((endMin - startMin) * pxPerMinute, 28);
+                      const color =
+                        booking.practitioner?.color ??
+                        visiblePractitioners.find((p) => p.id === booking.practitioner_id)?.color ??
+                        "#6366f1";
+                      const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+                      const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+                      const pos = layout.get(booking.id) ?? { col: 0, total: 1 };
+                      const widthPct = 100 / pos.total;
+                      const leftPct = pos.col * widthPct;
 
-                    return (
-                      <button
-                        key={booking.id}
-                        onClick={() => onBookingClick(booking)}
-                        className="absolute left-1 right-1 rounded-lg text-left overflow-hidden hover:brightness-95 transition-all px-1.5 py-1"
-                        title={`${booking.client?.name ?? "Client inconnu"} — ${booking.service?.name ?? ""} (${timeStart} — ${timeEnd})`}
-                        style={{
-                          top,
-                          height,
-                          backgroundColor: `${color}15`,
-                          borderLeft: `4px solid ${color}`,
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                        }}
-                      >
-                        <div className="text-[10px] font-semibold truncate" style={{ color }}>
-                          {timeStart} — {timeEnd}
-                        </div>
-                        <div className="text-xs font-bold text-gray-900 truncate leading-tight">
-                          {booking.service?.name}
-                        </div>
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={booking.id}
+                          onClick={() => onBookingClick(booking)}
+                          className="absolute rounded-lg text-left overflow-hidden hover:brightness-90 transition-all px-1 py-0.5"
+                          title={`${booking.client?.name ?? "Client inconnu"}\n${booking.service?.name ?? ""}\n${timeStart} — ${timeEnd}\n${booking.practitioner?.name ?? ""}`}
+                          style={{
+                            top,
+                            height,
+                            left: `calc(${leftPct}% + 2px)`,
+                            width: `calc(${widthPct}% - 4px)`,
+                            backgroundColor: `${color}20`,
+                            borderLeft: `3px solid ${color}`,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.10)",
+                          }}
+                        >
+                          <div className="text-[9px] font-semibold truncate" style={{ color }}>
+                            {timeStart}
+                          </div>
+                          <div className="text-[10px] font-bold text-gray-900 truncate leading-tight">
+                            {booking.service?.name}
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
 
                 {/* Current time line — only on today's column */}
                 {isToday && currentLineTop !== null && (
