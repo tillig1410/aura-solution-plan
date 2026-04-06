@@ -14,6 +14,8 @@ import {
   PhoneCall,
   Monitor,
   Globe,
+  User,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -203,6 +205,21 @@ const AgendaContent = () => {
     () => bookings.filter((b) => new Date(b.starts_at).toDateString() === todayStr),
     [bookings, todayStr]
   );
+
+  // Current clients: bookings in_progress or confirmed starting within 15 min
+  const currentClients = useMemo(() => {
+    const now = new Date();
+    const soon = new Date(now.getTime() + 15 * 60_000);
+    return todayBookings
+      .filter((b) => {
+        if (b.status === "in_progress") return true;
+        if (b.status === "confirmed" && new Date(b.starts_at) <= soon && new Date(b.ends_at) > now) return true;
+        return false;
+      })
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  }, [todayBookings]);
+
+  const [currentClientIdx, setCurrentClientIdx] = useState(0);
 
   const upcomingBookings = useMemo(() => {
     const now = new Date();
@@ -488,6 +505,107 @@ const AgendaContent = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Client actuel */}
+        {currentClients.length > 0 && (() => {
+          const idx = Math.min(currentClientIdx, currentClients.length - 1);
+          const b = currentClients[idx];
+          const client = b.client;
+          const practitioner = b.practitioner;
+          const service = b.service;
+          const price = service ? (service.price_cents / 100).toFixed(2) : null;
+          const timeRange = `${new Date(b.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} — ${new Date(b.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+
+          return (
+            <Card size="sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-indigo-600" />
+                    Client actuel
+                  </CardTitle>
+                  {currentClients.length > 1 && (
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <button
+                        onClick={() => setCurrentClientIdx((i) => Math.max(0, i - 1))}
+                        disabled={idx === 0}
+                        className="px-1 hover:text-gray-600 disabled:opacity-30"
+                      >
+                        &lt;
+                      </button>
+                      <span>{idx + 1} / {currentClients.length}</span>
+                      <button
+                        onClick={() => setCurrentClientIdx((i) => Math.min(currentClients.length - 1, i + 1))}
+                        disabled={idx === currentClients.length - 1}
+                        className="px-1 hover:text-gray-600 disabled:opacity-30"
+                      >
+                        &gt;
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2.5">
+                {/* Practitioner badge */}
+                {practitioner && (
+                  <div className="flex justify-end">
+                    <span
+                      className="text-[10px] font-semibold text-white px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: practitioner.color }}
+                    >
+                      AVEC {practitioner.name.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+
+                {/* Client info */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                    <User className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {client?.name ?? "Client inconnu"}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{service?.name}</p>
+                  </div>
+                </div>
+
+                {/* Time + service details */}
+                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  <span className="font-medium text-gray-800">{timeRange}</span>
+                  {service && (
+                    <span className="text-gray-400 ml-2">({service.duration_minutes} min)</span>
+                  )}
+                </div>
+
+                {/* Price + status */}
+                {price && (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] text-gray-400 uppercase">Total</div>
+                      <div className="text-lg font-bold text-gray-900">{price} €</div>
+                    </div>
+                    <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${statusColor[b.status]}`}>
+                      {statusLabel[b.status]}
+                    </span>
+                  </div>
+                )}
+
+                {/* Encaissement button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  onClick={() => handleBookingClick(b)}
+                >
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Encaissement
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* RDV à venir */}
         <Card size="sm" className="flex-1 overflow-hidden">

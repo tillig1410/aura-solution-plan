@@ -11,6 +11,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import SidebarNotifications from "@/components/layout/sidebar-notifications";
 
 const navItems = [
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
@@ -32,7 +33,7 @@ const Sidebar = () => {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="space-y-1 px-3 py-4">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
@@ -52,6 +53,8 @@ const Sidebar = () => {
           );
         })}
       </nav>
+
+      <SidebarNotifications />
     </aside>
   );
 };
