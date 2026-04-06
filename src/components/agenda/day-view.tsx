@@ -168,6 +168,7 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                       key={booking.id}
                       onClick={() => onBookingClick(booking)}
                       className="absolute left-1.5 right-1.5 rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
+                      title={`${booking.client?.name ?? "Client inconnu"} — ${booking.service?.name ?? ""} (${timeStart} — ${timeEnd})`}
                       style={{
                         top,
                         height,
@@ -181,9 +182,6 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                       </div>
                       <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
                         {booking.service?.name}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate mt-0.5">
-                        {booking.client?.name ?? "Client inconnu"}
                       </div>
                     </button>
                   );

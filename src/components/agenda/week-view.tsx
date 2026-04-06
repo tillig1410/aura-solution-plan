@@ -258,6 +258,7 @@ const WeekView = ({
                         key={booking.id}
                         onClick={() => onBookingClick(booking)}
                         className="absolute left-1 right-1 rounded-lg text-left overflow-hidden hover:brightness-95 transition-all px-1.5 py-1"
+                        title={`${booking.client?.name ?? "Client inconnu"} — ${booking.service?.name ?? ""} (${timeStart} — ${timeEnd})`}
                         style={{
                           top,
                           height,
@@ -271,9 +272,6 @@ const WeekView = ({
                         </div>
                         <div className="text-xs font-bold text-gray-900 truncate leading-tight">
                           {booking.service?.name}
-                        </div>
-                        <div className="text-[10px] text-gray-500 truncate">
-                          {booking.client?.name ?? "?"}
                         </div>
                       </button>
                     );
