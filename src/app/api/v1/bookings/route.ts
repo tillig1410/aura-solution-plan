@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     service_id: body.service_id,
     starts_at: body.starts_at,
     ends_at: body.ends_at,
-    status: "pending",
+    status: body.source_channel === "dashboard" || body.source_channel === "booking_page" ? "confirmed" : "pending",
     source_channel: body.source_channel,
   };
 
