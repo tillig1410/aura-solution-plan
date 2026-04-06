@@ -26,6 +26,7 @@ import WeekView from "@/components/agenda/week-view";
 import MonthView from "@/components/agenda/month-view";
 import BookingForm from "@/components/agenda/booking-form";
 import BookingSummary from "@/components/agenda/booking-summary";
+import BookingPendingReview from "@/components/agenda/booking-pending-review";
 import { createClient } from "@/lib/supabase/client";
 import type { Booking, Practitioner, Service, Client } from "@/types/supabase";
 
@@ -135,6 +136,7 @@ const AgendaContent = () => {
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [pendingReviewOpen, setPendingReviewOpen] = useState(false);
 
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -270,6 +272,8 @@ const AgendaContent = () => {
     setSelectedBooking(b);
     if (isPast) {
       setSummaryOpen(true);
+    } else if (b.status === "pending") {
+      setPendingReviewOpen(true);
     } else {
       setFormOpen(true);
     }
@@ -332,9 +336,42 @@ const AgendaContent = () => {
   }, []);
 
   const handleReschedule = useCallback(() => {
-    // Close summary, open form in create mode with same client/service pre-filled
     setSummaryOpen(false);
     setSelectedBooking(null);
+    setFormOpen(true);
+  }, []);
+
+  const handlePendingClose = useCallback(() => {
+    setPendingReviewOpen(false);
+    setSelectedBooking(null);
+  }, []);
+
+  const handlePendingConfirm = useCallback(async () => {
+    if (!selectedBooking) return;
+    await fetch(`/api/v1/bookings/${selectedBooking.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: selectedBooking.version, status: "confirmed" }),
+    });
+    setPendingReviewOpen(false);
+    setSelectedBooking(null);
+    await refreshBookings();
+  }, [selectedBooking, refreshBookings]);
+
+  const handlePendingRefuse = useCallback(async () => {
+    if (!selectedBooking) return;
+    await fetch(`/api/v1/bookings/${selectedBooking.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: selectedBooking.version, status: "cancelled", cancelled_by: "merchant" }),
+    });
+    setPendingReviewOpen(false);
+    setSelectedBooking(null);
+    await refreshBookings();
+  }, [selectedBooking, refreshBookings]);
+
+  const handlePendingModify = useCallback(() => {
+    setPendingReviewOpen(false);
     setFormOpen(true);
   }, []);
 
@@ -810,6 +847,18 @@ const AgendaContent = () => {
           open={summaryOpen}
           onClose={handleSummaryClose}
           onReschedule={handleReschedule}
+          booking={selectedBooking}
+        />
+      )}
+
+      {/* Pending booking review dialog */}
+      {selectedBooking && pendingReviewOpen && (
+        <BookingPendingReview
+          open={pendingReviewOpen}
+          onClose={handlePendingClose}
+          onConfirm={handlePendingConfirm}
+          onRefuse={handlePendingRefuse}
+          onModify={handlePendingModify}
           booking={selectedBooking}
         />
       )}
