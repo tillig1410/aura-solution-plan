@@ -35,7 +35,7 @@ interface CreateBookingData {
 interface BookingFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateBookingData) => void;
+  onSubmit: (data: CreateBookingData) => void | Promise<void>;
   onClientCreated?: () => void;
   initialDate?: Date;
   editBooking?: BookingWithDetails;
@@ -149,6 +149,8 @@ const BookingForm = ({
 
   const { clientId, practitionerId, serviceId, startDate, startTime, errors } = state;
 
+  const [submitting, setSubmitting] = useState(false);
+
   // --- New client inline form ---
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientName, setNewClientName] = useState("");
@@ -257,7 +259,7 @@ const BookingForm = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validate()) return;
 
@@ -265,14 +267,19 @@ const BookingForm = ({
     const starts_at = new Date(startDatetime).toISOString();
     const ends_at = computeEndsAt(startDatetime, duration);
 
-    onSubmit({
-      client_id: clientId,
-      practitioner_id: practitionerId,
-      service_id: serviceId,
-      starts_at,
-      ends_at,
-      source_channel: "dashboard",
-    });
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        client_id: clientId,
+        practitioner_id: practitionerId,
+        service_id: serviceId,
+        starts_at,
+        ends_at,
+        source_channel: "dashboard",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -467,11 +474,13 @@ const BookingForm = ({
           )}
 
           <DialogFooter className="-mx-0 -mb-0 border-t-0 bg-transparent p-0 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               Annuler
             </Button>
-            <Button type="submit">
-              {editBooking ? "Enregistrer" : "Créer le RDV"}
+            <Button type="submit" disabled={submitting}>
+              {submitting
+                ? editBooking ? "Enregistrement..." : "Création..."
+                : editBooking ? "Enregistrer" : "Créer le RDV"}
             </Button>
           </DialogFooter>
         </form>

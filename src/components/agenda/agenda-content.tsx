@@ -234,94 +234,45 @@ const AgendaContent = () => {
     setView("day");
   }, []);
 
+  const refreshBookings = useCallback(async () => {
+    const res = await fetch("/api/v1/bookings");
+    if (res.ok) {
+      const json = await res.json();
+      setBookings(json.data ?? json);
+    }
+  }, []);
+
   const handleFormSubmit = useCallback(
-    (data: CreateBookingData) => {
+    async (data: CreateBookingData) => {
       if (selectedBooking) {
-        // Edit mode — update in-memory
-        setBookings((prev) =>
-          prev.map((b) =>
-            b.id === selectedBooking.id
-              ? {
-                  ...b,
-                  ...data,
-                  client:
-                    clients.find((c) => c.id === data.client_id)
-                      ? {
-                          id: data.client_id,
-                          name: clients.find((c) => c.id === data.client_id)?.name ?? null,
-                          phone: clients.find((c) => c.id === data.client_id)?.phone ?? null,
-                          preferred_language:
-                            clients.find((c) => c.id === data.client_id)?.preferred_language ??
-                            "fr",
-                        }
-                      : b.client,
-                  practitioner:
-                    practitioners.find((p) => p.id === data.practitioner_id)
-                      ? {
-                          id: data.practitioner_id,
-                          name:
-                            practitioners.find((p) => p.id === data.practitioner_id)?.name ?? "",
-                          color:
-                            practitioners.find((p) => p.id === data.practitioner_id)?.color ??
-                            "#6366f1",
-                        }
-                      : b.practitioner,
-                  service:
-                    services.find((s) => s.id === data.service_id)
-                      ? {
-                          id: data.service_id,
-                          name: services.find((s) => s.id === data.service_id)?.name ?? "",
-                          duration_minutes:
-                            services.find((s) => s.id === data.service_id)?.duration_minutes ?? 60,
-                          price_cents:
-                            services.find((s) => s.id === data.service_id)?.price_cents ?? 0,
-                        }
-                      : b.service,
-                }
-              : b
-          )
-        );
+        // Edit mode — call PATCH API
+        const res = await fetch(`/api/v1/bookings/${selectedBooking.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            version: selectedBooking.version,
+            starts_at: data.starts_at,
+            ends_at: data.ends_at,
+            practitioner_id: data.practitioner_id,
+            service_id: data.service_id,
+          }),
+        });
+        if (!res.ok) return;
       } else {
-        // Create mode
-        const clientObj = clients.find((c) => c.id === data.client_id);
-        const practObj = practitioners.find((p) => p.id === data.practitioner_id);
-        const svcObj = services.find((s) => s.id === data.service_id);
-        const newBooking: BookingWithDetails = {
-          id: `b-${Date.now()}`,
-          merchant_id: "m1",
-          ...data,
-          status: "pending",
-          cancelled_at: null,
-          cancelled_by: null,
-          version: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          client: clientObj
-            ? {
-                id: clientObj.id,
-                name: clientObj.name,
-                phone: clientObj.phone,
-                preferred_language: clientObj.preferred_language,
-              }
-            : null,
-          practitioner: practObj
-            ? { id: practObj.id, name: practObj.name, color: practObj.color }
-            : null,
-          service: svcObj
-            ? {
-                id: svcObj.id,
-                name: svcObj.name,
-                duration_minutes: svcObj.duration_minutes,
-                price_cents: svcObj.price_cents,
-              }
-            : null,
-        };
-        setBookings((prev) => [...prev, newBooking]);
+        // Create mode — call POST API
+        const res = await fetch("/api/v1/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) return;
       }
+
       setFormOpen(false);
       setSelectedBooking(null);
+      await refreshBookings();
     },
-    [selectedBooking, clients, practitioners, services]
+    [selectedBooking, refreshBookings]
   );
 
   const handleFormClose = useCallback(() => {
