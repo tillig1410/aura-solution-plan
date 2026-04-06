@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useEffect, useState } from "react";
-import { MessageSquare, Phone, Monitor } from "lucide-react";
 import type { Practitioner, Booking } from "@/types/supabase";
 
 interface BookingWithDetails extends Booking {
@@ -30,22 +29,6 @@ const PADDING_TOP = 24;
 
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
-const getChannelIcon = (channel: Booking["source_channel"]) => {
-  if (channel === "voice") return <Phone className="h-3 w-3" />;
-  if (channel === "dashboard" || channel === "booking_page") return <Monitor className="h-3 w-3" />;
-  return <MessageSquare className="h-3 w-3" />;
-};
-
-const getStatusBorder = (status: Booking["status"]) => {
-  switch (status) {
-    case "confirmed": return "#22c55e";
-    case "in_progress": return "#3b82f6";
-    case "completed": return "#9ca3af";
-    case "cancelled": return "#f87171";
-    case "no_show": return "#fb923c";
-    default: return "#fbbf24";
-  }
-};
 
 const minutesFromMidnight = (isoStr: string): number => {
   const d = new Date(isoStr);
@@ -78,7 +61,7 @@ const WeekView = ({
     if (!el) return;
     const update = () => {
       const available = el.clientHeight - PADDING_TOP;
-      setPxPerMinute(Math.max(1.3, available / TOTAL_MINUTES));
+      setPxPerMinute(Math.max(1.5, available / TOTAL_MINUTES));
     };
     update();
     const ro = new ResizeObserver(update);
@@ -262,33 +245,38 @@ const WeekView = ({
                     const startMin = minutesFromMidnight(booking.starts_at);
                     const endMin = minutesFromMidnight(booking.ends_at);
                     const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
-                    const height = Math.max((endMin - startMin) * pxPerMinute, 18);
+                    const height = Math.max((endMin - startMin) * pxPerMinute, 22);
                     const color =
                       booking.practitioner?.color ??
                       visiblePractitioners.find((p) => p.id === booking.practitioner_id)?.color ??
                       "#6366f1";
-                    const borderColor = getStatusBorder(booking.status);
+                    const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+                    const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
                     return (
                       <button
                         key={booking.id}
                         onClick={() => onBookingClick(booking)}
-                        className="absolute left-0.5 right-0.5 rounded text-left overflow-hidden hover:brightness-95 transition-all px-1 py-0.5"
+                        className="absolute left-1 right-1 rounded-lg text-left overflow-hidden hover:brightness-95 transition-all px-1.5 py-1"
                         style={{
                           top,
                           height,
-                          backgroundColor: `${color}25`,
-                          borderLeft: `3px solid ${color}`,
-                          outline: `1px solid ${borderColor}40`,
+                          backgroundColor: `${color}15`,
+                          borderLeft: `4px solid ${color}`,
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                         }}
                       >
-                        <div className="flex items-center gap-0.5 text-[10px] font-medium text-gray-800 truncate">
-                          {getChannelIcon(booking.source_channel)}
-                          <span>{booking.client?.name ?? "?"}</span>
+                        <div className="text-[10px] font-semibold truncate" style={{ color }}>
+                          {timeStart} — {timeEnd}
                         </div>
-                        {height >= 32 && (
-                          <div className="text-[10px] text-gray-500 truncate">
+                        {height >= 34 && (
+                          <div className="text-xs font-bold text-gray-900 truncate leading-tight">
                             {booking.service?.name}
+                          </div>
+                        )}
+                        {height >= 48 && (
+                          <div className="text-[10px] text-gray-500 truncate">
+                            {booking.client?.name ?? "?"}
                           </div>
                         )}
                       </button>
