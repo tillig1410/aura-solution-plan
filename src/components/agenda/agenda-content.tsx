@@ -8,8 +8,12 @@ import {
   Bell,
   CalendarDays,
   MessageSquare,
+  MessageCircle,
+  Send,
   Phone,
+  PhoneCall,
   Monitor,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,10 +84,18 @@ const navigateDate = (date: Date, view: ViewMode, direction: -1 | 1): Date => {
   return d;
 };
 
+const CHANNEL_CONFIG: Record<Booking["source_channel"], { label: string; icon: React.ReactNode; color: string }> = {
+  whatsapp: { label: "WhatsApp", icon: <MessageSquare className="h-3.5 w-3.5" />, color: "text-green-600" },
+  messenger: { label: "Messenger", icon: <MessageCircle className="h-3.5 w-3.5" />, color: "text-blue-500" },
+  telegram: { label: "Telegram", icon: <Send className="h-3.5 w-3.5" />, color: "text-sky-500" },
+  sms: { label: "SMS", icon: <Phone className="h-3.5 w-3.5" />, color: "text-gray-500" },
+  voice: { label: "Tél IA", icon: <PhoneCall className="h-3.5 w-3.5" />, color: "text-purple-600" },
+  dashboard: { label: "Dashboard", icon: <Monitor className="h-3.5 w-3.5" />, color: "text-gray-500" },
+  booking_page: { label: "Site résa", icon: <Globe className="h-3.5 w-3.5" />, color: "text-indigo-500" },
+};
+
 const getChannelIcon = (channel: Booking["source_channel"]) => {
-  if (channel === "voice") return <Phone className="h-3.5 w-3.5" />;
-  if (channel === "dashboard" || channel === "booking_page") return <Monitor className="h-3.5 w-3.5" />;
-  return <MessageSquare className="h-3.5 w-3.5" />;
+  return CHANNEL_CONFIG[channel]?.icon ?? <Monitor className="h-3.5 w-3.5" />;
 };
 
 const statusLabel: Record<Booking["status"], string> = {
@@ -124,6 +136,7 @@ const AgendaContent = () => {
   const [merchantStatus, setMerchantStatus] = useState<{
     hasSubscription: boolean;
     trialEnd: string | null;
+    voiceEnabled: boolean;
   } | null>(null);
 
   const fetchAllData = useCallback(async () => {
@@ -133,7 +146,7 @@ const AgendaContent = () => {
     if (user) {
       const { data: merchant } = await supabase
         .from("merchants")
-        .select("stripe_subscription_id, created_at")
+        .select("stripe_subscription_id, created_at, voice_enabled")
         .eq("user_id", user.id)
         .single();
       if (merchant) {
@@ -141,6 +154,7 @@ const AgendaContent = () => {
         setMerchantStatus({
           hasSubscription: !!merchant.stripe_subscription_id,
           trialEnd: trialEnd.toISOString(),
+          voiceEnabled: !!merchant.voice_enabled,
         });
       }
     }
@@ -454,22 +468,24 @@ const AgendaContent = () => {
             </div>
 
             {/* Canaux */}
-            {Object.keys(channelCounts).length > 0 && (
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-1.5">Par canal</div>
-                <div className="flex flex-col gap-1">
-                  {(Object.entries(channelCounts) as [Booking["source_channel"], number][]).map(
-                    ([channel, count]) => (
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1.5">Par canal</div>
+              <div className="flex flex-col gap-1">
+                {(["dashboard", "booking_page", "whatsapp", "messenger", "telegram", "sms", "voice"] as Booking["source_channel"][])
+                  .filter((ch) => ch !== "voice" || merchantStatus?.voiceEnabled)
+                  .map((channel) => {
+                    const config = CHANNEL_CONFIG[channel];
+                    const count = channelCounts[channel] ?? 0;
+                    return (
                       <div key={channel} className="flex items-center gap-2 text-xs text-gray-600">
-                        {getChannelIcon(channel)}
-                        <span className="capitalize flex-1">{channel}</span>
-                        <span className="font-medium">{count}</span>
+                        <span className={config.color}>{config.icon}</span>
+                        <span className="flex-1">{config.label}</span>
+                        <span className={`font-medium ${count > 0 ? "text-gray-800" : "text-gray-300"}`}>{count}</span>
                       </div>
-                    )
-                  )}
-                </div>
+                    );
+                  })}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
