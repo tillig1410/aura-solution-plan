@@ -25,10 +25,17 @@
 - **[FEAT]** Table `system_notifications` pour les alertes IA et monitoring (pas liées à un client) — `supabase/migrations/019`
 - **[FEAT]** Notifications budget IA insérées dans le dashboard commerçant via n8n
 
+### WhatsApp Business API (WIP)
+- **[FEAT]** Workflow `whatsapp-incoming.json` (12 nœuds) : réception webhook Meta → parsing message → lookup merchant/client → appel booking-conversation → réponse WhatsApp
+- **[FEAT]** Webhook Meta configuré et vérifié (`n8n.resaapp.fr/webhook/whatsapp-incoming`)
+- **[WIP]** Variables `$env` non résolues dans n8n — à hardcoder dans les credentials/nœuds lors de la prochaine session
+- **[WIP]** Test bout en bout Meta → Gemini → réponse WhatsApp à finaliser
+
 ### Infrastructure
 - **[FIX]** VPS n8n.resaapp.fr : suppression du projet Docker doublon (Traefik, conflit port 80)
 - **[FIX]** Certbot : auto-init du certificat SSL si absent (plus besoin de script SSH manuel)
 - **[FIX]** Clé API n8n régénérée + config MCP mise à jour
+- **[FIX]** Variables d'environnement ajoutées au docker-compose n8n (Supabase, WhatsApp, Mistral)
 
 ---
 
