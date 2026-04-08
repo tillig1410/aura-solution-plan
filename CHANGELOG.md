@@ -5,6 +5,33 @@
 
 ---
 
+## [2.7.0] — 2026-04-08 — IA conversationnelle Gemini + fallback Mistral + surveillance tokens
+
+### IA Conversationnelle
+- **[FEAT]** Gemini 2.5 Flash Lite comme LLM principal pour la gestion des RDV via WhatsApp/SMS — `n8n/workflows/booking-conversation.json`
+- **[FEAT]** Fallback automatique sur Mistral Small si Gemini échoue — `n8n/workflows/booking-conversation.json`
+- **[FEAT]** Message statique prédéfini en dernier recours (les 2 LLMs down ou budget épuisé) — `n8n/workflows/booking-conversation.json`
+- **[FEAT]** Vérification budget tokens avant chaque appel LLM — nœud Check AI Budget
+- **[FEAT]** Parsing structuré des réponses Gemini et Mistral (JSON response_text + action + booking_data)
+
+### Surveillance Tokens
+- **[FEAT]** Table `ai_token_usage` : log de chaque appel LLM (model, provider, tokens, coût EUR, is_fallback) — `supabase/migrations/019`
+- **[FEAT]** Budget mensuel configurable par commerçant (`ai_monthly_token_budget` sur merchants) — `supabase/migrations/019`
+- **[FEAT]** Vue agrégée `ai_token_monthly_summary` par commerçant/mois — `supabase/migrations/019`
+- **[FEAT]** Alertes automatiques : 80% (info), 95% (warning), 100% (critique), anomalie x3 — nœud Alert Needed?
+- **[FEAT]** Détection d'anomalie : consommation journalière > 3x la moyenne des 7 derniers jours
+
+### Notifications Système
+- **[FEAT]** Table `system_notifications` pour les alertes IA et monitoring (pas liées à un client) — `supabase/migrations/019`
+- **[FEAT]** Notifications budget IA insérées dans le dashboard commerçant via n8n
+
+### Infrastructure
+- **[FIX]** VPS n8n.resaapp.fr : suppression du projet Docker doublon (Traefik, conflit port 80)
+- **[FIX]** Certbot : auto-init du certificat SSL si absent (plus besoin de script SSH manuel)
+- **[FIX]** Clé API n8n régénérée + config MCP mise à jour
+
+---
+
 ## [2.6.0] — 2026-04-06 — Vue mois remplissage, badges uniformisés
 
 ### Agenda — Vue Mois
