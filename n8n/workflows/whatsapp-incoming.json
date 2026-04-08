@@ -1,0 +1,421 @@
+{
+  "name": "WhatsApp Incoming",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-incoming",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wa-webhook",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "whatsapp-incoming",
+      "notes": "Reçoit les webhooks WhatsApp (GET = vérification, POST = messages)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-verify",
+              "leftValue": "={{ $json.query['hub.mode'] }}",
+              "rightValue": "subscribe",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-verification",
+      "name": "Verification?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "notes": "GET avec hub.mode=subscribe → vérification webhook Meta"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "verify-response",
+      "name": "Respond Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 200],
+      "notes": "Renvoie hub.challenge pour valider le webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Parse WhatsApp Message — extrait le message du payload Meta\n */\nconst body = $input.first().json.body;\n\n// Vérifier que c'est bien un message (pas un status update)\nconst entry = body?.entry?.[0];\nconst changes = entry?.changes?.[0];\nconst value = changes?.value;\n\nif (!value?.messages || value.messages.length === 0) {\n  // Status update (delivered, read, etc.) — ignorer\n  return [{ json: { skip: true } }];\n}\n\nconst message = value.messages[0];\nconst contact = value.contacts?.[0];\nconst metadata = value.metadata;\n\n// Extraire le texte du message\nlet messageText = '';\nif (message.type === 'text') {\n  messageText = message.text?.body || '';\n} else if (message.type === 'interactive') {\n  messageText = message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || '';\n} else {\n  messageText = '[Message non-texte: ' + message.type + ']';\n}\n\nreturn [{\n  json: {\n    skip: false,\n    sender_phone: message.from,\n    sender_name: contact?.profile?.name || 'Inconnu',\n    message_text: messageText,\n    message_id: message.id,\n    timestamp: message.timestamp,\n    phone_number_id: metadata?.phone_number_id,\n    waba_id: entry?.id\n  }\n}];"
+      },
+      "id": "parse-message",
+      "name": "Parse WhatsApp Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 400],
+      "notes": "Extrait sender, message, metadata du payload WhatsApp"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "not-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-message",
+      "name": "Is Real Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 400],
+      "notes": "Filtre les status updates (delivered, read) — ne traite que les vrais messages"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/merchants",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,slug,ai_name,ai_tone,ai_languages,cancellation_delay_minutes,opening_hours"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "find-merchant",
+      "name": "Find Merchant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mRd60LO2hwQq9oBH",
+          "name": "Header Auth account"
+        }
+      },
+      "notes": "Récupère le premier merchant (MVP mono-salon). À adapter en multi-tenant plus tard."
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/clients",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "eq.{{ $('Parse WhatsApp Message').item.json.sender_phone }}"
+            },
+            {
+              "name": "merchant_id",
+              "value": "eq.{{ $json[0].id }}"
+            },
+            {
+              "name": "select",
+              "value": "id,first_name,last_name,phone,loyalty_points,preferred_service_id,preferred_practitioner_id"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "find-client",
+      "name": "Find or Create Client",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mRd60LO2hwQq9oBH",
+          "name": "Header Auth account"
+        }
+      },
+      "notes": "Cherche le client par téléphone. Si pas trouvé, le workflow booking-conversation le créera."
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Build Booking Payload — prépare les données pour le workflow booking-conversation\n */\nconst msg = $('Parse WhatsApp Message').first().json;\nconst merchants = $('Find Merchant').first().json;\nconst clients = $('Find or Create Client').first().json;\n\nconst merchant = Array.isArray(merchants) ? merchants[0] : merchants;\nconst client = Array.isArray(clients) && clients.length > 0 ? clients[0] : null;\n\nreturn [{\n  json: {\n    merchant_id: merchant?.id || '',\n    channel: 'whatsapp',\n    sender_id: msg.sender_phone,\n    message_text: msg.message_text,\n    client_name: client ? (client.first_name + ' ' + (client.last_name || '')).trim() : msg.sender_name,\n    client_id: client?.id || null,\n    salon_name: merchant?.name || 'Salon',\n    ai_name: merchant?.ai_name || 'AurA',\n    ai_tone: merchant?.ai_tone || 'friendly',\n    preferred_language: (merchant?.ai_languages || ['fr'])[0] === 'fr' ? 'français' : 'english',\n    preferred_service: 'aucun',\n    preferred_practitioner: 'aucun',\n    loyalty_points: client?.loyalty_points || 0,\n    cancellation_delay_minutes: merchant?.cancellation_delay_minutes || 120,\n    conversation_history: 'Première interaction',\n    available_slots_text: 'Aucun créneau chargé',\n    // WhatsApp metadata pour la réponse\n    wa_phone_number_id: msg.phone_number_id,\n    wa_sender_phone: msg.sender_phone,\n    wa_message_id: msg.message_id\n  }\n}];"
+      },
+      "id": "build-payload",
+      "name": "Build Booking Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 300],
+      "notes": "Assemble les données merchant + client + message pour le workflow IA"
+    },
+    {
+      "parameters": {
+        "url": "https://n8n.resaapp.fr/webhook/booking-conversation",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call-booking",
+      "name": "Call Booking Conversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 300],
+      "notes": "Appelle le workflow booking-conversation avec les données formatées"
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v21.0/{{ $('Build Booking Payload').first().json.wa_phone_number_id }}/messages",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $('Build Booking Payload').first().json.wa_sender_phone }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"{{ $('Call Booking Conversation').first().json.response_text || 'Désolé, un problème technique est survenu. Réessayez dans quelques instants.' }}\"\n  }\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.WHATSAPP_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 300],
+      "notes": "Envoie la réponse IA au client via WhatsApp Cloud API"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2400, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-skip",
+      "name": "Respond OK (Skip)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 500],
+      "notes": "Répond 200 pour les status updates (delivered, read) sans traitement"
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verification?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verification?": {
+      "main": [
+        [
+          {
+            "node": "Respond Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "Is Real Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Real Message?": {
+      "main": [
+        [
+          {
+            "node": "Find Merchant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond OK (Skip)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Merchant": {
+      "main": [
+        [
+          {
+            "node": "Find or Create Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find or Create Client": {
+      "main": [
+        [
+          {
+            "node": "Build Booking Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Booking Payload": {
+      "main": [
+        [
+          {
+            "node": "Call Booking Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Booking Conversation": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "whatsapp",
+      "id": "3"
+    }
+  ],
+  "pinData": {}
+}
