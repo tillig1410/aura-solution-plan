@@ -5,6 +5,46 @@
 
 ---
 
+## [2.7.2] — 2026-04-10 — Booking Conversation refondu (Find Merchant + Identify Client upsert + Build Context)
+
+### n8n — Booking Conversation refactoring
+- **[FEAT]** Ajout du node `Find Merchant` (HTTP GET mono-tenant, credential `mRd60LO2hwQq9oBH`, URL hardcodée)
+- **[REFACTOR]** `Identify Client` refondu en **upsert PostgREST** par `(merchant_id, phone)` avec `Prefer: resolution=merge-duplicates,return=representation` — gère find OR create en 1 seul appel
+- **[FEAT]** Ajout du node `Build Context` (Code) qui aplatit webhook + merchant + client en un objet unique consommé par tous les nodes downstream — résout le bug latent typeVersion 2 webhook ($json structuré vs flat)
+- **[REFACTOR]** 6 HTTP nodes Supabase migrés : URL hardcodée `https://txebdgmufdsnkrntzvwn.supabase.co`, headers inline `apikey`/`Authorization` supprimés, auth via credential `mRd60LO2hwQq9oBH` uniquement
+  - Identify Client, Load Conversation History, Check Availability, Check Client Packages, Check Client Subscriptions, Send Budget Alert, Save AI Message
+- **[FIX]** `Send Reply` + `Create Booking` : URL hardcodée `https://resaapp.fr`, références `$('Webhook Trigger').item.json.X` corrigées vers `$('Build Context').first().json.X` (l'ancien chemin était cassé en typeVersion 2)
+- **[FEAT]** `Respond OK` retourne désormais `{status, response_text, action, booking_data}` au lieu de `{status:"ok"}` (utile pour le caller)
+- **[FIX]** `Webhook Trigger` : `onError: continueRegularOutput` ajouté (requis par responseNode mode)
+- **[FIX]** Préfixes `=` ajoutés sur les expressions mixtes (`eq.{{ ... }}`) qui cassaient la validation
+
+### Découverte
+- **[INFRA]** `docker-compose.yml` du repo ne contient AUCUNE variable d'environnement Supabase/WhatsApp/Mistral — racine probable du problème `$env`. Section `environment:` du service n8n ne porte que TZ + Redis. La version VPS pourrait différer (drift à vérifier).
+
+### Encore à faire (prochaine session)
+- **[WIP]** Test bout en bout (POST factice à WhatsApp Incoming → traversée complète)
+- **[WIP]** Code nodes `Check AI Budget` et `Log Token Usage` toujours en `$env` (à convertir en HTTP nodes)
+- **[WIP]** Mistral Fallback toujours en `$env.MISTRAL_API_KEY` (créer credential dédiée)
+- **[WIP]** Vérifier que le credential `mRd60LO2hwQq9oBH` (httpHeaderAuth, 1 seul header) suffit à PostgREST sans `Authorization: Bearer` séparé
+
+---
+
+## [2.7.1] — 2026-04-10 — WhatsApp Incoming refondu en gateway mince
+
+### n8n — Refactoring architectural
+- **[REFACTOR]** WhatsApp Incoming (workflow `emUf5KvQm7kFmdk2`) refondu en gateway pur — 12 nodes → 8 nodes, ZÉRO secret, ZÉRO `$env`
+- **[REMOVE]** Suppression de `Find Merchant`, `Find or Create Client`, `Build Booking Payload`, `Send WhatsApp Reply` — toute la logique métier et l'envoi du message redescendent dans Booking Conversation
+- **[FEAT]** Call Booking Conversation forward désormais un payload minimal raw : `channel, sender_phone, sender_name, message_text, wa_message_id, wa_phone_number_id, wa_waba_id, timestamp`
+- **[FIX]** `onError: continueRegularOutput` ajouté sur WhatsApp Webhook (requis par responseNode mode) et sur Call Booking Conversation (Meta reçoit toujours 200 même si Booking tombe)
+- **[FIX]** Validation runtime n8n : 0 erreur
+
+### Décision design
+- **[ARCH]** Séparation claire des responsabilités : workflows gateway (WhatsApp/Messenger/SMS/Tél) = transport pur, Booking Conversation = cerveau métier (lookups + IA + envoi via `/api/v1/channels/send`)
+- **[ARCH]** Token WhatsApp Cloud API n'est plus dans n8n — il vit côté Vercel (où il fonctionne) via la route Next.js `channels/send`
+- **[WIP]** Booking Conversation à refactorer (27 `$env` sur 12 nodes, Find Merchant à ajouter, Identify Client bugué à réparer)
+
+---
+
 ## [2.7.0] — 2026-04-08 — IA conversationnelle Gemini + fallback Mistral + surveillance tokens
 
 ### IA Conversationnelle
