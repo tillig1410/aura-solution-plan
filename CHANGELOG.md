@@ -5,6 +5,47 @@
 
 ---
 
+## [2.7.3] — 2026-04-10 — Bugs A+B+C : route channels/send + Create Booking PostgREST + Code nodes convertis
+
+### Bug A — Route `/api/v1/channels/send` créée
+- **[FEAT]** Nouvelle route Next.js `src/app/api/v1/channels/send/route.ts` (POST internal)
+  - Auth via header `X-Internal-Secret` (timing-safe compare contre `INTERNAL_API_SECRET`)
+  - Body Zod : `{channel, recipient_id, message, merchant_id}`
+  - Sanitise le message via `sanitizeMessageText`
+  - Appelle `sendMessage()` (helper existant qui route vers WhatsApp/Messenger/Telegram/SMS/Voice)
+- **[FEAT]** Credential n8n `Internal API Secret` créée (`EaRZ4TQKBMrRdlVX`, httpHeaderAuth)
+- **[FIX]** Booking Conversation > `Send Reply` : pointe sur `https://resaapp.fr/api/v1/channels/send`, body inclut `merchant_id`, auth via la nouvelle credential
+
+### Bug B — Create Booking switché sur PostgREST direct
+- **[REFACTOR]** Booking Conversation > `Create Booking` : POST direct sur `https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/bookings` au lieu de `/api/v1/bookings` (qui exigeait une session user, pas service_role)
+- **[REFACTOR]** Body adapté au schéma de la table `bookings` (merchant_id, client_id, practitioner_id, service_id, starts_at, ends_at, status, source_channel)
+
+### Bug C — Code nodes convertis en HTTP nodes (élimination de `$env`)
+- **[REFACTOR]** Suppression du Code node `Check AI Budget` → remplacé par 3 nodes :
+  - `Get Merchant Budget` (HTTP GET `merchants?id=eq.X&select=ai_monthly_token_budget,ai_alert_email`)
+  - `Get Monthly Token Usage` (HTTP GET `ai_token_usage?merchant_id=eq.X&created_at=gte.{startOfMonth}`)
+  - `Compute Budget Status` (Code, agrège budget + usage → flags `ai_budget_exceeded`, `ai_usage_percent`)
+- **[REFACTOR]** Suppression du Code node `Log Token Usage` → remplacé par 3 nodes :
+  - `Compute Token Cost` (Code, calcule `cost_eur` selon le provider Gemini/Mistral)
+  - `Insert Token Usage` (HTTP POST `ai_token_usage`)
+  - `Compute Alert Level` (Code, simplifié — anomaly detection 7j déférée pour une session ultérieure)
+
+### Architecture — fix latent
+- **[FIX]** Toutes les références `$json.merchant_id` / `$json.client_id` dans les nodes downstream remplacées par `$('Build Context').first().json.X` — sinon les fields étaient perdus après chaque HTTP node (qui retourne sa réponse, pas l'input)
+- **[FIX]** Nodes touchés : Load Conversation History, Check Availability, Check Client Packages, Check Client Subscriptions, Save AI Message, Send Budget Alert, Sanitize Prompt Inputs
+
+### Validation
+- Booking Conversation : 28 nodes, `valid: true`, 0 erreur
+- TypeScript : compile OK pour la nouvelle route
+- Bout en bout encore non testé en exécution (à faire)
+
+### Encore à faire
+- **[WIP]** Mistral Fallback toujours en `$env.MISTRAL_API_KEY` (créer credential dédiée — clé Mistral non fournie en session)
+- **[WIP]** Anomaly detection 7j supprimée (refactor à faire avec 2 HTTP nodes Get Daily Avg / Get Today)
+- **[WIP]** Test d'exécution end-to-end
+
+---
+
 ## [2.7.2] — 2026-04-10 — Booking Conversation refondu (Find Merchant + Identify Client upsert + Build Context)
 
 ### n8n — Booking Conversation refactoring
