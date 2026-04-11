@@ -1,16 +1,6 @@
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { logger } from "@/lib/logger";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not configured");
-}
-if (!process.env.STRIPE_PLAN_PRODUCT_ID) {
-  throw new Error("STRIPE_PLAN_PRODUCT_ID is not configured");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-03-25.dahlia",
-});
+import { getStripeClient } from "@/lib/stripe/client";
 
 /**
  * T070 — Merchant subscription helper.
@@ -20,7 +10,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 import { calculatePrice } from "@/lib/stripe/pricing";
 export { calculatePrice } from "@/lib/stripe/pricing";
 
-const EARLY_ADOPTER_COUPON_ID = process.env.STRIPE_EARLY_ADOPTER_COUPON_ID;
+function requirePlanProductId(): string {
+  const id = process.env.STRIPE_PLAN_PRODUCT_ID;
+  if (!id) {
+    throw new Error("STRIPE_PLAN_PRODUCT_ID is not configured");
+  }
+  return id;
+}
 
 interface CreateSubscriptionParams {
   customerId: string;
@@ -37,6 +33,9 @@ interface CreateSubscriptionParams {
 export async function createMerchantSubscription(
   params: CreateSubscriptionParams,
 ): Promise<{ subscriptionId: string; clientSecret: string | null }> {
+  const stripe = getStripeClient();
+  const planProductId = requirePlanProductId();
+  const earlyAdopterCouponId = process.env.STRIPE_EARLY_ADOPTER_COUPON_ID;
   const { customerId, seatCount, voiceEnabled, earlyAdopter, idempotencyKey } = params;
   const priceCents = calculatePrice(seatCount, voiceEnabled);
 
@@ -47,7 +46,7 @@ export async function createMerchantSubscription(
       {
         price_data: {
           currency: "eur",
-          product: process.env.STRIPE_PLAN_PRODUCT_ID!,
+          product: planProductId,
           unit_amount: priceCents,
           recurring: { interval: "month" },
         },
@@ -64,8 +63,8 @@ export async function createMerchantSubscription(
   };
 
   // Apply Early Adopter coupon (-30% for life)
-  if (earlyAdopter && EARLY_ADOPTER_COUPON_ID) {
-    subscriptionParams.discounts = [{ coupon: EARLY_ADOPTER_COUPON_ID }];
+  if (earlyAdopter && earlyAdopterCouponId) {
+    subscriptionParams.discounts = [{ coupon: earlyAdopterCouponId }];
   }
 
   const subscription = await stripe.subscriptions.create(subscriptionParams, {
@@ -100,6 +99,8 @@ export async function updateMerchantSubscription(
   seatCount: number,
   voiceEnabled: boolean,
 ): Promise<void> {
+  const stripe = getStripeClient();
+  const planProductId = requirePlanProductId();
   const priceCents = calculatePrice(seatCount, voiceEnabled);
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -112,7 +113,7 @@ export async function updateMerchantSubscription(
         id: itemId,
         price_data: {
           currency: "eur",
-          product: process.env.STRIPE_PLAN_PRODUCT_ID!,
+          product: planProductId,
           unit_amount: priceCents,
           recurring: { interval: "month" },
         },
@@ -132,6 +133,7 @@ export async function updateMerchantSubscription(
  * Cancel a subscription at period end.
  */
 export async function cancelMerchantSubscription(subscriptionId: string): Promise<void> {
+  const stripe = getStripeClient();
   await stripe.subscriptions.update(subscriptionId, {
     cancel_at_period_end: true,
   });
@@ -154,6 +156,7 @@ export async function getOrCreateCustomer(
     return stripeCustomerId;
   }
 
+  const stripe = getStripeClient();
   // Search by metadata merchant_id for precision (avoids email collisions)
   const existing = await stripe.customers.search({
     query: `metadata["merchant_id"]:"${merchantId}"`,

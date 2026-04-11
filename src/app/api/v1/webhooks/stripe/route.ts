@@ -1,24 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/server";
+import { getStripeClient } from "@/lib/stripe/client";
 import { handlePaymentSucceeded } from "@/lib/stripe/handlers/payment-succeeded";
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from "@/lib/stripe/handlers/subscription-updated";
 import { handleInvoicePaid, handleInvoicePaymentFailed } from "@/lib/stripe/handlers/invoice-handlers";
 import { handleChargeRefunded, handleChargeDisputeCreated } from "@/lib/stripe/handlers/charge-handlers";
 import { logger, webhookLog } from "@/lib/logger";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not configured");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-03-25.dahlia",
-});
-
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
-if (!WEBHOOK_SECRET) {
-  throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
-}
 
 /**
  * POST /api/v1/webhooks/stripe
@@ -32,13 +20,20 @@ export async function POST(request: NextRequest) {
   const traceId = request.headers.get("x-trace-id") ?? undefined;
   webhookLog.received("stripe", traceId);
 
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    logger.error("stripe.webhook_secret_missing", { traceId });
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+  }
+
+  const stripe = getStripeClient();
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature") ?? "";
 
   // 1. Verify signature
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     logger.warn("stripe.signature_invalid", { error: msg, traceId });

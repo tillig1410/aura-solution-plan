@@ -1,13 +1,5 @@
-import Stripe from "stripe";
 import { logger } from "@/lib/logger";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not configured");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-03-25.dahlia",
-});
+import { getStripeClient } from "@/lib/stripe/client";
 
 /**
  * T066 — Stripe Connect onboarding helper.
@@ -24,6 +16,7 @@ export async function createConnectAccount(
   merchantName: string,
   merchantId: string,
 ): Promise<{ accountId: string; onboardingUrl: string }> {
+  const stripe = getStripeClient();
   const account = await stripe.accounts.create({
     email: merchantEmail,
     business_profile: {
@@ -65,6 +58,7 @@ export async function getConnectAccountStatus(
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
 }> {
+  const stripe = getStripeClient();
   const account = await stripe.accounts.retrieve(accountId);
 
   return {
@@ -78,6 +72,7 @@ export async function getConnectAccountStatus(
  * Generate a new onboarding link for an existing account (e.g., after refresh/incomplete).
  */
 export async function createOnboardingLink(accountId: string): Promise<string> {
+  const stripe = getStripeClient();
   const accountLink = await stripe.accountLinks.create({
     account: accountId,
     refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?tab=paiements&stripe=refresh`,
@@ -92,6 +87,7 @@ export async function createOnboardingLink(accountId: string): Promise<string> {
  * Create a Stripe login link for an existing Connect account (dashboard access).
  */
 export async function createDashboardLink(accountId: string): Promise<string> {
+  const stripe = getStripeClient();
   const loginLink = await stripe.accounts.createLoginLink(accountId);
   return loginLink.url;
 }

@@ -1,16 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { apiError } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not configured");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-03-25.dahlia",
-});
+import { getStripeClient } from "@/lib/stripe/client";
 
 /**
  * POST /api/v1/stripe/customer-portal — Create a Stripe Customer Portal session.
@@ -43,6 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const stripe = getStripeClient();
     // Retrieve the subscription to get the customer ID
     const subscription = await stripe.subscriptions.retrieve(merchant.stripe_subscription_id);
 

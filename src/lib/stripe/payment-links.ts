@@ -1,13 +1,6 @@
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { logger } from "@/lib/logger";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not configured");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-03-25.dahlia",
-});
+import { getStripeClient } from "@/lib/stripe/client";
 
 /**
  * T067 — Payment Links helper.
@@ -41,6 +34,7 @@ interface PaymentLinkParams {
 export async function createPaymentCheckout(
   params: PaymentLinkParams,
 ): Promise<string> {
+  const stripe = getStripeClient();
   const { connectedAccountId, amountCents, serviceName, metadata, tipOptions, idempotencyKey } = params;
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
@@ -115,6 +109,7 @@ export async function createSimplePaymentLink(
   metadata: Record<string, string>,
   idempotencyKey?: string,
 ): Promise<string> {
+  const stripe = getStripeClient();
   const baseKey = idempotencyKey ?? `plink_${connectedAccountId}_${serviceName}_${amountCents}`;
 
   const product = await stripe.products.create(
