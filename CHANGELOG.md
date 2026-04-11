@@ -5,6 +5,105 @@
 
 ---
 
+## [2.7.11] — 2026-04-11 — Polish Option D : scan_days multi-jours + fix Save AI Message $json
+
+Après le polish 6, user a testé « RDV le plus tôt possible » en WhatsApp réel : Gemini répond « pas de dispo lundi 13, souhaitez-vous que je vérifie mardi, mercredi, jeudi... » et boucle. Le problème = `get_available_slots` ne scan qu'un jour, et Nora est en congé TOUTE la semaine 12-18. Gemini ne peut pas découvrir la 1ère vraie dispo (lundi 20) sans plusieurs tool calls.
+
+### Migration 023 — Extension get_available_slots avec p_scan_days
+
+- **[FEAT]** Migration `023_extend_get_available_slots_scan_days.sql` — DROP l'ancienne signature 3-args + CREATE la nouvelle avec `p_scan_days INTEGER DEFAULT 1` (clamp 1-14)
+- Logique inchangée (intersection opening_hours ∩ practitioner_availability, filtres break + bookings, timezone-aware) wrappée dans un `FOR v_day_offset IN 0..(scan_days-1)` qui appelle `RETURN QUERY` accumulativement
+- `SECURITY INVOKER`, `GRANT EXECUTE TO service_role, authenticated`
+- Backward compat : appels 3-args utilisent default=1 = comportement identique à v1
+- Appliquée manuellement via Supabase Studio
+
+### Validation RPC direct (curl)
+- `scan_days=1, date=2026-04-14` → `[]` (Nora en congé mardi)
+- `scan_days=1, date=2026-04-20` → 20 slots Nora ✓
+- `scan_days=14, date=2026-04-12` → trouve les slots du 20 avril et suivants ✓
+
+### n8n workflow — Adaptation pour multi-jours
+
+**Check Availability** :
+- Body ajout `p_scan_days: {{ tool_args.scan_days || 1 }}`
+
+**Gemini AI tool declaration** :
+- Ajout propriété `scan_days` (integer, description "Nombre de jours à scanner à partir de date. Default 1. Utilise 7 pour 'le plus tôt possible', 14 pour couvrir 2 semaines.")
+
+**Gemini AI system prompt** :
+- Règle explicite scan_days :
+  - Date précise (ex "mardi prochain") → scan_days=1
+  - "le plus tôt possible" / "dès que possible" / "asap" → **scan_days=14** avec date=tomorrow (couvre 2 semaines pour absorber les congés praticiens)
+  - "la semaine prochaine" sans jour précis → scan_days=5 avec date=next_monday
+  - "la semaine suivante" → scan_days=5 avec date=week_after_next_monday
+
+**Build Tool Response v2** :
+- **[REFACTOR]** Groupe les slots par date au lieu de liste plate. Nouveau format :
+```json
+{
+  "days": [
+    { "date": "2026-04-20", "day_label": "lundi 20 avril", "slots": [...] },
+    { "date": "2026-04-21", "day_label": "mardi 21 avril", "slots": [...] }
+  ],
+  "count": 100,
+  "message": "100 créneaux disponibles sur 5 jours."
+}
+```
+- `day_label` en français via `Intl.DateTimeFormat('fr-FR', {weekday, day, month})`
+- Tri par date ascendante (le 1er jour = le plus proche avec des slots)
+
+**Gemini AI Final system prompt** :
+- Adapté pour parser la nouvelle structure `days[]`
+- CAS 1 (count > 0) : « Prends le 1er jour de days[] (le plus proche). Propose 2-3 créneaux max »
+- CAS 2 (count === 0) : « Dis qu'aucune dispo sur la période. Propose d'étendre la recherche. NE JAMAIS inventer. »
+
+### Bug Save AI Message fixé
+
+Découvert : `Save AI Message` body utilisait `$json.response_text`. Mais à ce stade dans le flow (après Insert Token Usage), `$json` est la réponse HTTP Supabase (null pour `return=minimal`), pas le contexte original. Résultat : INSERT avec `content: null` → `null value in column "content" violates not-null constraint`. 
+
+**Fix** : Save AI Message body `content` passe de `$json.response_text` à `$('Compute Token Cost').first().json.response_text` (référence explicite au nœud qui porte le response_text).
+
+### Validation E2E (exec 2618)
+
+Input : `{ message_text: "Je voudrais un RDV le plus tot possible pour une coupe homme", sender_phone: "33600000008" }` (fresh phone, no history)
+
+Gemini AI (1er appel) :
+- `tool_args: { date: "2026-04-12", duration_minutes: 30, scan_days: 14 }` ← **scan_days=14 bien choisi**
+
+Check Availability (RPC) :
+- Query `/rpc/get_available_slots` avec scan_days=14
+- Retour : 100 slots sur 5 jours (lundi 20 → vendredi 24 avril, Nora dispo)
+
+Build Tool Response :
+- Groupé par date : 5 days[], 20 slots/jour
+- `message: "100 créneaux disponibles sur 5 jours."`
+
+Gemini AI Final réponse :
+- « Bonsoir, je peux vous proposer plusieurs créneaux pour votre coupe homme le lundi 20 avril : 9h, 9h30, 10h, 10h30... Lequel préférez-vous ? »
+- Pas d'hallucination, 1er jour dispo correct (Nora reprend le lundi S2)
+
+Save AI Message : status success ✓ (fix `$('Compute Token Cost')...` effectif)
+
+### Itérations debug
+
+- Test initial avec `scan_days=7` (Mon-Fri + weekend) → count=0 car Nora est en congé toute la semaine du 12-18. Passage à `scan_days=14` pour absorber le cas.
+- `$json.response_text` null après HTTP chain → switch vers référence explicite au node Compute Token Cost.
+
+### Limitations P2 restantes
+
+- **Gemini propose 20 slots au lieu de 2-3** : le prompt dit « max 3 » mais le modèle a listé tous les créneaux du lundi 20. Le prompt sera à renforcer, ou on limite côté Build Tool Response.
+- **Tokens élevés 2e appel** : 11097 tokens pour 100 slots dans le functionResponse. Peut-on filtrer à ~15 slots/jour côté Build Tool Response pour économiser ? P3.
+- **Fallback Mistral** ne gère pas encore les services list, greeting_word, scan_days, tool_call_mode. Reste dégradé en mode Mistral.
+
+### Fichiers modifiés
+- `supabase/migrations/023_extend_get_available_slots_scan_days.sql` — nouvelle migration
+- `n8n/workflows/booking-conversation.json` — re-export live (166 KB, 35 nodes)
+
+### Commits
+- Single commit pour session polish 7 : migration 023 + scan_days flow + Build Tool Response v2 + fix Save AI Message + CHANGELOG 2.7.11
+
+---
+
 ## [2.7.10] — 2026-04-11 — Polish Option D : services + greeting_word + tool_call_mode forcé + reorder Save AI
 
 Session de debug intense après plusieurs cycles de tests WhatsApp réels. 6 bugs rapportés par le user corrigés en une fois. Workflow passe à 35 nodes.
