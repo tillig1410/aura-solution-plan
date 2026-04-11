@@ -66,7 +66,12 @@
       "mcp__n8n-mcp__n8n_manage_credentials",
       "Read(//c/Users/User/.Plan-ancienne-version/**)",
       "Read(//c/Users/User/.claude/projects/C--Users-User--Plan-ancienne-version/memory/**)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(perl -0777 -ne 'while \\(/\\\\\"name\\\\\":\\\\s*\\\\\"Identify Client\\\\\".*?\\\\\"jsonBody\\\\\":\\\\s*\\\\\"\\([^\"]*\\)\\\\\"/sg\\) { print \"$1\\\\n\" }' /tmp/workflow.json)",
+      "Bash(perl -ne 's/\\\\\\\\n/\\\\n/g; print' /tmp/workflow.json)",
+      "Bash(perl -n -e 'while \\(/\\\\\"id\\\\\": \\\\\"\\([^\\\\\"]+\\)\\\\\".*?\\\\\"name\\\\\": \\\\\"\\([^\\\\\"]+\\)\\\\\"/sg\\) { print \"$1 | $2\\\\n\"; last }' /tmp/workflow.json)",
+      "Bash(awk '/\"id\":\\\\s*\"parse-\\(gemini|mistral\\)\"/{found=1; id=$0} found && /\"jsCode\"/{print id; print; found=0; getline; print}' /tmp/workflow.json)",
+      "Bash(perl -ne 'if \\(/\"id\":\\\\s*\"parse-gemini\"/\\) { $in_gemini=1; $section=\"\"; } elsif \\(/\"id\":\\\\s*\"parse-mistral\"/\\) { $in_mistral=1; $section=\"\"; } elsif \\($in_gemini || $in_mistral\\) { $section .= $_; if \\(/^\\\\s*\\\\},?\\\\s*$/ && length\\($section\\) > 100\\) { print \"=== \".\\($in_gemini ? \"parse-gemini\" : \"parse-mistral\"\\).\" ===\\\\n\"; print $section; $in_gemini=0; $in_mistral=0; } } ' /tmp/workflow.json)"
     ]
   }
 }

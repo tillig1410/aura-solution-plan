@@ -114,6 +114,17 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // --- Internal endpoint (n8n → channels/send): auth via X-Internal-Secret, bypass Supabase ---
+  if (pathname === "/api/v1/channels/send") {
+    const internalHeaders = new Headers(request.headers);
+    internalHeaders.set("x-trace-id", traceId);
+    const response = NextResponse.next({
+      request: { headers: internalHeaders },
+    });
+    response.headers.set("x-trace-id", traceId);
+    return response;
+  }
+
   // --- General API routes: body size limit (100 KB) ---
   if (pathname.startsWith("/api/v1/")) {
     const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
