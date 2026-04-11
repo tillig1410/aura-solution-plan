@@ -5,6 +5,91 @@
 
 ---
 
+## [2.7.8] — 2026-04-11 — Polish Option D : ref_dates pré-calculées + greeting guardrail
+
+Après validation initiale de l'Option D (2.7.7), les tests E2E supplémentaires ont révélé 2 bugs modèle sur Gemini 2.5 Flash Lite. Session polish dédiée pour les corriger.
+
+### Bugs identifiés et corrigés
+
+**Bug #1 — Gemini day-of-week math error** (exec 2477)
+- Test : `"Je voudrais un RDV lundi prochain svp"` (aujourd'hui samedi 2026-04-11)
+- Gemini a émis `functionCall(date: "2026-04-14")` — **2026-04-14 est un mardi**, pas un lundi. Lundi prochain = 2026-04-13.
+- La réponse textuelle de Gemini parlait quand même de « lundi prochain » → bug cognitif interne entre la date qu'il croit avoir queried et la date qu'il a réellement queried.
+- **Cause** : petit modèle (Flash Lite) a du mal avec la navigation day-of-week relative.
+
+**Bug #2 — Tool call pour greetings** (exec 2469, 2471, 2480)
+- Test : `"Bonjour"` seul
+- Gemini appelait `get_available_slots` malgré la consigne « N'appelle PAS la fonction si l'utilisateur dit juste Bonjour ».
+- Variations observées : `date: "2026-04-12"` (demain), `date: "2026-04-11"` (aujourd'hui) — Gemini inventait une date par défaut.
+- **Cause** : tool-use bias connu des petits LLMs — si un tool est disponible, le modèle a tendance à l'utiliser.
+
+### Fix #1 — Pré-calcul des dates de référence (Sanitize Prompt Inputs)
+
+- **[FEAT]** Ajout d'un champ `ref_dates` à la sortie de `Sanitize Prompt Inputs` contenant 11 dates pré-calculées (`today`, `today_label`, `tomorrow`, `day_after_tomorrow`, `next_monday`..`next_sunday`)
+- Calcul en Luxon DateTime via `DateTime.now().setZone('Europe/Paris')` avec locale `fr` pour le label (ex: `"samedi 2026-04-11"`)
+- Formule weekday helper : `((target - todayWeekday + 7) % 7) || 7` — retourne strictement la prochaine occurrence (pas aujourd'hui si target == todayWeekday, mais dans 7 jours)
+- Validation côté JS : `next_monday: "2026-04-13"` quand today = samedi 2026-04-11 ✓
+
+### Fix #2 — System prompt Gemini AI utilise ref_dates
+
+- **[REFACTOR]** Le system prompt retire l'instruction « calcule la date toi-même depuis $today » et la remplace par une LISTE de dates pré-calculées à copier directement
+- Section ajoutée : `DATES DE RÉFÉRENCE (copie ces valeurs directement dans tool_args.date, ne calcule JAMAIS toi-même)` avec les 11 termes relatifs mappés sur les valeurs ISO depuis `{{ $('Compute Budget Status').first().json.ref_dates.XXX }}`
+- Règles d'appel renforcées : `Appelle la fonction UNIQUEMENT si le message contient à la fois une intention de réserver ET un indice temporel` + liste explicite des cas où NE PAS appeler (salutation seule, question générique, annulation, remerciement)
+- Validation E2E exec 2479 : `"Je voudrais un RDV lundi prochain svp"` → `tool_args.date: "2026-04-13"` ✓ (correct cette fois)
+
+### Fix #3 — Greeting guardrail dans Parse Gemini Response
+
+Le fix #2 n'a pas suffi : Gemini continue d'appeler la fonction pour `"Bonjour"` seul (exec 2480 : `date: "2026-04-11"`). Le tool-use bias persiste même avec des règles explicites.
+
+- **[FEAT]** Ajout d'un guardrail code-level dans `Parse Gemini Response` qui détecte via regex 2 familles de patterns :
+  - `GREETING_PATTERN: /^(bonjour|coucou|salut|hello|bonsoir|hi|hey|yo|hola|allo|allô|cc)[!.\s,]*$/i`
+  - `THANKS_PATTERN: /^(merci|thanks|thx|ok|d'accord|daccord|parfait|super)[!.\s,]*$/i`
+- Si `fnCall && (isGreeting || isThanks)`, on OVERRIDE : `has_tool_call: false`, `response_text` injecté depuis un template statique, `llm_error: 'greeting_override'` pour tracer l'override dans les logs
+- Template greeting : `"Bonjour ! Je suis {{ai_name}}, l'assistant du salon {{salon_name}}. Souhaitez-vous prendre rendez-vous ? Dites-moi quel jour vous arrangerait."`
+- Template thanks : `"Avec plaisir ! À bientôt au salon {{salon_name}}."`
+
+### Validation E2E finale (exec 2483)
+Test : `{"message_text": "Bonjour"}`
+- `Gemini AI` → success 970 prompt tokens (1er appel avec le nouveau prompt verbeux ~+400 tokens vs 2.7.7)
+- `Parse Gemini Response` → détecte `fnCall` + `isGreeting=true` → override appliqué
+- `Has Tool Call?` → route vers main[1] (false branch) ✓
+- `Check Availability`, `Build Tool Response`, `Gemini AI Final`, `Parse Final Response` → **skippés** (non exécutés)
+- `Compute Token Cost` → `llm_total_tokens: 996`, `token_cost_eur: 0.0000805`, `llm_error: 'greeting_override'`
+- Durée totale : **2.9s** (vs 4.0s en flow complet avec tool — **économie 1.1s + 2e appel Gemini + RPC**)
+- `executedNodes: 21` au lieu de 25 (4 nodes skippés)
+
+### Fichiers modifiés
+- `n8n/workflows/booking-conversation.json` — re-export du workflow live (137 KB, 32 nodes)
+
+### Coûts et perfs observés
+
+| Scenario | Nodes exec | Tokens | Coût €   | Durée |
+|----------|-----------|--------|----------|-------|
+| `"Bonjour"` (avant polish, exec 2472) | 25 | 901 | 0.00013 | 4.05s |
+| `"Bonjour"` (après guardrail, exec 2483) | 21 | 996 | 0.00008 | 2.99s |
+| `"RDV lundi prochain"` (après polish, exec 2479) | 25 | 1345 | 0.00014 | 3.73s |
+
+Le prompt élargi (+ref_dates) coûte ~350 tokens de plus en 1er appel (Gemini AI), mais le guardrail évite le 2e appel + RPC sur les greetings.
+
+### Tokens et dates observés dans exec 2479 ref_dates
+- `today: "2026-04-11"`, `today_label: "samedi 2026-04-11"`
+- `tomorrow: "2026-04-12"`
+- `day_after_tomorrow: "2026-04-13"` (= next_monday)
+- `next_monday: "2026-04-13"` ✓
+- `next_tuesday: "2026-04-14"` ✓
+- ... `next_saturday: "2026-04-18"` (dans 7j)
+- `next_sunday: "2026-04-12"` (demain, le prochain dimanche à venir)
+
+### Points d'attention pour la suite
+- **[P2]** Le prompt Gemini 1er appel est passé de ~545 tokens à ~970 tokens (+78%). Coût marginal acceptable pour la fiabilité gagnée, mais à optimiser si la latence devient critique
+- **[P2]** Le guardrail greeting utilise une regex — les variations orthographiques (`"Bjr"`, `"Bonjou"`) ne sont pas matchées. Si besoin, étendre la regex ou ajouter une étape NLU légère. V1 accepte le recall imparfait
+- **[P2]** Le warning validator « Has Tool Call? main[1] missing onError » reste un faux positif (pré-existant depuis 2.7.7)
+
+### Commits
+- Single commit pour cette session polish : ref_dates + greeting guardrail + CHANGELOG 2.7.8
+
+---
+
 ## [2.7.7] — 2026-04-11 — Option D : Gemini function calling (tool-use) pour Booking Conversation
 
 Suite directe de 2.7.6. La limitation « date hardcodée à today » dans `Check Availability` est résolue via un refactor du workflow en pattern Gemini function calling. Gemini reçoit `get_available_slots` comme tool déclaré, extrait lui-même la date du message utilisateur (`demain`, `mardi prochain`, etc.), émet un `functionCall`, le workflow exécute la RPC avec la VRAIE date et renvoie le résultat à Gemini qui génère alors la réponse finale. **Bug structurel résolu.**
