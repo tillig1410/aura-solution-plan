@@ -22,7 +22,6 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" repo:*)",
       "Bash(for f in *.md)",
       "Bash(do echo \"=== $f ===\")",
-      "Read(//c/Users/User/.Plan/**)",
       "Bash(done)",
       "mcp__n8n-mcp__n8n_health_check",
       "Read(//c/Users/User/AppData/Local/Claude/**)",
@@ -46,7 +45,6 @@
       "Bash(echo N8N_API_URL from env: $N8N_API_URL:*)",
       "Bash(claude mcp:*)",
       "Read(//tmp/**)",
-      "Bash(for f in \"C:/Users/User/.Plan/.env\" \"C:/Users/User/.env\" \"C:/Users/User/AppData/Roaming/npm/node_modules/n8n-mcp/.env\")",
       "Skill(statusline)",
       "Bash(bash:*)",
       "Bash(claude doctor:*)",
@@ -65,8 +63,10 @@
       "Bash(pdftotext:*)",
       "Bash(printf \"false\")",
       "Bash(openssl s_client -connect n8n.resaapp.fr:443 -servername n8n.resaapp.fr)",
-      "Bash(awk 'NR==4' \"C:/Users/User/.claude/projects/C--Users-User--Plan/c2afc969-f734-4565-a14b-6b27b18513e3/tool-results/mcp-n8n-mcp-n8n_get_workflow-1775832138435.txt\")",
-      "mcp__n8n-mcp__n8n_manage_credentials"
+      "mcp__n8n-mcp__n8n_manage_credentials",
+      "Read(//c/Users/User/.Plan-ancienne-version/**)",
+      "Read(//c/Users/User/.claude/projects/C--Users-User--Plan-ancienne-version/memory/**)",
+      "Bash(git check-ignore:*)"
     ]
   }
 }
