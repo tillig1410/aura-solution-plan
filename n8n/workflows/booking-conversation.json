@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-11T17:35:17.328Z",
+  "updatedAt": "2026-04-11T19:27:59.650Z",
   "createdAt": "2026-04-05T11:57:05.455Z",
   "id": "ztxCL7QS1DLo1i59",
   "name": "Plan — Booking Conversation",
@@ -28,29 +28,16 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/clients",
+        "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/identify_or_create_client",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
         "queryParameters": {
-          "parameters": [
-            {
-              "name": "on_conflict",
-              "value": "merchant_id,phone"
-            },
-            {
-              "name": "select",
-              "value": "id,name,phone,whatsapp_id,loyalty_points,preferred_service_id,preferred_practitioner_id,preferred_language"
-            }
-          ]
+          "parameters": []
         },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Prefer",
-              "value": "resolution=merge-duplicates,return=representation"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -63,7 +50,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"merchant_id\": \"{{ $('Find Merchant').first().json.id }}\",\n  \"phone\": \"{{ $('Webhook Trigger').first().json.body.sender_phone || $('Webhook Trigger').first().json.sender_phone }}\",\n  \"whatsapp_id\": \"{{ $('Webhook Trigger').first().json.body.sender_phone || $('Webhook Trigger').first().json.sender_phone }}\",\n  \"name\": \"{{ $('Webhook Trigger').first().json.body.sender_name || $('Webhook Trigger').first().json.sender_name || 'Inconnu' }}\",\n  \"preferred_language\": \"fr\"\n}",
+        "jsonBody": "={\n  \"p_merchant_id\": \"{{ $('Find Merchant').first().json.id }}\",\n  \"p_raw_phone\": \"{{ $('Webhook Trigger').first().json.body.sender_phone || $('Webhook Trigger').first().json.sender_phone }}\",\n  \"p_name\": \"{{ $('Webhook Trigger').first().json.body.sender_name || $('Webhook Trigger').first().json.sender_name || 'Inconnu' }}\",\n  \"p_channel\": \"{{ $('Webhook Trigger').first().json.body.channel || $('Webhook Trigger').first().json.channel || 'whatsapp' }}\"\n}",
         "options": {}
       },
       "id": "identify-client",
@@ -1685,7 +1672,7 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "53f594bd-1a4a-4271-abb3-c5a2206fb7df",
+  "versionId": "2a61cdad-a138-4d33-91a5-bdc22deeac07",
   "activeVersionId": "9a28ef11-8006-4c04-8032-961d5a5a9394",
   "versionCounter": 241,
   "triggerCount": 1,
