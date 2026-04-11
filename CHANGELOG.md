@@ -5,6 +5,89 @@
 
 ---
 
+## [2.7.9] — 2026-04-11 — Polish Option D : conversation_history + ton + next_open_day + anti-hallucination
+
+Suite de 2.7.8. Tests WhatsApp réels ont révélé 4 nouveaux bugs critiques. Session longue de debug, itérations multiples sur les prompts Gemini et la pipeline conversation.
+
+### Bugs identifiés
+
+**Bug #1 — Gemini dit « Coucou ! » au lieu de « Bonjour »**
+- User rapporte : « Gemini me répond par Coucou ! ça fait pas très pro »
+- Cause : `ai_tone: "friendly"` dans la config merchant, interprété par Gemini comme français décontracté
+- Fix : règles de ton STRICTES dans les 2 system prompts Gemini (Gemini AI + Gemini AI Final) : commence TOUJOURS par « Bonjour » ou « Bonsoir », JAMAIS « Coucou/Salut/Hello », vouvoiement par défaut, phrases courtes (max 2-3)
+
+**Bug #2 — Gemini conclut « pas de dispo toute la semaine » après un seul jour queried**
+- User : « Je lui demande un RDV la semaine prochaine, il me répond pas de dispo la semaine du 13. Je lui dis la semaine suivante et il me répond pas de dispo la semaine du 13 »
+- Causes : (1) `get_available_slots` ne prend qu'UNE date, (2) pas de `week_after_next_*` dans ref_dates, (3) `conversation_history` pas chargée donc Gemini ne sait pas ce qu'il a dit avant
+- Fix partiel : ajout `week_after_next_monday..saturday` dans ref_dates + instruction dans Gemini AI Final « NE DIS JAMAIS pas de dispo toute la semaine — tu n'as vérifié QU'UNE DATE. Propose explicitement 2-3 autres jours concrets »
+
+**Bug #3 — Hallucination « samedi 18 avril » sans appeler la fonction**
+- User : « Nouveau test je lui demande un RDV le plus tôt possible il me répond le samedi 18 avril alors que le praticien est en congé »
+- Cause : Gemini a inventé « samedi 18 avril » sans jamais appeler `get_available_slots` (`has_tool_call: false`). Il a halluciné une date et promis des créneaux non vérifiés.
+- Fix : (a) RÈGLE ABSOLUE ANTI-HALLUCINATION dans le system prompt en MAJUSCULES : « INTERDIT de mentionner une DATE, un HORAIRE, ou une DISPONIBILITÉ dans ta réponse texte sans avoir d'abord appelé get_available_slots. Soit tu appelles la fonction, soit tu demandes une précision, mais tu n'INVENTES jamais. » (b) Ajout d'une entrée `next_open_day` dans ref_dates : prochain jour où le salon est ouvert selon `opening_hours` (saute dimanche si fermé). (c) Mapping « le plus tôt possible » / « dès que possible » / « asap » → `next_open_day` dans le prompt.
+- Validation exec 2521 : `"RDV le plus tôt possible"` → Gemini query `date=2026-04-13` (lundi, next_open_day) → 0 slots → répond « Bonsoir, je n'ai malheureusement pas de disponibilité pour le lundi 13 avril. Souhaitez-vous que je vérifie le mardi 14, le mercredi 15 ou le jeudi 16 ? »
+
+**Bug #4 — `conversation_history` toujours « Première interaction »**
+- Build Context hardcodait `conversation_history: 'Premiere interaction'` ET était en amont de Load Conversation History → Gemini n'avait JAMAIS d'historique entre messages.
+- Tables `conversations` et `messages` vérifiées vides via curl Supabase → aucune conversation n'avait jamais été créée. Save AI Message utilisait `conversation_id: null` hardcodé par Build Context (rejeté par la contrainte NOT NULL de `messages.conversation_id`).
+
+### Fix Bug #4 — Pipeline conversation complète
+
+**Migration 022** (`022_create_get_or_create_active_conversation.sql`) :
+- RPC `get_or_create_active_conversation(p_merchant_id UUID, p_client_id UUID, p_channel TEXT) RETURNS TABLE(id UUID)`
+- Atomique : cherche une conversation active existante pour le couple, sinon en crée une, retourne l'ID dans tous les cas
+- `SECURITY DEFINER` + `GRANT EXECUTE TO service_role, authenticated`
+- Appliquée manuellement via Supabase Studio (pattern établi depuis migration 021)
+
+**Workflow — 2 nouveaux nodes + 4 modifiés** :
+- **[FEAT]** `Ensure Conversation` (HTTP POST, executeOnce=true) — appelle la RPC `get_or_create_active_conversation` avec merchant_id/client_id/channel. Retourne `{id: "uuid"}`. Positionné entre Build Context et Load Conversation History.
+- **[FEAT]** `Save Client Message` (HTTP POST /rest/v1/messages, executeOnce=true) — persiste le message utilisateur AVANT Gemini. Positionné entre Load Conversation History et Check Client Packages.
+- **[REFACTOR]** `Load Conversation History` — l'URL passe de `/rest/v1/conversations?client_id=...` à `/rest/v1/messages?conversation_id=eq.{{ Ensure Conversation id }}&select=content,sender,created_at&order=created_at.asc&limit=20`. Retourne directement un array de messages (spread en N items côté n8n).
+- **[REFACTOR]** `Sanitize Prompt Inputs` jsCode :
+  - Lit `$('Load Conversation History').all()` (pas `.first()` — n8n spread les N messages en N items) et les mappe vers `[Role] content` joined avec newlines
+  - JSON-escape via `JSON.stringify(rawHistory).slice(1, -1)` pour que les newlines deviennent des literal `\n` (2 chars) au lieu de real newlines qui cassent le jsonBody JSON template de Gemini
+  - Propage `conversation_id` via `$('Ensure Conversation').first().json.id` (n8n auto-unwrap single-row)
+- **[REFACTOR]** `Save AI Message` — body utilise `conversation_id: {{ $('Ensure Conversation').first().json.id }}` au lieu de `$('Build Context').first().json.conversation_id` (qui était toujours `null`)
+
+### Itérations debug notables
+
+1. **Code node Ensure Conversation échoué** : `$helpers`, `fetch`, `URL` tous absents du sandbox n8n task-runner. Impossible de faire du HTTP depuis un Code node. Basculé sur un HTTP Request node appelant la RPC.
+2. **Expression `[0].id` cassée** : la RPC retourne `[{"id": "uuid"}]` mais n8n auto-unwrap les single-row array en objet unique. Expression corrigée en `.json.id` (sans l'index `[0]`).
+3. **Duplicate inserts** : Load Conversation History retournait N items → Save Client Message tournait N fois → N inserts dupliqués. Fix : `executeOnce: true`.
+4. **JSON body invalid** : les real newlines de `safe_conversation_history` cassaient le JSON. Fix : JSON.stringify + slice pour escape.
+
+### Validation E2E (2 messages consécutifs, même sender_phone)
+
+Test 1 (exec 2545, `Je voudrais un RDV mardi prochain svp`) :
+- Ensure Conversation crée `f656aae2-3eea-42a8-9058-a2d7cbc8fdf0`
+- Save Client Message insère le message client
+- Load Conversation History retourne `[]` (vide, normal 1er msg)
+- `safe_conversation_history: "Première interaction"`
+- Gemini query `date=2026-04-14` (mardi prochain), 0 slots, propose alternatives
+
+Test 2 (exec 2546, `Finalement plutôt mercredi`, même sender_phone) :
+- Ensure Conversation réutilise `f656aae2-...` (retrouvée via RPC)
+- Load Conversation History retourne **1 item** : le message du test 1
+- `safe_conversation_history: "[Client] Je voudrais un RDV mardi prochain svp"` ✓
+- Gemini lit l'historique et répond : « Bonsoir, je regarde vos disponibilités pour mercredi. Pourriez-vous me préciser l'année s'il vous plaît ? » — comprend le changement de demande (mardi → mercredi) grâce au contexte
+
+### Observations & P2
+
+- **Save AI Message reste APRÈS Send Reply** — si Send Reply fail (fake phone ou WhatsApp API down), le message AI n'est pas sauvegardé. En prod réelle ça tourne OK. Reorder possible pour robustesse.
+- **Gemini demande l'année** au 2e message — pourtant `AUJOURD'HUI : samedi 2026-04-11` est dans le prompt. Cosmétique, le modèle est nerveux.
+- **Bonjour/Bonsoir selon l'heure** non résolu — Gemini dit « Bonsoir » à 15h44. Fix possible : pré-calculer `greeting_word` dans Sanitize selon `DateTime.now().hour`.
+- **Conversation history ne contient pas les messages AI** car Save AI Message n'a jamais tourné dans les tests (Send Reply fail avant). En prod réelle, il devrait tourner et enrichir l'historique avec `[IA]` entries.
+- **Duplicates dans la DB** des tests itérés — cleanup manuel via `DELETE FROM messages WHERE conversation_id=...` effectué pendant le debug.
+
+### Fichiers modifiés
+- `supabase/migrations/022_create_get_or_create_active_conversation.sql` — nouvelle migration RPC
+- `n8n/workflows/booking-conversation.json` — re-export live (157 KB, 34 nodes)
+
+### Commits
+- Single commit pour cette session polish 5 : migration 022 + refactor conversation pipeline + tous les fixes de prompt + CHANGELOG 2.7.9
+
+---
+
 ## [2.7.8] — 2026-04-11 — Polish Option D : ref_dates pré-calculées + greeting guardrail
 
 Après validation initiale de l'Option D (2.7.7), les tests E2E supplémentaires ont révélé 2 bugs modèle sur Gemini 2.5 Flash Lite. Session polish dédiée pour les corriger.
