@@ -5,6 +5,67 @@
 
 ---
 
+## [2.7.7] — 2026-04-11 — Option D : Gemini function calling (tool-use) pour Booking Conversation
+
+Suite directe de 2.7.6. La limitation « date hardcodée à today » dans `Check Availability` est résolue via un refactor du workflow en pattern Gemini function calling. Gemini reçoit `get_available_slots` comme tool déclaré, extrait lui-même la date du message utilisateur (`demain`, `mardi prochain`, etc.), émet un `functionCall`, le workflow exécute la RPC avec la VRAIE date et renvoie le résultat à Gemini qui génère alors la réponse finale. **Bug structurel résolu.**
+
+### n8n — Refactor Booking Conversation (workflow `ztxCL7QS1DLo1i59`, 28 → 32 nodes)
+
+**Nodes modifiés (4) :**
+- **[REFACTOR]** `Gemini AI` (1er appel) — jsonBody réécrit : déclare `tools.functionDeclarations` pour `get_available_slots(date, duration_minutes)`, system prompt mis à jour avec instructions pour calculer la date depuis `$today`, section `CRÉNEAUX DISPONIBLES` retirée du prompt (les slots sont chargés à la demande), `responseMimeType` retiré (incompatible avec function calling natif)
+- **[REFACTOR]** `Parse Gemini Response` — jsCode réécrit : détecte `candidates[0].content.parts[].functionCall` vs texte direct. Si tool call → sauvegarde `tool_args`, `tool_call_id`, `conversation_parts` + `gemini_call1_*` tokens. Sinon → chemin legacy inchangé (texte JSON parsé)
+- **[REFACTOR]** `Check Availability` — `p_date` passe de `$today.format('yyyy-MM-dd')` à `$('Parse Gemini Response').first().json.tool_args.date` (fallback `$today` si args manquants), `p_duration_minutes` lit `tool_args.duration_minutes || 30`. Position déplacée de `[688, 64]` (flow main) à `[2848, 48]` (branche tool-use)
+- **[REFACTOR]** `Sanitize Prompt Inputs` — retrait de la dépendance à `Check Availability.all()`. `safe_available_slots_text` devient un placeholder `'Les créneaux sont vérifiés à la demande via la fonction get_available_slots.'` (consommé uniquement par Mistral Fallback en mode dégradé)
+
+**Nodes ajoutés (4) :**
+- **[FEAT]** `Has Tool Call?` (IF v2.3) — condition `$json.has_tool_call === true`, route vers Check Availability (true) ou Compute Token Cost (false)
+- **[FEAT]** `Build Tool Response` (Code) — formate les slots retournés par Check Availability en objet `tool_response_data: {slots: [...], count: N, message: "..."}` utilisable comme `functionResponse.response`
+- **[FEAT]** `Gemini AI Final` (HTTP Request) — 2e appel Gemini. jsonBody construit inline via `{{ JSON.stringify($('Parse Gemini Response').first().json.conversation_parts) }}` et `{{ JSON.stringify($('Build Tool Response').first().json.tool_response_data) }}`. `contents` = user + model(functionCall) + user(functionResponse) per doc Gemini. `responseMimeType: application/json` pour structured output final
+- **[FEAT]** `Parse Final Response` (Code) — parse le JSON final, merge les tokens des 2 appels Gemini (`llm_prompt_tokens = call1 + call2`, idem completion/total)
+
+**Connexions rewire (3 remove + 8 add = 11 ops) :**
+- `Load Conversation History → Check Availability` supprimé, remplacé par `Load Conversation History → Check Client Packages`
+- `Check Availability → Check Client Packages` supprimé
+- `Parse Gemini Response → Compute Token Cost` supprimé, remplacé par branche `Parse Gemini Response → Has Tool Call? → {Check Availability | Compute Token Cost}`
+- Nouvelles arêtes : `Check Availability → Build Tool Response → Gemini AI Final → Parse Final Response → Compute Token Cost`
+
+### Validation doc Gemini
+- Lecture doc function calling (`https://ai.google.dev/gemini-api/docs/function-calling`) : `functionResponse` doit être injecté dans un message `role: "user"` (pas `"function"` comme initialement supposé dans le plan), avec `id` matching le `functionCall.id` si présent. Plan mémoire corrigé
+- `responseMimeType` + `tools` : la doc ne prohibe pas explicitement mais recommande de ne pas combiner. Choix : 1er appel sans `responseMimeType` (permet function calling), 2e appel avec `responseMimeType: application/json` (plus de tools, pas de conflit)
+
+### Bugs rencontrés et résolus
+
+- **[FIX]** Validator n8n `Expression error: Unmatched expression brackets {{ }}` — les `}}` structurels JSON adjacents (ex: `"required":["date"]}}]`) étaient comptés comme closings d'expression non-matchés. **Fix** : insérer un espace entre chaque paire `}}` structurelle (`} }`) pour les désambiguïser
+- **[FIX]** `The value in the "JSON Body" field is not valid JSON` sur Gemini AI Final (position 378) — 1 `}` en trop dans ma séquence de fermeture après l'expression `tool_response_data`, qui fermait prématurément le root `{`. Structure correcte après `{{ JSON.stringify(...) }}` : `} }]}]` (close funcResponse, close part, close parts array, close item 3, close contents array). **2 itérations** pour identifier le char exact en trop
+
+### Validation E2E (exec `2472`)
+Test : `{"message_text": "Bonjour", "sender_phone": "33600000001"}` (date système : 2026-04-11)
+- `Gemini AI` → success 676ms — émet `functionCall { name: "get_available_slots", args: { date: "2026-04-12" } }` (Gemini a calculé « demain » = aujourd'hui +1 correctement). Tokens call1 : prompt=545, completion=26, total=571
+- `Parse Gemini Response` → `has_tool_call: true`, `tool_args.date: "2026-04-12"`, `conversation_parts` sauvées
+- `Has Tool Call?` → route branche TRUE ✓
+- `Check Availability` → query `p_date=2026-04-12` (**plus hardcodé sur today !**), retourne `[]` (2026-04-12 = dimanche = salon fermé)
+- `Build Tool Response` → `tool_response_data: { slots: [], count: 0, message: "Aucun créneau disponible pour cette date." }`
+- `Gemini AI Final` → success 623ms, génère `response_text: "Coucou ! Malheureusement, nous n'avons plus de disponibilités le 12 avril. Souhaiterais-tu que je regarde pour une autre date ?"`. Tokens call2 : prompt=228, completion=102, total=332
+- `Parse Final Response` → tokens mergés : `llm_prompt_tokens=773 (545+228)`, `llm_completion_tokens=128 (26+102)`, `llm_total_tokens=901`
+- `Send Reply` → erreur 502 WhatsApp #131030 « Recipient phone number not in allowed list » : **attendu** (`33600000001` = numéro fake choisi volontairement pour éviter d'envoyer de vrais messages pendant les tests). Le chemin critique est validé.
+
+**Confirmation du fix structurel** : le message IA mentionne « le 12 avril » (la vraie date demandée par Gemini), pas aujourd'hui. Avant Option D, la réponse aurait été basée sur les slots d'aujourd'hui (samedi 11 avril) alors que l'intention était demain — le faux négatif 6j/7 est éliminé.
+
+### Fichiers modifiés
+- `n8n/workflows/booking-conversation.json` — export live du workflow post-refactor (32 nodes, 129 KB, 4 nouveaux nodes confirmés)
+- `n8n/drafts/option-d/*.js` — brouillons des Code nodes écrits avant batch update (Parse Tool Call, Build Tool Response, Parse Final Response, Sanitize Prompt Inputs refactor, Gemini AI jsonBody, Gemini AI Final jsonBody)
+
+### Points d'attention pour la suite
+- **[P1]** Gemini appelle la fonction même pour « Bonjour » (comportement modèle : il calcule `date = aujourd'hui + 1` par défaut). Le system prompt dit « N'appelle PAS la fonction si l'utilisateur dit juste bonjour » mais Gemini ne respecte pas toujours. À renforcer ou accepter (latence +500ms + tokens gaspillés sur greetings)
+- **[P1]** `Mistral Fallback` est maintenant dégradé : il ne reçoit plus les slots (le placeholder `'chargés à la demande'` est envoyé). Acceptable en V1 (Mistral répondra « Je vérifie et recontacte »). En V2 : implémenter function calling pour Mistral aussi
+- **[P1]** `tool_call_id` non préservé actuellement (Gemini 2.5 Flash Lite ne semble pas l'émettre). Le code gère le cas `null` proprement
+- **[P2]** Warnings validator n8n sur `Has Tool Call?` (« error output connections in main[1] ») : faux positif, `main[1]` d'un IF node est la branche `false`, pas une error output. Les 3 IF pré-existants ont le même warning et tournent en prod. Ignorable.
+
+### Commits
+- Single commit pour cette session : refactor Booking Conversation Option D + CHANGELOG 2.7.7
+
+---
+
 ## [2.7.6] — 2026-04-11 — Migration 021 get_available_slots + restauration Check Availability
 
 Suite directe de la session 2.7.5. Une fois le pipeline WhatsApp opérationnel avec Mistral puis Gemini, on s'attaque à la vraie logique métier de disponibilité.
