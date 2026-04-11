@@ -5,6 +5,101 @@
 
 ---
 
+## [2.7.10] — 2026-04-11 — Polish Option D : services + greeting_word + tool_call_mode forcé + reorder Save AI
+
+Session de debug intense après plusieurs cycles de tests WhatsApp réels. 6 bugs rapportés par le user corrigés en une fois. Workflow passe à 35 nodes.
+
+### Bugs identifiés en test réel
+
+**Bug A — « Bonsoir Alex » à chaque message**
+- Gemini saluait à chaque message de la conversation, même en milieu de dialogue.
+- Fix : Sanitize calcule `safe_has_history` (bool) depuis la présence de messages dans Load Conversation History. Les 2 system prompts Gemini instruisent : « Si safe_has_history = true, NE COMMENCE PAS par Bonjour/Bonsoir. Enchaine direct. »
+
+**Bug B — Demande de l'année**
+- Gemini demandait l'année au client alors que `AUJOURD'HUI : samedi 2026-04-11` était dans le prompt.
+- Fix : règle explicite « Utilise TOUJOURS l'année d'AUJOURD'HUI, ne demande JAMAIS l'année. »
+
+**Bug C — Redemande le jour/durée à chaque message**
+- Gemini redemandait des infos déjà fournies dans l'historique (boucle infinie de questions).
+- Fix : règle « LECTURE HISTORIQUE — avant toute question, RELIS l'HISTORIQUE. Si l'info est déjà dedans, utilise-la directement. Ne redemande JAMAIS. »
+
+**Bug D — Demande la durée au lieu de proposer un service**
+- Gemini demandait au client combien de temps il voulait, au lieu de proposer un service (dont la durée est dérivée).
+- Cause : les services du merchant n'étaient pas chargés dans le contexte.
+- Fix :
+  - **[FEAT]** Nouveau node HTTP `Load Services` (GET `/rest/v1/services?merchant_id=X&is_active=eq.true`) positionné entre Find Merchant et Identify Client
+  - Sanitize ajoute `safe_services_list` format "Coupe homme (30 min, 20€), Barbe (20 min, 10€)"
+  - Système prompt : « Chaque service a sa durée. Utilise-la dans tool_args.duration_minutes. Ne demande JAMAIS au client combien de temps il veut. »
+
+**Bug E — Hallucination : propose la semaine de congé du praticien**
+- User : « Je demande RDV la semaine prochaine, il me répond pas de dispo la semaine du 13. Je dis la semaine suivante, il me répond encore la semaine du 13. »
+- Causes : (a) `get_available_slots` ne prend qu'UNE date (un seul jour scanné), (b) pas de différenciation « semaine prochaine » vs « suivante », (c) Gemini 2.5 Flash Lite hallucinait parfois des dispos sans jamais appeler la fonction.
+- Fix partiel : (a) règle stricte dans Gemini AI Final pour CAS count=0 — « NE DIS JAMAIS pas de disponibilité toute la semaine. Propose 2-3 autres jours concrets pour re-vérifier. », (b) `week_after_next_*` déjà ajouté en 2.7.9, (c) **forçage du tool call** via `toolConfig.functionCallingConfig.mode: "ANY"` — voir Bug F.
+
+**Bug F — Gemini halluciner des disponibilités sans jamais appeler get_available_slots**
+- Test avec « Coupe homme mardi prochain » (service + date clairs) → Gemini répond « Mardi prochain, nous avons des disponibilités pour une coupe homme » sans jamais avoir appelé la fonction. Pure invention.
+- Prompt anti-hallucination en MAJUSCULES de 2.7.9 ne suffisait plus (Gemini 2.5 Flash Lite ignorait la règle).
+- **Fix radical** :
+  - Sanitize détecte l'intention booking via regex : `bookingKeywords` (rdv, créneau, coupe, barbe, ...) + `timeKeywords` (demain, mardi, semaine, ...)
+  - Si intention claire → `safe_tool_call_mode = "ANY"`, sinon `"AUTO"`
+  - Gemini AI jsonBody ajoute `toolConfig.functionCallingConfig.mode: "{{ safe_tool_call_mode }}"` + `allowedFunctionNames: ["get_available_slots"]`
+  - Mode ANY force Gemini à appeler get_available_slots. Pas d'échappatoire possible pour halluciner.
+
+### Bug supplémentaire — Save AI Message après Send Reply
+
+Observation : si Send Reply fail (WhatsApp API down, phone non whitelisté), Save AI Message était skippé → historique incomplet (messages AI jamais sauvegardés). Fix : **reorder** `Booking Action? → Save AI Message → Send Reply → Respond OK` (au lieu de `Booking Action? → Send Reply → Save AI Message → Respond OK`). L'AI message est persisté AVANT d'essayer de l'envoyer.
+
+### Itérations debug
+
+1. **Load Services duplicate Identify Client runs** : Load Services retourne 2 items (Coupe + Barbe) → Identify Client exécuté 2 fois → 2e INSERT échoue sur constraint unique. Fix : `executeOnce: true` sur Identify Client.
+2. **on_conflict constraint mismatch** : tenté `merchant_id,whatsapp_id` qui est PARTIAL (PostgREST ne supporte pas) → erreur 42P10. Revert à `merchant_id,phone` (non-partial depuis migration 020).
+3. **`=ANY` littéral** : expression `"mode":"={{ safe_tool_call_mode }}"` renvoyait `"=ANY"` (avec = préfixe littéral) car `=` avant `{{` était interprété comme caractère. Fix : retirer le `=` préfixe, utiliser `"mode":"{{ safe_tool_call_mode }}"`. Passage de Gemini error → Mistral Fallback.
+4. **alwaysOutputData au mauvais endroit** : n8n MCP a flagué `alwaysOutputData` dans `parameters` au lieu du niveau node. Fix : move to node level.
+
+### Greeting selon l'heure locale
+
+Sanitize calcule `safe_greeting_word` :
+```js
+const currentHour = nowDt.hour;
+const greetingWord = (currentHour >= 18 || currentHour < 5) ? 'Bonsoir' : 'Bonjour';
+```
+Europe/Paris timezone. Gemini utilise cette valeur dans le prompt, plus de choix aléatoire entre Bonjour/Bonsoir.
+
+### Validation E2E (exec 2604)
+
+Input : `{"message_text": "Coupe homme mardi prochain", "sender_phone": "33600000005"}`
+
+Output Parse Gemini Response :
+- `has_tool_call: true`
+- `tool_args: { date: "2026-04-14", duration_minutes: 30 }` ← la durée coupe homme
+- `safe_tool_call_mode: "ANY"` (force)
+- `safe_has_history: true` (msg précédent détecté)
+
+Output Parse Final Response :
+- `response_text: "Je n'ai pas de disponibilité pour la coupe homme le mardi 14 avril. Souhaitez-vous que je vérifie le mercredi 15 avril, le jeudi 16 avril ou le vendredi 17 avril ?"`
+- Pas de salutation (history existe) ✓
+- Pas d'année ✓
+- Pas d'hallucination ✓
+- Service mentionné avec sa durée ✓
+- 3 alternatives concrètes ✓
+
+### Tokens
+
+Prompt gonfle à ~1100-1200 tokens en 1er appel (ajout services + toutes les règles). Acceptable vs la fiabilité gagnée. Coût marginal ~0.0001€ par message.
+
+### Fichiers modifiés
+- `n8n/workflows/booking-conversation.json` — re-export live (164 KB, 35 nodes)
+
+### Limitations P2 restantes
+- **get_available_slots ne scan qu'un jour** : si count=0, Gemini propose des alternatives mais ça nécessite un nouveau message user. Solution propre = RPC `get_available_slots_range(start_date, days_count)` pour scanner 5-7 jours en un appel. Reporté en migration 023.
+- **Mistral Fallback** : n'a pas les nouveaux champs `safe_services_list`, `safe_greeting_word`, etc. dans son prompt. Acceptable en mode dégradé.
+- **Duplicates de conversations** : l'appel Ensure Conversation crée une nouvelle row si aucune n'est active. Si un user réactive une vieille conversation manuellement, pas de cleanup automatique.
+
+### Commits
+- Single commit pour cette session polish 6 : Load Services + Sanitize v3 + Gemini prompts renforcés + tool_call_mode forcé + reorder Save AI Message + CHANGELOG 2.7.10
+
+---
+
 ## [2.7.9] — 2026-04-11 — Polish Option D : conversation_history + ton + next_open_day + anti-hallucination
 
 Suite de 2.7.8. Tests WhatsApp réels ont révélé 4 nouveaux bugs critiques. Session longue de debug, itérations multiples sur les prompts Gemini et la pipeline conversation.
