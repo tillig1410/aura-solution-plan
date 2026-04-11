@@ -5,6 +5,51 @@
 
 ---
 
+## [2.7.6] — 2026-04-11 — Migration 021 get_available_slots + restauration Check Availability
+
+Suite directe de la session 2.7.5. Une fois le pipeline WhatsApp opérationnel avec Mistral puis Gemini, on s'attaque à la vraie logique métier de disponibilité.
+
+### Supabase DB
+- **[FEAT]** Migration `021_create_get_available_slots.sql` — fonction SQL qui retourne les créneaux libres pour un merchant/date/durée.
+  - Signature : `get_available_slots(p_merchant_id UUID, p_date DATE, p_duration_minutes INTEGER) RETURNS TABLE (slot_start TIMESTAMPTZ, slot_end TIMESTAMPTZ, practitioner_id UUID, practitioner_name TEXT)`
+  - Logique : intersection `merchant.opening_hours` (JSONB par day name) ∩ `practitioner_availability` (day_of_week + exception_date), priorité aux exceptions datées, filtre break_times, filtre bookings non-cancelled/no_show
+  - Timezone-aware via `AT TIME ZONE merchants.timezone` (DST handled)
+  - `SECURITY INVOKER`, `GRANT EXECUTE TO service_role, authenticated`
+  - Appliquée manuellement via Supabase Studio
+
+### Validation fonction (5 tests curl OK)
+- `2026-04-20` (lundi, Nora rentrée de congés) → **20 slots** de 09:00 à 18:30 Europe/Paris
+- `2026-04-13` (lundi prochain, Nora en congé via exception_date) → `[]`
+- `2026-04-12` (dimanche, salon fermé) → `[]`
+- `2026-04-11` (samedi, Nora off recurrent day_of_week=6) → `[]`
+- merchant inconnu → `[]`
+
+### n8n — Restauration Check Availability (workflow Booking Conversation)
+- **[FEAT]** Node `Check Availability` recréé via `addNode` (il avait été supprimé en 2.7.5 avec cleanStaleConnections)
+  - URL : `/rest/v1/rpc/get_available_slots`
+  - Credential `Supabase apikey` + `Authorization: Bearer <service_role>` inline
+  - Body keypair : `p_merchant_id={{ $('Build Context').first().json.merchant_id }}`, `p_date={{ $today.format('yyyy-MM-dd') }}`, `p_duration_minutes=30`
+  - `alwaysOutputData: true` + `onError: continueRegularOutput`
+- **[REFACTOR]** Rewire : `Load Conversation History → Check Availability → Check Client Packages → Check Client Subscriptions → Sanitize`
+- **[REFACTOR]** `Sanitize Prompt Inputs` jsCode : lit `$('Check Availability').all()`, formate les slots en texte groupé par praticien via `Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false })`. Output : `safe_available_slots_text` contient maintenant les vrais slots.
+
+### Validation E2E (exec `2451`)
+- 23 nodes exécutés, flow complet jusqu'à Respond OK
+- Check Availability : 56ms, success, 1 item output
+- Gemini AI : primary, 498 tokens, `llm_is_fallback: false`
+- Réponse IA délivrée sur WhatsApp avec latence ~4.8s
+
+### ⚠️ Limitation découverte : date hardcodée
+
+Le node Check Availability query actuellement avec `p_date = $today`, pas avec la date demandée par l'utilisateur. Exemple : user dit "un RDV mardi", workflow query pour aujourd'hui (samedi = 0 slots car Nora off). Gemini reçoit "aucun créneau" et parrot "pas de créneau ce mardi" dans sa réponse — **faux négatif**.
+
+Solution prévue : **refactor en pattern tool-use (Gemini function calling)** — cf memory `project_option_d_gemini_function_calling.md` pour le plan détaillé (45-60 min, session dédiée).
+
+### Commits
+- Single commit pour cette sous-session : migration 021 + CHANGELOG 2.7.6
+
+---
+
 ## [2.7.5] — 2026-04-11 — WhatsApp E2E débloqué : auth, credentials, routing, refs cassées, middleware, deploy prod
 
 Session marathon pour faire fonctionner le pipeline WhatsApp → IA → réponse de bout en bout. Une trentaine de bugs empilés, tous résolus. **Résultat** : on reçoit maintenant des réponses IA contextuelles (Mistral fonctionnel, Gemini en attente d'activation côté Google Cloud).
