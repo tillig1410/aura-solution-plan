@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Tests: LoginContent — formulaire email OTP, écran de confirmation
+ * Tests: LoginContent — formulaire email/password, soumission login
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
@@ -11,74 +11,81 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const mockSignInWithOtp = vi.fn().mockResolvedValue({ error: null });
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn() }),
+}));
+
+const mockSignInWithPassword = vi.fn().mockResolvedValue({ error: null });
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    auth: { signInWithOtp: mockSignInWithOtp },
+    auth: { signInWithPassword: mockSignInWithPassword },
   }),
 }));
 
 const { default: LoginContent } = await import("@/components/auth/login-content");
 
 describe("LoginContent — formulaire", () => {
-  it("affiche le titre Plan", () => {
-    render(createElement(LoginContent));
-    expect(screen.getByText("Plan")).toBeInTheDocument();
-  });
-
-  it("affiche le champ email", () => {
+  it("affiche le champ email placeholder", () => {
     render(createElement(LoginContent));
     expect(screen.getByPlaceholderText("votre@email.com")).toBeInTheDocument();
   });
 
   it("affiche le bouton de soumission", () => {
     render(createElement(LoginContent));
-    expect(screen.getByText("Recevoir le lien de connexion")).toBeInTheDocument();
+    expect(screen.getByText("Se connecter")).toBeInTheDocument();
   });
 
   it("affiche la description", () => {
     render(createElement(LoginContent));
-    expect(screen.getByText("Connectez-vous avec votre email professionnel")).toBeInTheDocument();
+    expect(screen.getByText("Connectez-vous à votre espace")).toBeInTheDocument();
   });
 });
 
-describe("LoginContent — soumission OTP", () => {
-  it("appelle signInWithOtp avec l'email et affiche la confirmation", async () => {
+describe("LoginContent — soumission password", () => {
+  it("appelle signInWithPassword avec l'email et redirige", async () => {
     render(createElement(LoginContent));
 
-    const input = screen.getByPlaceholderText("votre@email.com");
-    fireEvent.change(input, { target: { value: "test@salon.fr" } });
-    fireEvent.submit(screen.getByText("Recevoir le lien de connexion").closest("form")!);
+    const emailInput = screen.getByPlaceholderText("votre@email.com");
+    fireEvent.change(emailInput, { target: { value: "test@salon.fr" } });
+
+    const passwordInput = screen.getByPlaceholderText("Mot de passe");
+    fireEvent.change(passwordInput, { target: { value: "secret123" } });
+
+    fireEvent.submit(screen.getByText("Se connecter").closest("form")!);
 
     await vi.waitFor(() => {
-      expect(mockSignInWithOtp).toHaveBeenCalledWith(
-        expect.objectContaining({ email: "test@salon.fr" }),
+      expect(mockSignInWithPassword).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "test@salon.fr", password: "secret123" }),
       );
     });
 
     await vi.waitFor(() => {
-      expect(screen.getByText("Vérifiez votre email")).toBeInTheDocument();
-      expect(screen.getByText("test@salon.fr")).toBeInTheDocument();
+      expect(mockPush).toHaveBeenCalledWith("/agenda");
     });
   });
 
-  it("n'affiche pas la confirmation si signInWithOtp retourne une erreur", async () => {
-    mockSignInWithOtp.mockReset().mockResolvedValue({ error: { message: "Error" } });
+  it("affiche une erreur si signInWithPassword échoue", async () => {
+    mockSignInWithPassword.mockReset().mockResolvedValue({
+      error: { message: "Invalid login credentials" },
+    });
 
     render(createElement(LoginContent));
 
-    const input = screen.getByPlaceholderText("votre@email.com");
-    fireEvent.change(input, { target: { value: "bad@test.fr" } });
-    fireEvent.submit(screen.getByText("Recevoir le lien de connexion").closest("form")!);
+    const emailInput = screen.getByPlaceholderText("votre@email.com");
+    fireEvent.change(emailInput, { target: { value: "bad@test.fr" } });
 
-    // Attend que le mock soit appelé ET que loading repasse à false
+    const passwordInput = screen.getByPlaceholderText("Mot de passe");
+    fireEvent.change(passwordInput, { target: { value: "wrong" } });
+
+    fireEvent.submit(screen.getByText("Se connecter").closest("form")!);
+
     await vi.waitFor(() => {
-      expect(mockSignInWithOtp).toHaveBeenCalled();
-      // Le bouton revient à son texte normal après setLoading(false)
-      expect(screen.getByText("Recevoir le lien de connexion")).toBeInTheDocument();
+      expect(mockSignInWithPassword).toHaveBeenCalled();
     });
 
-    // Doit rester sur le formulaire, pas la confirmation
-    expect(screen.queryByText("Vérifiez votre email")).not.toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(screen.getByText("Email ou mot de passe incorrect.")).toBeInTheDocument();
+    });
   });
 });

@@ -12,11 +12,11 @@ import { createElement } from "react";
 
 // Mocks nécessaires pour les composants Next.js côté client (useRef, useEffect)
 // ResizeObserver n'est pas disponible en jsdom
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+global.ResizeObserver = vi.fn().mockImplementation(function (this: Record<string, unknown>) {
+  this.observe = vi.fn();
+  this.unobserve = vi.fn();
+  this.disconnect = vi.fn();
+});
 
 // Supprime les warnings scrollTop (jsdom ne simule pas le scroll)
 Object.defineProperty(HTMLElement.prototype, "scrollTop", {
@@ -66,7 +66,7 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
     cancelled_by: null,
     cancellation_reason: null,
     notes: null,
-    client: { id: "c-1", name: "Jean Petit", phone: "+33600000001", preferred_language: "fr" },
+    client: { id: "c-1", name: "Jean Petit", phone: "+33600000001", preferred_language: "fr", notes: null, loyalty_tier: "bronze", loyalty_points: 0 },
     practitioner: { id: "prac-1", name: "Marie Dupont", color: "#4F46E5" },
     service: { id: "s-1", name: "Coupe homme", duration_minutes: 30, price_cents: 2500 },
     ...overrides,
@@ -75,8 +75,8 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
 
 const bookings = [
   makeBooking({ id: "b-1", practitioner_id: "prac-1", starts_at: "2026-04-01T09:00:00+02:00", ends_at: "2026-04-01T09:30:00+02:00" }),
-  makeBooking({ id: "b-2", practitioner_id: "prac-2", starts_at: "2026-04-01T10:00:00+02:00", ends_at: "2026-04-01T11:00:00+02:00", client: { id: "c-2", name: "Sophie Bernard", phone: null, preferred_language: "fr" }, service: { id: "s-2", name: "Coloration", duration_minutes: 60, price_cents: 7000 } }),
-  makeBooking({ id: "b-3", practitioner_id: "prac-1", starts_at: "2026-04-01T14:00:00+02:00", ends_at: "2026-04-01T14:30:00+02:00", client: { id: "c-3", name: "Paul Durand", phone: null, preferred_language: "fr" } }),
+  makeBooking({ id: "b-2", practitioner_id: "prac-2", starts_at: "2026-04-01T10:00:00+02:00", ends_at: "2026-04-01T11:00:00+02:00", client: { id: "c-2", name: "Sophie Bernard", phone: null, preferred_language: "fr", notes: null, loyalty_tier: "bronze", loyalty_points: 0 }, service: { id: "s-2", name: "Coloration", duration_minutes: 60, price_cents: 7000 } }),
+  makeBooking({ id: "b-3", practitioner_id: "prac-1", starts_at: "2026-04-01T14:00:00+02:00", ends_at: "2026-04-01T14:30:00+02:00", client: { id: "c-3", name: "Paul Durand", phone: null, preferred_language: "fr", notes: null, loyalty_tier: "bronze", loyalty_points: 0 } }),
 ];
 
 // ---- Tests -----------------------------------------------------------------
@@ -113,8 +113,8 @@ describe("DayView — affichage des en-têtes de praticiens", () => {
       onBookingClick: vi.fn(),
     }));
 
-    // L'en-tête contient autant de cells de praticiens que de praticiens actifs
-    const header = container.querySelector(".sticky");
+    // L'en-tête (première div enfant avec border-b) contient autant de cells de praticiens que de praticiens actifs
+    const header = container.querySelector(".border-b.bg-white");
     const cells = header?.querySelectorAll(".flex-1");
     expect(cells?.length).toBe(2);
   });
@@ -134,8 +134,8 @@ describe("DayView — rendu des bookings", () => {
     expect(screen.getByText("Paul Durand")).toBeInTheDocument();
   });
 
-  it("affiche le nom du service sur les bookings suffisamment hauts (≥36px)", () => {
-    // b-2 dure 60 min → height=60px → doit afficher le service
+  it("affiche le nom du service sur les bookings suffisamment hauts (≥40px)", () => {
+    // b-2 dure 60 min → height=90px (1.5px/min) → dépasse seuil 40px → doit afficher le service
     render(createElement(DayView, {
       bookings: [makeBooking({ id: "b-2", starts_at: "2026-04-01T10:00:00+02:00", ends_at: "2026-04-01T11:00:00+02:00", service: { id: "s-2", name: "Coloration", duration_minutes: 60, price_cents: 7000 } })],
       practitioners,
@@ -143,7 +143,9 @@ describe("DayView — rendu des bookings", () => {
       onBookingClick: vi.fn(),
     }));
 
-    expect(screen.getByText("Coloration")).toBeInTheDocument();
+    // Le service apparaît dans la carte ET dans le tooltip — on vérifie qu'au moins une occurrence existe
+    const matches = screen.getAllByText("Coloration");
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("n'affiche pas les bookings d'une autre journée", () => {
@@ -181,14 +183,17 @@ describe("DayView — interactions", () => {
   it("appelle onBookingClick avec le bon booking au clic", () => {
     const onBookingClick = vi.fn();
 
-    render(createElement(DayView, {
+    const { container } = render(createElement(DayView, {
       bookings: [makeBooking()],
       practitioners,
       date: testDate,
       onBookingClick,
     }));
 
-    fireEvent.click(screen.getByText("Jean Petit"));
+    // Le bouton clickable est à l'intérieur du bloc booking (pas le nom du client qui est dans le tooltip)
+    const bookingButton = container.querySelector("button.rounded-xl") as HTMLElement;
+    expect(bookingButton).not.toBeNull();
+    fireEvent.click(bookingButton!);
     expect(onBookingClick).toHaveBeenCalledOnce();
     expect(onBookingClick).toHaveBeenCalledWith(
       expect.objectContaining({ id: "b-1" }),
@@ -209,7 +214,7 @@ describe("DayView — grille horaire", () => {
     expect(screen.getByText("19:00")).toBeInTheDocument();
   });
 
-  it("affiche la pause déjeuner dans chaque colonne praticien", () => {
+  it("affiche la pause dans chaque colonne praticien", () => {
     render(createElement(DayView, {
       bookings: [],
       practitioners,
@@ -217,13 +222,13 @@ describe("DayView — grille horaire", () => {
       onBookingClick: vi.fn(),
     }));
 
-    const pauses = screen.getAllByText("Pause déjeuner");
+    const pauses = screen.getAllByText("Pause");
     expect(pauses.length).toBe(practitioners.length);
   });
 });
 
 describe("DayView — positionnement CSS des bookings", () => {
-  it("calcule le top à 60px pour un booking à 9h (day_start=8h, 1px/min)", () => {
+  it("positionne le bloc booking avec un top calculé selon pxPerMinute", () => {
     const { container } = render(createElement(DayView, {
       bookings: [makeBooking({ starts_at: "2026-04-01T09:00:00+02:00", ends_at: "2026-04-01T09:30:00+02:00" })],
       practitioners,
@@ -231,13 +236,15 @@ describe("DayView — positionnement CSS des bookings", () => {
       onBookingClick: vi.fn(),
     }));
 
-    const bookingEl = container.querySelector("button[style*='top']") as HTMLElement | null;
-    expect(bookingEl).not.toBeNull();
-    // top = (9h - 8h) × 60min × 1px/min = 60px
-    expect(bookingEl?.style.top).toBe("60px");
+    // Le style top/height est sur le wrapper div (parent du button), pas sur le button lui-même
+    // pxPerMinute = max(1.5, (clientHeight=0 - 24) / 660) = 1.5
+    // top = (60min) × 1.5 + 24(padding) = 114px
+    const wrapper = container.querySelector("div.group\\/tip") as HTMLElement | null;
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.style.top).toBe("114px");
   });
 
-  it("calcule la hauteur à 30px pour un booking de 30 minutes (1px/min)", () => {
+  it("calcule la hauteur du bloc booking selon la durée et pxPerMinute", () => {
     const { container } = render(createElement(DayView, {
       bookings: [makeBooking({ starts_at: "2026-04-01T09:00:00+02:00", ends_at: "2026-04-01T09:30:00+02:00" })],
       practitioners,
@@ -245,8 +252,9 @@ describe("DayView — positionnement CSS des bookings", () => {
       onBookingClick: vi.fn(),
     }));
 
-    const bookingEl = container.querySelector("button[style*='height']") as HTMLElement | null;
-    expect(bookingEl).not.toBeNull();
-    expect(bookingEl?.style.height).toBe("30px");
+    // height = max(30min × 1.5, 28) = 45px
+    const wrapper = container.querySelector("div.group\\/tip") as HTMLElement | null;
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.style.height).toBe("45px");
   });
 });

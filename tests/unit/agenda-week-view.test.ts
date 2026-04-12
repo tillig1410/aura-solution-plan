@@ -8,9 +8,11 @@ import { createElement } from "react";
 
 afterEach(cleanup);
 
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn(),
-}));
+global.ResizeObserver = vi.fn().mockImplementation(function (this: Record<string, unknown>) {
+  this.observe = vi.fn();
+  this.unobserve = vi.fn();
+  this.disconnect = vi.fn();
+});
 Object.defineProperty(HTMLElement.prototype, "scrollTop", {
   set: vi.fn(), get: vi.fn().mockReturnValue(0),
 });
@@ -41,7 +43,7 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
     status: "confirmed" as const, source_channel: "whatsapp" as const, version: 1,
     created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
     cancelled_at: null, cancelled_by: null, cancellation_reason: null, notes: null,
-    client: { id: "c-1", name: "Jean Petit", phone: "+33600000001", preferred_language: "fr" },
+    client: { id: "c-1", name: "Jean Petit", phone: "+33600000001", preferred_language: "fr", notes: null, loyalty_tier: "bronze", loyalty_points: 0 },
     practitioner: { id: "prac-1", name: "Marie Dupont", color: "#4F46E5" },
     service: { id: "s-1", name: "Coupe homme", duration_minutes: 30, price_cents: 2500 },
     ...overrides,
@@ -112,7 +114,7 @@ describe("WeekView — bookings", () => {
     renderWeek({
       bookings: [
         makeBooking({ id: "b-1", practitioner_id: "prac-1" }),
-        makeBooking({ id: "b-2", practitioner_id: "prac-2", client: { id: "c-2", name: "Sophie", phone: null, preferred_language: "fr" } }),
+        makeBooking({ id: "b-2", practitioner_id: "prac-2", client: { id: "c-2", name: "Sophie", phone: null, preferred_language: "fr", notes: null, loyalty_tier: "bronze", loyalty_points: 0 } }),
       ],
       selectedPractitionerIds: [],
     });
@@ -120,33 +122,40 @@ describe("WeekView — bookings", () => {
     expect(screen.getByText("Sophie")).toBeInTheDocument();
   });
 
-  it("positionne un booking à 9h avec top=60px (8h start, 1px/min)", () => {
+  it("positionne un booking à 9h avec le top calculé selon pxPerMinute", () => {
     const { container } = renderWeek({
       bookings: [makeBooking({ starts_at: "2026-03-30T09:00:00+02:00", ends_at: "2026-03-30T09:30:00+02:00" })],
     });
-    const el = container.querySelector("button[style*='top']") as HTMLElement | null;
-    expect(el).not.toBeNull();
-    expect(el?.style.top).toBe("60px");
+    // Le style top est sur le wrapper div (group/tip), pas sur le button
+    // pxPerMinute = max(1.5, (0 - 24) / 660) = 1.5
+    // top = 60 × 1.5 + 24 = 114px
+    const wrapper = container.querySelector("div.group\\/tip") as HTMLElement | null;
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.style.top).toBe("114px");
   });
 
-  it("calcule height=60px pour un booking de 60 min", () => {
+  it("calcule height selon la durée et pxPerMinute", () => {
     const { container } = renderWeek({
       bookings: [makeBooking({ starts_at: "2026-03-30T10:00:00+02:00", ends_at: "2026-03-30T11:00:00+02:00" })],
     });
-    const el = container.querySelector("button[style*='height']") as HTMLElement | null;
-    expect(el).not.toBeNull();
-    expect(el?.style.height).toBe("60px");
+    // height = max(60 × 1.5, 28) = 90px
+    const wrapper = container.querySelector("div.group\\/tip") as HTMLElement | null;
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.style.height).toBe("90px");
   });
 
   it("appelle onBookingClick au clic", () => {
     const onClick = vi.fn();
-    renderWeek({ bookings: [makeBooking()], onBookingClick: onClick });
-    fireEvent.click(screen.getByText("Jean Petit"));
+    const { container } = renderWeek({ bookings: [makeBooking()], onBookingClick: onClick });
+    // Le bouton clickable est à l'intérieur du bloc booking
+    const bookingButton = container.querySelector("button.rounded-lg") as HTMLElement;
+    expect(bookingButton).not.toBeNull();
+    fireEvent.click(bookingButton!);
     expect(onClick).toHaveBeenCalledOnce();
     expect(onClick).toHaveBeenCalledWith(expect.objectContaining({ id: "b-1" }));
   });
 
-  it("affiche le nom du service si booking >= 32px de haut", () => {
+  it("affiche le nom du service si booking >= 30px de haut", () => {
     renderWeek({
       bookings: [makeBooking({
         starts_at: "2026-03-30T10:00:00+02:00",
@@ -154,7 +163,9 @@ describe("WeekView — bookings", () => {
         service: { id: "s-1", name: "Coloration", duration_minutes: 45, price_cents: 5000 },
       })],
     });
-    expect(screen.getByText("Coloration")).toBeInTheDocument();
+    // Le service apparaît dans la carte ET dans le tooltip
+    const matches = screen.getAllByText("Coloration");
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -165,7 +176,7 @@ describe("WeekView — dimanche", () => {
         id: "b-sunday",
         starts_at: "2026-04-05T10:00:00+02:00", // dimanche
         ends_at: "2026-04-05T10:30:00+02:00",
-        client: { id: "c-sun", name: "Dimanche Client", phone: null, preferred_language: "fr" },
+        client: { id: "c-sun", name: "Dimanche Client", phone: null, preferred_language: "fr", notes: null, loyalty_tier: "bronze", loyalty_points: 0 },
       })],
     });
     expect(screen.queryByText("Dimanche Client")).not.toBeInTheDocument();

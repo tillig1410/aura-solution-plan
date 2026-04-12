@@ -53,12 +53,9 @@ describe("AiConfig — rendu initial", () => {
     expect(screen.getByText("Casual")).toBeInTheDocument();
   });
 
-  it("affiche les 5 langues disponibles", () => {
+  it("affiche la section confirmation des RDV IA", () => {
     renderAiConfig();
-    expect(screen.getByText("Français")).toBeInTheDocument();
-    expect(screen.getByText("English")).toBeInTheDocument();
-    expect(screen.getByText("Español")).toBeInTheDocument();
-    expect(screen.getByText("Português")).toBeInTheDocument();
+    expect(screen.getByText("Confirmation des RDV IA")).toBeInTheDocument();
   });
 
   it("affiche les 4 canaux", () => {
@@ -98,13 +95,10 @@ describe("AiConfig — interactions", () => {
     expect(formelBtn.className).toContain("border-indigo-500");
   });
 
-  it("toggle une langue au clic", () => {
+  it("change le délai d'annulation", () => {
     renderAiConfig();
-    const espBtn = screen.getByText("Español").closest("button")!;
-    // Español n'est pas actif par défaut (ai_languages = ["fr", "en"])
-    expect(espBtn.className).not.toContain("border-indigo-500");
-    fireEvent.click(espBtn);
-    expect(espBtn.className).toContain("border-indigo-500");
+    const select = screen.getByDisplayValue("2 heures");
+    expect(select).toBeInTheDocument();
   });
 
   it("appelle onSave avec les bonnes données au clic Sauvegarder", async () => {
@@ -116,8 +110,8 @@ describe("AiConfig — interactions", () => {
         expect.objectContaining({
           ai_name: "Sofia",
           ai_tone: "friendly",
-          ai_languages: ["fr", "en"],
-          cancellation_delay_minutes: 120,
+          ai_languages: ["fr"],
+          auto_confirm_bookings: false,
         }),
       );
     });

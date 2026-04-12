@@ -12,6 +12,7 @@ afterEach(cleanup);
 let mockPathname = "/agenda";
 vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn() }),
 }));
 
 // Mock next/link — rend un <a> simple
@@ -36,9 +37,9 @@ describe("Sidebar — liens de navigation", () => {
     expect(screen.getByText("Paramètres")).toBeInTheDocument();
   });
 
-  it("affiche le logo Plan", () => {
+  it("affiche le logo", () => {
     render(createElement(Sidebar));
-    expect(screen.getByText("Plan")).toBeInTheDocument();
+    expect(screen.getByAltText("Logo")).toBeInTheDocument();
   });
 
   it("chaque item a le bon href", () => {
