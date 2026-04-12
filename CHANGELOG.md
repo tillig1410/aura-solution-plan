@@ -5,6 +5,70 @@
 
 ---
 
+## [2.9.0] — 2026-04-12 — Prompt Gemini v3 + guardrail confirmation + fix notifications doublons
+
+Session de polish E2E centrée sur la fiabilité de la boucle **WhatsApp → IA → booking → notification**. Trois axes : **(1)** prompt Gemini complet à 9 règles avec IDs en contexte, **(2)** guardrail code pour compenser les faiblesses de Gemini Flash Lite sur le champ `action`, **(3)** fix du workflow de notification qui spammait le client.
+
+### Partie 1 — Prompt Gemini AI v3 (9 règles) + contexte IDs
+
+- **[REFACTOR]** **Prompt Gemini AI** (`n8n`, node Gemini AI) — reconstruction complète du prompt via `updateNode` (pas de patch incrémental, leçon apprise : `patchNodeField` unreliable). 9 règles numérotées proprement :
+  - **Règle 6 renforcée** : confirmation de créneau avec **exemple concret** JSON montrant le flow `"A 15h"` → `action: "confirm_booking"` + `booking_data` rempli avec `[id:...]` du contexte
+  - **Règle 8 (NOUVELLE)** : informer le client de ses RDV existants avant de proposer des créneaux (évite doublons involontaires)
+  - **Règle 9** : plusieurs RDV le même jour autorisés (séparée de la règle 8)
+  - **scan_days** : nouvelle règle pour jours récurrents ("les mardis", "un mardi après-midi") → `scan_days=14`
+  - **Cohérence scan_days** : standardisé à 14 partout (instruction + tool description)
+
+- **[REFACTOR]** **Prompt Gemini AI Final** (`n8n`, node Gemini AI Final) — v2 :
+  - Créneaux **consécutifs** obligatoires : "14h, 14h20, 14h40" et NON "14h, 15h, 16h"
+  - Numérotation des règles corrigée (plus de doublon règle 4)
+  - **Préférence horaire souple** : PRIVILÉGIE la plage demandée ("après-midi" = 12h-18h) mais PEUT proposer d'autres horaires si aucun ne correspond dans la plage, en le précisant
+
+- **[REFACTOR]** **Sanitize Prompt Inputs** (`n8n`) — services et praticiens incluent désormais les IDs :
+  - `safe_services_list` : `"Coupe homme [id:c75d4c76-...] (30 min, 20€)"`
+  - `safe_practitioners_list` : `"Nora [id:90ce8e60-...]"` — avec dédoublon par ID
+
+### Partie 2 — Guardrail slot confirmation (Parse Gemini Response)
+
+**Contexte** : Gemini Flash Lite retourne systématiquement `action: "none"` quand le client confirme un créneau ("14h", "à 15h"), malgré la règle 6 explicite avec exemple. Le modèle génère le bon `response_text` mais oublie de remplir `action` et `booking_data`.
+
+- **[FIX]** **Parse Gemini Response** (`n8n`, Code node) — ajout d'un guardrail code **après** le parsing JSON de Gemini :
+  - Détecte si le dernier message IA contient "créneaux" + des heures
+  - Détecte si le client répond avec une heure (`/^[àa]?\s*(\d{1,2})[h:](\d{0,2})/i`)
+  - Si les deux conditions ET `action === "none"` → **override** :
+    - Parse la date depuis le texte IA (regex mois français)
+    - Résout service_id et practitioner_id depuis `$('Load Services')` et `$('Load Practitioners')`
+    - Calcule `starts_at` et `ends_at` (timezone +02:00)
+    - Génère le response_text approprié selon `auto_confirm` du merchant
+    - Force `action: "confirm_booking"` avec `booking_data` complet
+  - Fallback : si le parsing échoue (format inattendu), le comportement Gemini original est préservé
+
+### Partie 3 — Fix notifications doublons (booking-confirmation-notify)
+
+**Contexte** : le client recevait 2+ confirmations WhatsApp identiques à 2 min d'intervalle. Root cause : le node `Save Notification` échouait silencieusement (`scheduled_at NOT NULL` non renseigné + type `booking_confirmed` pas dans la CHECK constraint) → pas de record en BDD → le cron suivant renvoyait.
+
+- **[MIGRATION]** `032_get_bookings_pending_notification.sql` — RPC avec `NOT EXISTS` anti-join sur `notifications` :
+  - Retourne les bookings confirmed/cancelled des 5 dernières minutes qui n'ont PAS encore de notification envoyée
+  - Joints clients, services, practitioners, merchants en flat (pas de nested objects)
+  - `GRANT EXECUTE TO service_role`
+
+- **[FIX]** **Fetch Updated Bookings** (`n8n`, workflow `booking-confirmation-notify`) — remplacé le query direct `/rest/v1/bookings` par POST RPC `/rest/v1/rpc/get_bookings_pending_notification`. Plus de doublons possibles.
+
+- **[FIX]** **Build Messages** (`n8n`) — types notification corrigés : `booking_confirmed` → `confirmation`, `booking_cancelled` → `cancellation` (match la CHECK constraint de la table `notifications`)
+
+- **[FIX]** **Save Notification** (`n8n`) — ajout du champ `scheduled_at` (= `$now.toISO()`). L'INSERT ne crash plus.
+
+### Partie 4 — Fix sidebar notifications frontend (commit `b530b6d`)
+
+- **[FIX]** **sidebar-notifications.tsx** — dismiss persistant : les IDs des notifications dismissées sont sauvegardés en `sessionStorage` et filtrés **dans** `fetchNotifications` avant `setNotifications`. Les notifs dismissées ne reviennent plus après le re-fetch toutes les 30s.
+
+- **[FIX]** **sidebar-notifications.tsx** — bookings créés aujourd'hui (pending → confirmed) affichent **"RDV confirmé"** au lieu de "RDV déplacé". Logique : si `created_at >= todayStart` → c'est une confirmation, pas un reschedule.
+
+### ⚠️ Action manuelle requise
+
+- **Migration 032** : à appliquer dans Supabase SQL Editor (copier-coller `supabase/migrations/032_get_bookings_pending_notification.sql`). Sans cette migration, le workflow `booking-confirmation-notify` appelle une RPC inexistante → aucune notification de confirmation ne partira.
+
+---
+
 ## [2.8.0] — 2026-04-11 — Débloquage Vercel prod + polish tokens Gemini + normalisation phone FR cross-canal
 
 Grosse session qui cumule 3 axes complémentaires : **(1)** débloquage de la prod Vercel (gelée depuis 5 jours), **(2)** polish Option D pour réduire les tokens Gemini du 2e appel, **(3)** fix structurel du bug de doublon client cross-canal (Alex/mr X). Contient aussi 2 review fixes mineurs (tri chronologique des slots + `??=` sur Stripe cache).
