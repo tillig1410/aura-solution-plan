@@ -117,7 +117,7 @@ const SidebarNotifications = () => {
         }
       }
 
-      // Rescheduled bookings (updated_at significantly after created_at)
+      // Confirmed/rescheduled bookings (updated_at significantly after created_at)
       if (rescheduled) {
         for (const b of rescheduled) {
           const created = new Date(b.created_at).getTime();
@@ -125,10 +125,11 @@ const SidebarNotifications = () => {
           // Only show if updated at least 1 min after creation (= real modification)
           if (updated - created > 60_000) {
             const clientName = (b.client as { name: string | null } | null)?.name ?? "Un client";
+            const createdToday = new Date(b.created_at) >= todayStart;
             notifs.push({
               id: `reschedule-${b.id}`,
               type: "booking_change",
-              title: "RDV déplacé",
+              title: createdToday ? "RDV confirmé" : "RDV déplacé",
               description: `${clientName} → ${new Date(b.starts_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} à ${new Date(b.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
               action: "VOIR",
               actionDate: b.starts_at.slice(0, 10),
@@ -142,7 +143,11 @@ const SidebarNotifications = () => {
       // Sort by timestamp descending
       notifs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-      setNotifications(notifs.slice(0, 8));
+      // Filter out dismissed notifications before setting state
+      const dismissed = new Set(
+        JSON.parse(sessionStorage.getItem("dismissed_notifs") || "[]") as string[]
+      );
+      setNotifications(notifs.filter((n) => !dismissed.has(n.id)).slice(0, 8));
     } finally {
       setLoading(false);
     }
@@ -157,6 +162,11 @@ const SidebarNotifications = () => {
 
   const dismiss = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    const dismissed = JSON.parse(sessionStorage.getItem("dismissed_notifs") || "[]") as string[];
+    if (!dismissed.includes(id)) {
+      dismissed.push(id);
+      sessionStorage.setItem("dismissed_notifs", JSON.stringify(dismissed));
+    }
   };
 
   const activeNotifs = notifications.filter((n) => !n.dismissed);
