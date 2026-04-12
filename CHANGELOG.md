@@ -121,9 +121,9 @@ Session de polish E2E centrée sur la fiabilité de la boucle **WhatsApp → IA 
 
 - **[FIX]** **sidebar-notifications.tsx** — bookings créés aujourd'hui (pending → confirmed) affichent **"RDV confirmé"** au lieu de "RDV déplacé". Logique : si `created_at >= todayStart` → c'est une confirmation, pas un reschedule.
 
-### ⚠️ Action manuelle requise
+### ✅ Action manuelle effectuée
 
-- **Migration 032** : à appliquer dans Supabase SQL Editor (copier-coller `supabase/migrations/032_get_bookings_pending_notification.sql`). Sans cette migration, le workflow `booking-confirmation-notify` appelle une RPC inexistante → aucune notification de confirmation ne partira.
+- **Migration 032** : appliquée dans Supabase SQL Editor le 2026-04-12.
 
 ---
 
