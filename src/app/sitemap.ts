@@ -1,20 +1,16 @@
 import type { MetadataRoute } from "next";
-import { createAdminClient } from "@/lib/supabase/server";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+/**
+ * Sitemap minimal : la fonctionnalité "site de réservation public /[slug]" est
+ * annulée (décision 2026-04-08). On n'expose plus que la landing page `/`.
+ *
+ * Historique : la version précédente exposait un /{merchant.slug} par merchant,
+ * mais le slug fallback pour les noms Unicode non-ASCII donnait "-" → l'URL
+ * `/-` finissait dans le sitemap et Google remontait des erreurs 404 dans
+ * Search Console (2026-04-08).
+ */
+export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-
-  const supabase = createAdminClient();
-  const { data: merchants } = await supabase
-    .from("merchants")
-    .select("slug, updated_at");
-
-  const bookingPages: MetadataRoute.Sitemap = (merchants ?? []).map((m) => ({
-    url: `${baseUrl}/${m.slug}`,
-    lastModified: m.updated_at ?? new Date().toISOString(),
-    changeFrequency: "weekly",
-    priority: 0.8,
-  }));
 
   return [
     {
@@ -23,6 +19,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 1,
     },
-    ...bookingPages,
   ];
 }

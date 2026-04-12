@@ -5,6 +5,113 @@
 
 ---
 
+## [2.8.0] — 2026-04-11 — Débloquage Vercel prod + polish tokens Gemini + normalisation phone FR cross-canal
+
+Grosse session qui cumule 3 axes complémentaires : **(1)** débloquage de la prod Vercel (gelée depuis 5 jours), **(2)** polish Option D pour réduire les tokens Gemini du 2e appel, **(3)** fix structurel du bug de doublon client cross-canal (Alex/mr X). Contient aussi 2 review fixes mineurs (tri chronologique des slots + `??=` sur Stripe cache).
+
+### Partie 1 — Débloquage Vercel prod (commit `aafb503`)
+
+**Contexte** : depuis 5 jours, tous les push sur `main` déclenchaient un deploy **Preview** au lieu de **Production**, et ces builds Preview cassaient tous sur `STRIPE_SECRET_KEY is not configured` au module load. La prod `resaapp.fr` était gelée sur une version de 5 jours, sans la route `/api/v1/channels/send` (ajoutée en 2.7.3 le 2026-04-10).
+
+**3 bugs empilés identifiés et résolus** :
+
+- **[FIX]** **Vercel `link.productionBranch`** — le projet avait été créé depuis la branche feature `001-saas-reservation-ia`, jamais repointé sur `main`. Corrigé via PATCH API Vercel `/v9/projects/{id}/branch` avec `{"branch":"main"}`. Les push `main` déclenchent désormais des deploys Production auto.
+
+- **[REFACTOR]** **Lazy-load Stripe** — les modules `src/lib/stripe/{connect,payment-links,subscription}.ts` + routes `src/app/api/v1/stripe/customer-portal/route.ts` + `src/app/api/v1/webhooks/stripe/route.ts` instanciaient `new Stripe(...)` au **module scope** avec un `throw` si `STRIPE_SECRET_KEY` manquait. Next.js "Collecting page data" importe chaque route → crash systématique en Preview (où STRIPE_SECRET_KEY n'est pas défini). Nouveau helper `src/lib/stripe/client.ts::getStripeClient()` lazy + cached, appelé au runtime. Validé : `next build` passe désormais sans **aucune** env var Stripe/Supabase/Telnyx.
+
+- **[FIX]** **Corruption `\n` dans env vars Vercel** — 3 env vars contenaient un `\n` littéral en fin (trailing newline) : `INTERNAL_API_SECRET` (fix matin, déjà commité), puis `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_APP_URL` découvertes cet après-midi. Cause racine : utilisation de `echo "..." | vercel env add` au lieu de `printf '%s' "..." | vercel env add`. Les 3 vars retypées proprement, redeploy prod manuel `dpl_4uefzCdNkhyBVnHK3DwUhnJqnbsG` OK.
+
+### Partie 2 — Polish Option D : cap 5 slots/jour + prompt Gemini strict (commit `246236f`)
+
+Suite directe de la session 2.7.11 : les observations de l'exec 2618 montraient Gemini listant 20 slots au lieu de 2-3, et le 2e appel consommait ~11k tokens de prompt. Fix en 2 composantes :
+
+- **[REFACTOR]** **Build Tool Response v3** (`n8n/workflows/booking-conversation.json`) — après groupement par date, `days.forEach(day => day.slots = day.slots.slice(0, 5))` pour plafonner à 5 slots/jour max. Ajout de `day.total_slots_on_day` en métadata pour que Gemini puisse mentionner qu'il y a d'autres dispos si besoin. Économie ~80% des tokens du 2e appel (validé exec 2637 : 902 tokens prompt vs ~11k avant).
+
+- **[FIX]** **Prompt Gemini AI Final renforcé** — « Propose 2 ou 3 créneaux maximum » → « Propose EXACTEMENT 2 à 3 créneaux, JAMAIS PLUS » + contre-exemple explicite listé (`'9h, 9h30, 10h, 10h30...' — ça noie le client`). Guardrail stricte contre la tendance du modèle à lister tous les slots reçus.
+
+### Partie 3 — Migration 024 : normalisation phone FR + RPC cross-canal (commit `d241a30`)
+
+**Contexte** : bug de doublon client connu du backlog P2 (Alex/mr X). Les clients créés via le dashboard ont `phone='0652880318'` (format national FR), tandis que les clients créés via WhatsApp ont `phone='33652880318'` (format international). Résultat : le même humain est dédoublé dans `public.clients` à chaque nouveau canal. Résolu structurellement.
+
+- **[MIGRATION]** `024_normalize_phone_and_identify_rpc.sql` :
+  - **Fonction IMMUTABLE** `normalize_phone_fr(raw TEXT)` : strip non-digits via regex, puis convertit `0XXXXXXXXX` (10 chiffres FR) en `33XXXXXXXXX`. Idempotent sur `33XXXXXXXXX` et `+33XXXXXXXXX`. Safe pour GENERATED COLUMN et index.
+  - **Colonne générée** `clients.phone_normalized TEXT GENERATED ALWAYS AS (normalize_phone_fr(phone)) STORED`. Auto-remplie rétroactivement pour les rows existants.
+  - **Safeguard pré-index** : bloc `DO $$` qui `RAISE EXCEPTION` si des doublons `(merchant_id, phone_normalized)` existent déjà (avec sample dans le message d'erreur pour diag).
+  - **Index unique** `idx_clients_merchant_phone_normalized` sur `(merchant_id, phone_normalized)` qui **remplace** l'ancien `idx_clients_merchant_phone` (sur phone brut). Protège contre les doublons cross-canal à l'INSERT.
+  - **RPC `identify_or_create_client(p_merchant_id, p_raw_phone, p_name, p_channel)`** : SECURITY DEFINER, retourne les colonnes client standard. Logique :
+    - Si `phone_normalized` existe → **UPDATE** avec `COALESCE` sur `{whatsapp,messenger,telegram}_id` (fill seulement le channel_id manquant, ne touche JAMAIS `name` ni `phone` existants).
+    - Sinon → **INSERT** avec le channel_id correspondant.
+  - Protège contre le scénario « WhatsApp renomme mr X en Alex » et « WhatsApp écrase 0652880318 par 33652880318 » simultanément.
+
+- **[REFACTOR]** **Node `Identify Client`** (`n8n/workflows/booking-conversation.json`) — POST direct sur `/rest/v1/clients` (upsert `on_conflict=merchant_id,phone`) remplacé par POST RPC sur `/rest/v1/rpc/identify_or_create_client`. Body passe les 4 params `p_*`, plus de `Prefer: resolution=merge-duplicates`.
+
+- **Validation E2E** (exec 2667) : envoi WhatsApp avec `sender_phone=33652880318` + `sender_name=Alex` → RPC trouve mr X existant via `phone_normalized`, retourne mr X intact (`name='mr X'`, `phone='0652880318'` préservés, `whatsapp_id='33652880318'` renseigné). Plus de doublon créé.
+
+### Partie 4 — Review fixes post-code-review (à commit demain)
+
+- **[FIX]** **Tri chronologique des slots** — dans `Build Tool Response v4`, ajout de `day.slots.sort((a, b) => a.iso.localeCompare(b.iso))` AVANT le `.slice(0, 5)`. Garantit que Gemini voit les créneaux dans l'ordre (`9h, 10h30, 14h` au lieu d'un ordre random `[14h, 9h, ...]`). **Déjà live en prod via n8n MCP**, à synchroniser dans le JSON repo demain.
+
+- **[REFACTOR]** **Stripe cache idiomatique** — `src/lib/stripe/client.ts` : pattern `if (cached) return cached; cached = new Stripe()` remplacé par `cached ??= (() => { ... })()` IIFE pour plus de clarté. Sémantiquement équivalent, plus idiomatique TypeScript moderne.
+
+### Partie 5 — Fix SEO 404 Google Search Console (à commit demain)
+
+**Contexte** : Google Search Console a signalé des erreurs `Introuvable (404)` le 2026-04-08 sur `resaapp.fr`. Diagnostic : le sitemap dynamique exposait `https://resaapp.fr/-` (l'unique merchant en DB `𝐒𝐰𝐞𝐞𝐭 𝐛𝐫𝐮𝐬𝐡 / 𝘣𝘺 𝘮𝘢𝘳𝘪𝘦` a `slug = "-"` — fallback de la slugification quand le `name` ne contient que des caractères Unicode Mathematical Bold non-ASCII). Combiné avec la décision de **2026-04-08 d'annuler la fonctionnalité site de résa publique**, la fix cohérente est de désindexer complètement `/[slug]`.
+
+- **[FIX]** **`src/app/sitemap.ts`** — retrait de la query Supabase + retrait des `bookingPages`. Expose uniquement la landing `/`. Bonus : `/sitemap.xml` passe de `ƒ Dynamic` (SSR) à `○ Static` dans le build Next → pas d'appel DB côté prod, cacheable CDN.
+
+- **[FIX]** **`src/app/robots.ts`** — ajout de `/-` et `/-/` en `disallow` (bloque le slug problématique actuel). Les autres patterns (`/api/`, `/agenda`, etc.) déjà présents inchangés.
+
+- **[FIX]** **`src/app/(booking)/[slug]/page.tsx`** — :
+  - `generateMetadata` : `robots: { index: true, follow: true }` → **`{ index: false, follow: false }`** (empêche toute nouvelle indexation et signale à Google de purger les pages déjà indexées au prochain crawl)
+  - Page component : ajout de `if (!merchant) notFound()` pour retourner un vrai 404 au lieu d'une page vide que Google verrait comme "soft 404" (source probable des erreurs Search Console)
+  - Double barrière : robots.txt + meta noindex + notFound() → Google recevra un signal clair et purgera `/-` de son index.
+
+**Action complémentaire côté Google Search Console** (à faire par le user après le deploy) :
+1. Search Console → Outils et rapports → **Suppressions** → Nouvelle demande → URL `https://resaapp.fr/-` → Supprimer temporairement (6 mois)
+2. Search Console → Indexation → **Pages** → localiser les URLs en 404 → Valider le fix
+3. Le prochain crawl Google (2-7 jours) confirmera la désindexation
+
+### Nettoyage DB manuel (côté user)
+
+- **10 clients de test supprimés** de `public.clients` : `TestSlotCap` + 9× `Test *` (Final, Scan14, Scan, Force, P6, Hist×2, ASAP) + `Alex` (doublon de mr X). Transaction SQL atomique avec `DO $$` : UPDATE des conversations d'Alex → mr X (transfert des 16 messages WhatsApp), puis DELETE messages → conversations → clients en cascade.
+- **Compte `tillig1410@gmail.com`** supprimé de `auth.users` (n'avait jamais eu de merchant attaché, source de confusion login).
+- **Reset password direct via SQL** sur `projet.dev.aurasolutions@gmail.com` (contournement du rate limit email Supabase) : `UPDATE auth.users SET encrypted_password = crypt('...', gen_salt('bf'))`.
+- **Fix Site URL Supabase** — trailing spaces invisibles dans `Project Settings → Authentication → URL Configuration → Site URL` (cause des magic links qui pointaient sur `resaapp.fr%20%20`). Corrigé par retype brute-force via Ctrl+A / Delete / retype manuel.
+
+### Validation session (4 tests lancés avant commit)
+
+- **`next build` sans env vars Stripe** : ✅ passe (confirmation lazy-load)
+- **`n8n_validate_workflow`** : ✅ `valid: true`, 0 errors, 63 warnings (tous pré-existants, best practices non-bloquantes)
+- **`npx tsc --noEmit`** : erreurs uniquement dans `tests/` (pré-existantes, types fixtures désynchronisés avec schéma)
+- **`npm run test`** : 350 passed / 41 failed. **0 failure liée aux commits du jour**. 41 tests cassés pré-existants (mocks `next/navigation` sans `useRouter`, fixtures `BookingWithDetails` obsolètes). Capturé en backlog P2 "Cleanup suite de tests".
+
+### Backlog P2 restant
+
+- **[P2]** Mistral Fallback system prompt à aligner sur les nouveaux champs (`safe_services_list`, `safe_greeting_word`, `safe_has_history`, `safe_tool_call_mode`, `ref_dates`).
+- **[P2]** Audit des 4 workflows n8n non touchés : `google-review-request`, `reminder-notifications`, `voice-call-handler`, `package-expiration-check`.
+- **[P2]** Cleanup suite de tests — fix mocks `next/navigation`, regen types Supabase, update fixtures.
+- **[P3]** UX conversationnel : multi-praticien (prompt Gemini mono-pract), annulations (Booking Action ne route que `create_booking`), confirmation explicite pré-booking.
+
+### Fichiers modifiés
+- `supabase/migrations/024_normalize_phone_and_identify_rpc.sql` — nouvelle migration
+- `src/lib/stripe/client.ts` — nouveau helper lazy + idiom `??=`
+- `src/lib/stripe/{connect,payment-links,subscription}.ts` — refactor lazy
+- `src/app/api/v1/stripe/customer-portal/route.ts` — refactor lazy
+- `src/app/api/v1/webhooks/stripe/route.ts` — refactor lazy
+- `n8n/workflows/booking-conversation.json` — Build Tool Response v3 → v4 (cap + tri), Gemini AI Final prompt, Identify Client → RPC
+- `src/app/sitemap.ts` — retrait bookingPages, sitemap statique
+- `src/app/robots.ts` — disallow `/-` et `/-/`
+- `src/app/(booking)/[slug]/page.tsx` — notFound() si merchant null, noindex metadata
+- `CHANGELOG.md` — cette entrée
+
+### Commits
+- `aafb503` — fix(stripe): lazy-load Stripe client pour unblock Vercel Preview builds
+- `246236f` — feat(n8n): polish Option D — cap 5 slots/jour + prompt strict 2-3 créneaux max
+- `d241a30` — feat(db+n8n): normalisation phone FR + RPC identify_or_create_client
+- **(demain)** fix: slot chronological sort + Stripe cache ??= + SEO noindex /[slug] (review + SEO fixes)
+
+---
+
 ## [2.7.11] — 2026-04-11 — Polish Option D : scan_days multi-jours + fix Save AI Message $json
 
 Après le polish 6, user a testé « RDV le plus tôt possible » en WhatsApp réel : Gemini répond « pas de dispo lundi 13, souhaitez-vous que je vérifie mardi, mercredi, jeudi... » et boucle. Le problème = `get_available_slots` ne scan qu'un jour, et Nora est en congé TOUTE la semaine 12-18. Gemini ne peut pas découvrir la 1ère vraie dispo (lundi 20) sans plusieurs tool calls.

@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import BookingContent from "@/components/booking/booking-content";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -47,7 +48,10 @@ export async function generateMetadata({ params }: BookingPageProps): Promise<Me
       locale: "fr_FR",
       siteName: "Resaapp",
     },
-    robots: { index: true, follow: true },
+    // Fonctionnalité site de résa publique annulée 2026-04-08.
+    // noindex, nofollow : empêche toute nouvelle indexation + signale à
+    // Google de retirer les pages déjà indexées au prochain crawl.
+    robots: { index: false, follow: false },
   };
 }
 
@@ -55,6 +59,13 @@ const BookingPage = async ({ params }: BookingPageProps) => {
   const { slug } = await params;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const merchant = await getMerchant(slug);
+
+  // Fonctionnalité site de résa publique annulée 2026-04-08 — si le slug
+  // ne matche aucun merchant, retourner 404 au lieu d'une page vide qui
+  // Google verrait comme "soft 404" (source des erreurs Search Console).
+  if (!merchant) {
+    notFound();
+  }
 
   const jsonLd = merchant
     ? {
