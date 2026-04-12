@@ -5,7 +5,65 @@
 
 ---
 
-## [2.9.0] — 2026-04-12 — Prompt Gemini v3 + guardrail confirmation + fix notifications doublons
+## [2.9.0] — 2026-04-12 — P3 sprint complet : sécurité, multi-praticien, annulation IA, hCaptcha, Realtime, guardrails
+
+Journée marathon en 3 sessions. **Session 1 (matin)** : 7 migrations Supabase (sécurité, perf, multi-praticien, annulation), 390/390 tests verts, hCaptcha, cleanup conversations. **Session 2 (après-midi)** : agenda Realtime, workflow booking-confirmation-notify, 12 bugfixes E2E Gemini. **Session 3 (soir)** : prompt Gemini v3 avec 9 règles, guardrail confirmation, fix notifications doublons.
+
+### Session 1 — Sécurité + migrations + hCaptcha (commits `0cbdd4e` → `0d7a6e8`)
+
+#### Tests verts — 390/390 (commit `0cbdd4e`)
+
+- **[FIX]** **41 → 0 test failures** — `tests/unit/` : mock `useRouter` pour sidebar/login-content, fix `ResizeObserver` mock + fixtures client pour agenda-day/week/month-view, adaptation `signInWithPassword` pour login-content.
+- **[MIGRATION]** `025_security_rate_limiting.sql` — rate limiting fonctions sensibles Supabase
+- **[MIGRATION]** `026_fix_security_advisor_warnings.sql` — fix `search_path` mutable sur les fonctions, REVOKE anon/authenticated sur materialized views
+- **[MIGRATION]** `027_fix_performance_advisor_warnings.sql` — optimisations index Supabase
+- **[MIGRATION]** `028_add_missing_fkey_indexes.sql` — index manquants sur les foreign keys
+
+#### Cleanup conversations (commit `602c2df`)
+
+- **[MIGRATION]** `029_cleanup_inactive_conversations.sql` — la RPC `get_or_create_active_conversation` nettoie automatiquement les conversations inactives >7 jours pour le même (merchant, client, channel). Pas de cron nécessaire.
+
+#### Multi-praticien + confirmation explicite (commit `fc8e9b4`, P3-1 + P3-3)
+
+- **[MIGRATION]** `030_get_available_slots_practitioner_filter.sql` — la RPC `get_available_slots` accepte désormais un `p_practitioner_name TEXT` optionnel. Si fourni, filtre les créneaux pour ce praticien uniquement. 140 lignes, DROP + CREATE pour ajouter le paramètre.
+- **[REFACTOR]** **Booking Conversation** (`n8n`) — prompt Gemini : Règle #5 (demande de date obligatoire), Règle #6 (réutiliser slots proposés), Règle #7 (confirmation obligatoire : propose_slots d'abord, confirm_booking après confirmation client). Le tool `get_available_slots` passe désormais `practitioner_name` si le client en demande un spécifique.
+
+#### Annulation RDV via IA (commit `d618367`, P3-2)
+
+- **[MIGRATION]** `031_get_client_upcoming_bookings.sql` — RPC retournant les bookings futurs (confirmed/pending) d'un client pour un merchant. Utilisé par Gemini via function calling pour lister les RDV avant annulation.
+- **[REFACTOR]** **Booking Conversation** (`n8n`, 44 → 47 nodes) — ajout des nodes Load Client Bookings, Is Cancel?, Cancel Booking. Le prompt Gemini inclut désormais la section "RDV A VENIR DU CLIENT" avec les IDs des bookings + le délai d'annulation configurable.
+
+#### hCaptcha (commits `0d7a6e8`, `712d857`, `6f01848`, P3-6)
+
+- **[FEAT]** **hCaptcha login/register** — `src/components/auth/login-content.tsx` : widget HCaptcha ajouté avant le bouton submit (login, register, magic link, forgot password). Token captcha passé à Supabase via `options.captchaToken`. Bouton submit désactivé tant que le captcha n'est pas résolu.
+- **[FIX]** **CSP** — `next.config.ts` : ajout des domaines hCaptcha (`js.hcaptcha.com`, `newassets.hcaptcha.com`) dans script-src, style-src, connect-src et frame-src.
+- **[CHORE]** Trigger Vercel rebuild pour `NEXT_PUBLIC_HCAPTCHA_SITE_KEY`.
+
+### Session 2 — Agenda Realtime + booking-confirmation-notify + bugfixes E2E (commit `cb157cd`)
+
+#### Agenda Realtime
+
+- **[FEAT]** **agenda-content.tsx** — souscription Supabase Realtime sur la table `bookings` (channel `bookings-realtime`, événements `*`). À chaque INSERT/UPDATE/DELETE, `fetchAllData()` est rappelé → l'agenda se met à jour sans refresh navigateur. Cleanup propre avec `removeChannel` dans le useEffect.
+
+#### Workflow booking-confirmation-notify (NOUVEAU, 5 nodes)
+
+- **[FEAT]** **booking-confirmation-notify** (`n8n`, workflow `7NjovgUVcs4x513y`) — poll toutes les 2 minutes, détecte les bookings confirmés/refusés par le commerçant dans les 3 dernières minutes. Envoie un message template au client via WhatsApp/SMS/Messenger/Telegram. Enregistre la notification pour éviter les doublons.
+
+#### 12 bugfixes E2E Gemini
+
+- **[FIX]** Fix Gemini jsonBody invalide (practitioner_name imbriqué dans scan_days)
+- **[FIX]** Fix `allowedFunctionNames` incompatible avec mode AUTO
+- **[FIX]** Parse Gemini Response : gère `confirm_booking`/`cancel_booking` retournés comme functionCall (pas comme texte)
+- **[FIX]** Résolution noms → UUIDs (Nora → UUID, Coupe homme → UUID) via lookup `$('Load Services')`/`$('Load Practitioners')`
+- **[FIX]** Timezone : append `+02:00` sur datetimes naïves de Gemini
+- **[FIX]** Booking Action? / Is Cancel? / Create Booking / Cancel Booking : référencent `$('Compute Token Cost')` au lieu de `$json` (vide après Insert Token Usage)
+- **[FIX]** Create Booking respecte `auto_confirm_bookings` du merchant (confirmed vs pending)
+- **[FIX]** Message adapté : "RDV confirmé" vs "demande envoyée, le salon confirmera"
+- **[FIX]** Gemini AI Final : ne dit plus Bonjour (2e échange)
+- **[FIX]** Dedup praticiens dans Sanitize
+- **[FIX]** Prompt renforcé : RÈGLE #5 demande de date, #6 réutiliser slots proposés, #7 confirmation
+
+### Session 3 — Prompt Gemini v3 + guardrail confirmation + fix notifications doublons
 
 Session de polish E2E centrée sur la fiabilité de la boucle **WhatsApp → IA → booking → notification**. Trois axes : **(1)** prompt Gemini complet à 9 règles avec IDs en contexte, **(2)** guardrail code pour compenser les faiblesses de Gemini Flash Lite sur le champ `action`, **(3)** fix du workflow de notification qui spammait le client.
 
