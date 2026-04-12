@@ -205,6 +205,21 @@ const AgendaContent = () => {
     return () => document.removeEventListener("visibilitychange", handler);
   }, [fetchAllData]);
 
+  // Realtime: auto-refresh bookings on INSERT/UPDATE/DELETE
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("bookings-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => { fetchAllData(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchAllData]);
+
   // Listen for notification "VOIR" navigation
   useEffect(() => {
     const handler = () => {
