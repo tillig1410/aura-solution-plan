@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
+
+const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
 
 type Mode = "login" | "register" | "magic" | "forgot";
 
@@ -20,6 +23,8 @@ const LoginContent = () => {
   const [loading, setLoading] = useState(false);
   const [magicSent, setMagicSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -31,9 +36,12 @@ const LoginContent = () => {
     const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken: captchaToken ?? undefined },
     });
 
     setLoading(false);
+    captchaRef.current?.resetCaptcha();
+    setCaptchaToken(null);
 
     if (authError) {
       setError(
@@ -66,7 +74,7 @@ const LoginContent = () => {
     const { error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback`, captchaToken: captchaToken ?? undefined },
     });
 
     setLoading(false);
@@ -87,6 +95,7 @@ const LoginContent = () => {
     const supabase = createClient();
     const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback`,
+      captchaToken: captchaToken ?? undefined,
     });
 
     setLoading(false);
@@ -107,7 +116,7 @@ const LoginContent = () => {
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback`, captchaToken: captchaToken ?? undefined },
     });
 
     setLoading(false);
@@ -192,13 +201,22 @@ const LoginContent = () => {
               </div>
             )}
 
+            {HCAPTCHA_SITE_KEY && (
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+              />
+            )}
+
             {error && (
               <p className="text-sm text-red-500 bg-red-50 p-2 rounded">
                 {error}
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || (!!HCAPTCHA_SITE_KEY && !captchaToken)}>
               {loading
                 ? "Chargement..."
                 : mode === "login"
