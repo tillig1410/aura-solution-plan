@@ -46,8 +46,6 @@ const PRESET_COLORS = [
   "#0ea5e9", "#3b82f6", "#6b7280", "#78716c",
 ];
 
-const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-
 const getInitials = (name: string) =>
   name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 
@@ -69,18 +67,6 @@ const emptyForm: FormState = {
   isActive: true,
 };
 
-interface ScheduleSlot {
-  enabled: boolean;
-  start: string;
-  end: string;
-}
-
-const defaultSchedule = (): ScheduleSlot[] =>
-  DAY_LABELS.map((_, i) => ({
-    enabled: i < 6,
-    start: "09:00",
-    end: "19:00",
-  }));
 
 const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onOpenNewRef }: PractitionerManagerProps) => {
   const activePracCount = practitioners.filter((p) => p.is_active).length;
@@ -88,7 +74,6 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onO
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [schedule, setSchedule] = useState<ScheduleSlot[]>(defaultSchedule);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PractitionerWithServices | null>(null);
@@ -96,7 +81,6 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onO
   const openNew = () => {
     setEditingId(null);
     setForm(emptyForm);
-    setSchedule(defaultSchedule());
     setError(null);
     setDialogOpen(true);
   };
@@ -118,17 +102,6 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onO
       isActive: prac.is_active,
     });
 
-    const sched = defaultSchedule();
-    for (const avail of prac.availability) {
-      if (avail.day_of_week !== null && avail.exception_date === null) {
-        sched[avail.day_of_week] = {
-          enabled: avail.is_available,
-          start: avail.start_time.slice(0, 5),
-          end: avail.end_time.slice(0, 5),
-        };
-      }
-    }
-    setSchedule(sched);
     setError(null);
     setDialogOpen(true);
   };
@@ -203,19 +176,7 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onO
       const practitioner = (await res.json()) as Practitioner;
       const practId = editingId ?? practitioner.id;
 
-      // Save availability (recurring only — vacations managed in Horaires tab)
-      const recurring = schedule.map((slot, i) => ({
-        day_of_week: i,
-        start_time: slot.start,
-        end_time: slot.end,
-        is_available: slot.enabled,
-      }));
-
-      await fetch(`${baseUrl}/${practId}/availability`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recurring }),
-      });
+      // Availability is managed in the Horaires tab only (with breaks + vacations)
 
       // Save service assignments
       await fetch(`${baseUrl}/${practId}/services`, {
@@ -364,66 +325,10 @@ const PractitionerManager = ({ practitioners, services, seatCount, onUpdate, onO
               </div>
             </div>
 
-            {/* Horaires hebdomadaires */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Horaires hebdomadaires
-              </label>
-              <div className="space-y-2">
-                {DAY_LABELS.map((day, i) => (
-                  <div key={day} className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 w-28 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={schedule[i].enabled}
-                        onChange={() =>
-                          setSchedule((s) =>
-                            s.map((slot, j) =>
-                              j === i ? { ...slot, enabled: !slot.enabled } : slot,
-                            ),
-                          )
-                        }
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className={schedule[i].enabled ? "text-gray-900" : "text-gray-400"}>
-                        {day}
-                      </span>
-                    </label>
-                    {schedule[i].enabled ? (
-                      <div className="flex items-center gap-1 text-sm">
-                        <input
-                          type="time"
-                          value={schedule[i].start}
-                          onChange={(e) =>
-                            setSchedule((s) =>
-                              s.map((slot, j) =>
-                                j === i ? { ...slot, start: e.target.value } : slot,
-                              ),
-                            )
-                          }
-                          className="border border-gray-200 rounded px-2 py-1 text-sm"
-                        />
-                        <span className="text-gray-400">—</span>
-                        <input
-                          type="time"
-                          value={schedule[i].end}
-                          onChange={(e) =>
-                            setSchedule((s) =>
-                              s.map((slot, j) =>
-                                j === i ? { ...slot, end: e.target.value } : slot,
-                              ),
-                            )
-                          }
-                          className="border border-gray-200 rounded px-2 py-1 text-sm"
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic">Fermé</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Note horaires */}
+            <p className="text-xs text-gray-500 italic border border-gray-100 rounded p-2 bg-gray-50">
+              Les horaires de travail et pauses se configurent dans l&apos;onglet &quot;Horaires&quot;.
+            </p>
 
             {/* Actif */}
             {editingId && (
