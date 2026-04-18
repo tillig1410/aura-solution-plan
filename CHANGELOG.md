@@ -5,6 +5,39 @@
 
 ---
 
+## [3.0.0] — 2026-04-18 — Workflow v2 AI Agent + 6 migrations + anti-doublon + fix UTC
+
+Refonte complète du workflow Booking Conversation : passage de 47 nodes (HTTP brut + IF/ELSE manuels) à 25 nodes avec le node AI Agent natif de n8n. L'IA gère nativement le tool-calling (get_available_slots, confirm_booking, cancel_booking) sans parsing manuel. Latence 2-3s au lieu de 5-8s.
+
+### Workflow v2 AI Agent (commit `e354f74`)
+
+- **[FEAT]** **Workflow v2** (`SGH4ltnF5VnsLyJA`, 25 nodes) — node AI Agent natif + Google Gemini Chat Model + 3 HTTP Request Tools. Prompt unique dans le node "Prepare Context" (plus dispersé sur 12 nodes). WhatsApp Incoming redirigé vers `/booking-conversation-v2`.
+- **[FEAT]** **Anti-doublon WhatsApp** — 3 nodes ajoutés dans WhatsApp Incoming : Dedup Check (RPC `check_and_mark_processed`) + Is New Message? + Respond OK (Dup). Empêche les messages triplés causés par les retries WhatsApp.
+- **[FIX]** **Respond OK** — `JSON.stringify()` au lieu de template string pour éviter le crash JSON quand le texte IA contient des guillemets.
+
+### Migrations SQL (033-038)
+
+- **[MIGRATION]** `033` — `get_available_slots` retourne `slot_start_local` (TEXT "HH:MI") et `slot_date_local` (TEXT "YYYY-MM-DD") en heure locale Paris. Fix du bug UTC (7h affichée au lieu de 9h). Gestion automatique heure été/hiver via `to_char(slot_ts_local)`.
+- **[MIGRATION]** `034` — table `processed_messages` (PK `message_id`, auto-cleanup >1h) + RPC `check_and_mark_processed(TEXT) RETURNS BOOLEAN` pour la déduplication WhatsApp.
+- **[MIGRATION]** `035` — `get_available_slots` utilise uniquement `practitioner_availability` (suppression dépendance `merchants.opening_hours`). Source unique pour les horaires praticien + pauses.
+- **[MIGRATION]** `036` — fix RPC `check_and_mark_processed` : `v_count INTEGER` au lieu de `BOOLEAN` (erreur `operator does not exist: boolean > integer`).
+- **[MIGRATION]** `037` — RPC `get_client_booking_frequency(UUID, UUID)` : calcule l'intervalle moyen entre RDV par service (window function LAG), retourne `avg_interval_days`, `last_booking_date`, `suggested_next_date`. Pour l'IA proactive.
+- **[MIGRATION]** `038` — RPC `get_bookings_pending_notification` exclut tous les canaux IA (`NOT IN whatsapp, messenger, telegram, sms, voice`) pour éviter le doublon de confirmation quand l'IA a déjà répondu dans la conversation.
+
+### Frontend
+
+- **[FIX]** **Dialogue Praticiens** (`practitioner-manager.tsx`) — suppression de l'éditeur d'horaires doublon (qui écrasait les pauses configurées dans l'onglet Horaires). Remplacé par un message renvoyant vers l'onglet "Horaires" comme source unique.
+
+### Prompt IA v2.2
+
+- **Règle 3** renforcée : ne jamais redemander une info présente dans le message ou l'historique
+- **Règle 4** (nouvelle) : inférence de date automatique ("mercredi" = mercredi prochain, jamais demander de préciser)
+- **Règle 5** (nouvelle) : proposer exactement 2-3 créneaux espacés, filtrer matin/après-midi
+- **Règle 6** renforcée : confirmation de créneau → appeler confirm_booking immédiatement, ne pas re-proposer
+- **Règle 8** renforcée : seule source fiable = RDV A VENIR (ignorer l'historique pour affirmer qu'un RDV existe)
+
+---
+
 ## [2.9.0] — 2026-04-12 — P3 sprint complet : sécurité, multi-praticien, annulation IA, hCaptcha, Realtime, guardrails
 
 Journée marathon en 3 sessions. **Session 1 (matin)** : 7 migrations Supabase (sécurité, perf, multi-praticien, annulation), 390/390 tests verts, hCaptcha, cleanup conversations. **Session 2 (après-midi)** : agenda Realtime, workflow booking-confirmation-notify, 12 bugfixes E2E Gemini. **Session 3 (soir)** : prompt Gemini v3 avec 9 règles, guardrail confirmation, fix notifications doublons.
