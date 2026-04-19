@@ -19,7 +19,7 @@ const createServiceSchema = z.object({
     .min(5, "La durée minimale est 5 minutes")
     .max(480, "La durée maximale est 480 minutes"),
   price_cents: z.number().int("Le prix doit être un entier").min(0, "Le prix ne peut pas être négatif"),
-  description: z.string().max(2000).optional(),
+  description: z.string().max(2000).optional().nullable(),
   is_active: z.boolean().optional().default(true),
 });
 
