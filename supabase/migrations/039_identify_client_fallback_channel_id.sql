@@ -30,7 +30,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $func$
 DECLARE
   v_norm TEXT := public.normalize_phone_fr(p_raw_phone);
   v_id   UUID;
@@ -106,7 +106,7 @@ BEGIN
   FROM public.clients c
   WHERE c.id = v_id;
 END;
-$$;
+$func$;
 
 COMMENT ON FUNCTION public.identify_or_create_client(UUID, TEXT, TEXT, TEXT) IS
   'v2 (mig 039) : lookup par phone_normalized puis fallback par channel_id (whatsapp/messenger/telegram) avant INSERT. Évite "duplicate key idx_clients_merchant_whatsapp" quand le phone a été modifié mais le channel_id orphelin reste sur l ancien client. Comportement INSERT/UPDATE inchangé.';
