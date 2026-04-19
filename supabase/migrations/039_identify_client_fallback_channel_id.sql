@@ -57,26 +57,21 @@ BEGIN
   END IF;
 
   IF v_id IS NULL THEN
-    -- INSERT nouveau client + scalar assign via CTE
-    v_id := (
-      WITH inserted AS (
-        INSERT INTO public.clients (
-          merchant_id, name, phone,
-          whatsapp_id, messenger_id, telegram_id,
-          preferred_language
-        ) VALUES (
-          p_merchant_id,
-          COALESCE(NULLIF(p_name, ''), 'Inconnu'),
-          p_raw_phone,
-          CASE WHEN p_channel = 'whatsapp'  THEN p_raw_phone END,
-          CASE WHEN p_channel = 'messenger' THEN p_raw_phone END,
-          CASE WHEN p_channel = 'telegram'  THEN p_raw_phone END,
-          'fr'
-        )
-        RETURNING clients.id
-      )
-      SELECT id FROM inserted
-    );
+    -- INSERT nouveau client (INSERT RETURNING INTO est la syntaxe PL/pgSQL valide)
+    INSERT INTO public.clients (
+      merchant_id, name, phone,
+      whatsapp_id, messenger_id, telegram_id,
+      preferred_language
+    ) VALUES (
+      p_merchant_id,
+      COALESCE(NULLIF(p_name, ''), 'Inconnu'),
+      p_raw_phone,
+      CASE WHEN p_channel = 'whatsapp'  THEN p_raw_phone END,
+      CASE WHEN p_channel = 'messenger' THEN p_raw_phone END,
+      CASE WHEN p_channel = 'telegram'  THEN p_raw_phone END,
+      'fr'
+    )
+    RETURNING clients.id INTO v_id;
   ELSE
     -- UPDATE fill channel_id manquant uniquement
     UPDATE public.clients c
