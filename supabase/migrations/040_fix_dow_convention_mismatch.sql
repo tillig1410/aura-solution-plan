@@ -1,15 +1,5 @@
--- Migration 040: fix convention day_of_week (dashboard vs RPC)
---
--- Bug : le dashboard sauve day_of_week avec convention 0=Lundi, 6=Dimanche
--- (cf. src/app/api/v1/practitioners/[id]/availability/route.ts:22)
--- alors que la RPC get_available_slots (migration 035) utilise
--- EXTRACT(DOW FROM date) qui donne 0=Dimanche, 6=Samedi.
---
--- Conséquence : décalage d'un jour sur tous les créneaux. Aujourd'hui
--- dimanche (EXTRACT DOW = 0) → RPC cherche la config dashboard Lundi.
---
--- Fix : utiliser EXTRACT(ISODOW FROM date) - 1 qui donne
--- 0=Lundi, 6=Dimanche. Match parfait avec le dashboard.
+-- Migration 040: fix day_of_week convention (dashboard 0=Mon vs RPC EXTRACT DOW 0=Sun)
+-- Use EXTRACT(ISODOW) - 1 to match dashboard convention (0=Mon, 6=Sun)
 
 CREATE OR REPLACE FUNCTION public.get_available_slots(
   p_merchant_id       UUID,
