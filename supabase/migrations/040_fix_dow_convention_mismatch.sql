@@ -37,11 +37,9 @@ BEGIN
 
   v_scan_count := GREATEST(1, LEAST(COALESCE(p_scan_days, 1), 14));
 
-  SELECT COALESCE(m.timezone, 'Europe/Paris')
-  INTO v_tz
-  FROM merchants m WHERE m.id = p_merchant_id;
+  v_tz := (SELECT COALESCE(m.timezone, 'Europe/Paris') FROM merchants m WHERE m.id = p_merchant_id);
 
-  IF NOT FOUND THEN
+  IF v_tz IS NULL THEN
     RETURN;
   END IF;
 
