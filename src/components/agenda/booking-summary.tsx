@@ -15,6 +15,7 @@ import {
   Scissors,
   CreditCard,
   RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import type { Booking, Practitioner, Service, Client } from "@/types/supabase";
 
@@ -29,6 +30,7 @@ interface BookingSummaryProps {
   onClose: () => void;
   onReschedule: () => void;
   booking: BookingWithDetails;
+  isNewClient?: boolean;
 }
 
 const STATUS_CONFIG: Record<Booking["status"], { label: string; cls: string }> = {
@@ -40,7 +42,7 @@ const STATUS_CONFIG: Record<Booking["status"], { label: string; cls: string }> =
   no_show: { label: "Absent", cls: "bg-orange-100 text-orange-600" },
 };
 
-const BookingSummary = ({ open, onClose, onReschedule, booking }: BookingSummaryProps) => {
+const BookingSummary = ({ open, onClose, onReschedule, booking, isNewClient }: BookingSummaryProps) => {
   const status = STATUS_CONFIG[booking.status];
   const price = booking.service ? (booking.service.price_cents / 100).toFixed(2) : null;
   const dateLabel = new Date(booking.starts_at).toLocaleDateString("fr-FR", {
@@ -80,10 +82,18 @@ const BookingSummary = ({ open, onClose, onReschedule, booking }: BookingSummary
             <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
               <User className="h-4 w-4 text-indigo-600" />
             </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">
-                {booking.client?.name ?? "Client inconnu"}
-              </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-gray-900">
+                  {booking.client?.name ?? "Client inconnu"}
+                </p>
+                {isNewClient && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 border border-emerald-200">
+                    <Sparkles className="w-3 h-3" />
+                    Nouveau client
+                  </span>
+                )}
+              </div>
               {booking.client?.phone && (
                 <p className="text-xs text-gray-500">{booking.client.phone}</p>
               )}

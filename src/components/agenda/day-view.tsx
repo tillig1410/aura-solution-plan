@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 import type { Practitioner, Booking } from "@/types/supabase";
 
 interface BookingWithDetails extends Booking {
@@ -18,6 +19,7 @@ interface DayViewProps {
   practitioners: PractitionerWithAvailability[];
   date: Date;
   onBookingClick: (b: BookingWithDetails) => void;
+  newClientIds?: Set<string>;
 }
 
 const HOUR_START = 8;
@@ -33,7 +35,7 @@ const minutesFromMidnight = (isoStr: string): number => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
-const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps) => {
+const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds }: DayViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pxPerMinute, setPxPerMinute] = useState(1);
   const [currentMinute, setCurrentMinute] = useState<number>(() => {
@@ -228,13 +230,19 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                     >
                       <button
                         onClick={() => onBookingClick(booking)}
-                        className="w-full h-full rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all"
+                        className="w-full h-full rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all relative"
                         style={{
                           backgroundColor: `${isNoShow || isCancelled ? "#9ca3af" : color}15`,
                           borderLeft: `4px solid ${isNoShow || isCancelled ? "#9ca3af" : color}`,
                           boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                         }}
                       >
+                        {booking.client && newClientIds?.has(booking.client.id) && !isCancelled && !isNoShow && (
+                          <span className="absolute top-1 right-1 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-500 text-white rounded-full px-1.5 py-0.5 shadow-sm">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            Nouveau
+                          </span>
+                        )}
                         <div className="flex items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${booking.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
                           <span className="text-[11px] font-semibold truncate" style={{ color }}>
@@ -250,7 +258,15 @@ const DayView = ({ bookings, practitioners, date, onBookingClick }: DayViewProps
                       {/* Custom tooltip */}
                       <div className="hidden group-hover/tip:block absolute left-0 top-full mt-1 z-30 pointer-events-none">
                         <div className="rounded-xl bg-white shadow-lg ring-1 ring-black/10 px-3 py-2.5 min-w-[180px] max-w-[240px]">
-                          <div className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</span>
+                            {booking.client && newClientIds?.has(booking.client.id) && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 border border-emerald-200">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Nouveau client
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[11px] text-gray-600 mt-0.5">{booking.service?.name}</div>
                           <div className="text-[11px] font-semibold mt-1" style={{ color }}>{timeStart} — {timeEnd}</div>
                           <div className="mt-1.5 flex items-center gap-2 flex-wrap">

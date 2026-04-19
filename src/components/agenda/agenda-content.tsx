@@ -139,7 +139,12 @@ const AgendaContent = () => {
 
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<(Client & { booking_count?: number })[]>([]);
+
+  const newClientIds = useMemo(
+    () => new Set(clients.filter((c) => (c.booking_count ?? 0) <= 1).map((c) => c.id)),
+    [clients],
+  );
   const [merchantStatus, setMerchantStatus] = useState<{
     hasSubscription: boolean;
     trialEnd: string | null;
@@ -536,6 +541,7 @@ const AgendaContent = () => {
               practitioners={practitioners}
               date={currentDate}
               onBookingClick={handleBookingClick}
+              newClientIds={newClientIds}
             />
           )}
           {view === "week" && (
@@ -545,6 +551,7 @@ const AgendaContent = () => {
               weekStart={weekStart}
               selectedPractitionerIds={selectedPractitionerIds}
               onBookingClick={handleBookingClick}
+              newClientIds={newClientIds}
             />
           )}
           {view === "month" && (
@@ -911,6 +918,7 @@ const AgendaContent = () => {
           onClose={handleSummaryClose}
           onReschedule={handleReschedule}
           booking={selectedBooking}
+          isNewClient={!!selectedBooking.client && newClientIds.has(selectedBooking.client.id)}
         />
       )}
 

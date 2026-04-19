@@ -9,15 +9,17 @@ import {
   Star,
   X,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface SidebarNotification {
   id: string;
-  type: "tip" | "booking_change" | "no_show" | "loyalty_upgrade" | "reminder";
+  type: "tip" | "booking_change" | "no_show" | "loyalty_upgrade" | "reminder" | "new_client";
   title: string;
   description: string;
   action?: string;
+  actionTarget?: "agenda" | "clients";
   actionDate?: string;
   timestamp: string;
   dismissed: boolean;
@@ -29,6 +31,7 @@ const NOTIF_ICON: Record<SidebarNotification["type"], { icon: React.ReactNode; c
   no_show: { icon: <AlertTriangle className="h-4 w-4" />, color: "text-red-500 bg-red-50" },
   loyalty_upgrade: { icon: <Star className="h-4 w-4" />, color: "text-yellow-500 bg-yellow-50" },
   reminder: { icon: <Bell className="h-4 w-4" />, color: "text-indigo-500 bg-indigo-50" },
+  new_client: { icon: <Sparkles className="h-4 w-4" />, color: "text-emerald-500 bg-emerald-50" },
 };
 
 const SidebarNotifications = () => {
@@ -82,7 +85,40 @@ const SidebarNotifications = () => {
         .order("updated_at", { ascending: false })
         .limit(5);
 
+      // Fetch newly created clients today
+      const { data: newClients } = await supabase
+        .from("clients")
+        .select("id, name, created_at, whatsapp_id, messenger_id, telegram_id, phone")
+        .eq("merchant_id", merchant.id)
+        .gte("created_at", todayStart.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(5);
+
       const notifs: SidebarNotification[] = [];
+
+      if (newClients) {
+        for (const c of newClients) {
+          const source = c.whatsapp_id
+            ? "WhatsApp"
+            : c.messenger_id
+              ? "Messenger"
+              : c.telegram_id
+                ? "Telegram"
+                : c.phone
+                  ? "téléphone"
+                  : "dashboard";
+          notifs.push({
+            id: `new-client-${c.id}`,
+            type: "new_client",
+            title: "Nouveau client",
+            description: `${c.name ?? "Client anonyme"} — créé via ${source}`,
+            action: "VOIR LA FICHE",
+            actionTarget: "clients",
+            timestamp: c.created_at,
+            dismissed: false,
+          });
+        }
+      }
 
       if (tips) {
         for (const tip of tips) {
@@ -221,7 +257,9 @@ const SidebarNotifications = () => {
                       <button
                         className="text-[10px] font-semibold text-indigo-600 mt-1 hover:text-indigo-800"
                         onClick={() => {
-                          if (notif.actionDate) {
+                          if (notif.actionTarget === "clients") {
+                            router.push("/clients");
+                          } else if (notif.actionDate) {
                             // Navigate to agenda on the booking date
                             if (pathname === "/agenda") {
                               // Already on agenda — store date to trigger navigation

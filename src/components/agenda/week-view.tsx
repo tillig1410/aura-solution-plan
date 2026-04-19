@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 import type { Practitioner, Booking } from "@/types/supabase";
 
 interface BookingWithDetails extends Booking {
@@ -19,6 +20,7 @@ interface WeekViewProps {
   weekStart: Date;
   selectedPractitionerIds: string[];
   onBookingClick: (b: BookingWithDetails) => void;
+  newClientIds?: Set<string>;
 }
 
 const HOUR_START = 8;
@@ -109,6 +111,7 @@ const WeekView = ({
   weekStart,
   selectedPractitionerIds,
   onBookingClick,
+  newClientIds,
 }: WeekViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pxPerMinute, setPxPerMinute] = useState(1);
@@ -354,13 +357,18 @@ const WeekView = ({
                         >
                           <button
                             onClick={() => onBookingClick(booking)}
-                            className="w-full h-full rounded-lg text-left overflow-hidden hover:brightness-90 transition-all px-1 py-0.5"
+                            className="w-full h-full rounded-lg text-left overflow-hidden hover:brightness-90 transition-all px-1 py-0.5 relative"
                             style={{
                               backgroundColor: `${color}20`,
                               borderLeft: `3px solid ${color}`,
                               boxShadow: "0 1px 3px rgba(0,0,0,0.10)",
                             }}
                           >
+                            {booking.client && newClientIds?.has(booking.client.id) && !isCancelled && !isNoShow && (
+                              <span className="absolute top-0.5 right-0.5 inline-flex items-center justify-center bg-emerald-500 text-white rounded-full p-0.5 shadow-sm" title="Nouveau client">
+                                <Sparkles className="w-2.5 h-2.5" />
+                              </span>
+                            )}
                             <div className="flex items-center gap-1">
                               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${booking.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
                               <span className="text-[9px] font-semibold truncate" style={{ color }}>
@@ -376,7 +384,15 @@ const WeekView = ({
                           {/* Custom tooltip */}
                           <div className="hidden group-hover/tip:block absolute left-0 top-full mt-1 z-30 pointer-events-none">
                             <div className="rounded-xl bg-white shadow-lg ring-1 ring-black/10 px-3 py-2.5 min-w-[160px] max-w-[220px]">
-                              <div className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-gray-900">{booking.client?.name ?? "Client inconnu"}</span>
+                                {booking.client && newClientIds?.has(booking.client.id) && (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 border border-emerald-200">
+                                    <Sparkles className="w-2.5 h-2.5" />
+                                    Nouveau client
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-[11px] text-gray-600 mt-0.5">{booking.service?.name}</div>
                               <div className="text-[11px] font-semibold mt-1" style={{ color }}>{timeStart} — {timeEnd}</div>
                               <div className="mt-1.5 flex items-center gap-2 flex-wrap">
