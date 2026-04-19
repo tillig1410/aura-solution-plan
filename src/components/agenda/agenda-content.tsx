@@ -145,6 +145,24 @@ const AgendaContent = () => {
     () => new Set(clients.filter((c) => (c.completed_count ?? 0) === 0).map((c) => c.id)),
     [clients],
   );
+
+  // Bookings masqués (annulés dont la notif a été dismissed)
+  const [hiddenBookingIds, setHiddenBookingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const loadHidden = () => {
+      const stored = JSON.parse(sessionStorage.getItem("agenda_hidden_bookings") || "[]") as string[];
+      setHiddenBookingIds(new Set(stored));
+    };
+    loadHidden();
+    window.addEventListener("agenda-hidden-bookings-changed", loadHidden);
+    return () => window.removeEventListener("agenda-hidden-bookings-changed", loadHidden);
+  }, []);
+
+  const visibleBookings = useMemo(
+    () => bookings.filter((b) => !hiddenBookingIds.has(b.id)),
+    [bookings, hiddenBookingIds],
+  );
   const [merchantStatus, setMerchantStatus] = useState<{
     hasSubscription: boolean;
     trialEnd: string | null;
@@ -537,7 +555,7 @@ const AgendaContent = () => {
         <div className="flex-1 rounded-xl overflow-hidden ring-1 ring-foreground/10 bg-white min-h-0">
           {view === "day" && (
             <DayView
-              bookings={bookings}
+              bookings={visibleBookings}
               practitioners={practitioners}
               date={currentDate}
               onBookingClick={handleBookingClick}
@@ -546,7 +564,7 @@ const AgendaContent = () => {
           )}
           {view === "week" && (
             <WeekView
-              bookings={bookings}
+              bookings={visibleBookings}
               practitioners={practitioners}
               weekStart={weekStart}
               selectedPractitionerIds={selectedPractitionerIds}
@@ -556,7 +574,7 @@ const AgendaContent = () => {
           )}
           {view === "month" && (
             <MonthView
-              bookings={bookings}
+              bookings={visibleBookings}
               practitioners={practitioners}
               month={currentDate}
               onDayClick={handleDayClick}

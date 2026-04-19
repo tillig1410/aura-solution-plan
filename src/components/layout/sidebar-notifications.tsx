@@ -203,6 +203,16 @@ const SidebarNotifications = () => {
       dismissed.push(id);
       sessionStorage.setItem("dismissed_notifs", JSON.stringify(dismissed));
     }
+    // Si c'est une notif d'annulation/no-show, masquer aussi le RDV de l'agenda
+    if (id.startsWith("change-")) {
+      const bookingId = id.replace("change-", "");
+      const hidden = JSON.parse(sessionStorage.getItem("agenda_hidden_bookings") || "[]") as string[];
+      if (!hidden.includes(bookingId)) {
+        hidden.push(bookingId);
+        sessionStorage.setItem("agenda_hidden_bookings", JSON.stringify(hidden));
+        window.dispatchEvent(new Event("agenda-hidden-bookings-changed"));
+      }
+    }
   };
 
   const activeNotifs = notifications.filter((n) => !n.dismissed);
