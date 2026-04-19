@@ -31,51 +31,52 @@ BEGIN
   END IF;
 
   -- Lookup par phone_normalized (cas standard)
-  SELECT c.id INTO v_id
-  FROM public.clients c
-  WHERE c.merchant_id = p_merchant_id
-    AND c.phone_normalized = v_norm
-  LIMIT 1;
+  v_id := (SELECT c.id FROM public.clients c
+           WHERE c.merchant_id = p_merchant_id
+             AND c.phone_normalized = v_norm
+           LIMIT 1);
 
   -- Fallback lookup par channel_id si phone_normalized vide
   IF v_id IS NULL THEN
     IF p_channel = 'whatsapp' THEN
-      SELECT c.id INTO v_id
-      FROM public.clients c
-      WHERE c.merchant_id = p_merchant_id
-        AND c.whatsapp_id = p_raw_phone
-      LIMIT 1;
+      v_id := (SELECT c.id FROM public.clients c
+               WHERE c.merchant_id = p_merchant_id
+                 AND c.whatsapp_id = p_raw_phone
+               LIMIT 1);
     ELSIF p_channel = 'messenger' THEN
-      SELECT c.id INTO v_id
-      FROM public.clients c
-      WHERE c.merchant_id = p_merchant_id
-        AND c.messenger_id = p_raw_phone
-      LIMIT 1;
+      v_id := (SELECT c.id FROM public.clients c
+               WHERE c.merchant_id = p_merchant_id
+                 AND c.messenger_id = p_raw_phone
+               LIMIT 1);
     ELSIF p_channel = 'telegram' THEN
-      SELECT c.id INTO v_id
-      FROM public.clients c
-      WHERE c.merchant_id = p_merchant_id
-        AND c.telegram_id = p_raw_phone
-      LIMIT 1;
+      v_id := (SELECT c.id FROM public.clients c
+               WHERE c.merchant_id = p_merchant_id
+                 AND c.telegram_id = p_raw_phone
+               LIMIT 1);
     END IF;
   END IF;
 
   IF v_id IS NULL THEN
-    -- INSERT nouveau client
-    INSERT INTO public.clients (
-      merchant_id, name, phone,
-      whatsapp_id, messenger_id, telegram_id,
-      preferred_language
-    ) VALUES (
-      p_merchant_id,
-      COALESCE(NULLIF(p_name, ''), 'Inconnu'),
-      p_raw_phone,
-      CASE WHEN p_channel = 'whatsapp'  THEN p_raw_phone END,
-      CASE WHEN p_channel = 'messenger' THEN p_raw_phone END,
-      CASE WHEN p_channel = 'telegram'  THEN p_raw_phone END,
-      'fr'
-    )
-    RETURNING clients.id INTO v_id;
+    -- INSERT nouveau client + scalar assign via CTE
+    v_id := (
+      WITH inserted AS (
+        INSERT INTO public.clients (
+          merchant_id, name, phone,
+          whatsapp_id, messenger_id, telegram_id,
+          preferred_language
+        ) VALUES (
+          p_merchant_id,
+          COALESCE(NULLIF(p_name, ''), 'Inconnu'),
+          p_raw_phone,
+          CASE WHEN p_channel = 'whatsapp'  THEN p_raw_phone END,
+          CASE WHEN p_channel = 'messenger' THEN p_raw_phone END,
+          CASE WHEN p_channel = 'telegram'  THEN p_raw_phone END,
+          'fr'
+        )
+        RETURNING clients.id
+      )
+      SELECT id FROM inserted
+    );
   ELSE
     -- UPDATE fill channel_id manquant uniquement
     UPDATE public.clients c
