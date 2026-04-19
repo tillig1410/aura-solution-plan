@@ -11,8 +11,6 @@
 -- Fix : utiliser EXTRACT(ISODOW FROM date) - 1 qui donne
 -- 0=Lundi, 6=Dimanche. Match parfait avec le dashboard.
 
-DROP FUNCTION IF EXISTS public.get_available_slots(UUID, DATE, INTEGER, INTEGER, TEXT);
-
 CREATE OR REPLACE FUNCTION public.get_available_slots(
   p_merchant_id       UUID,
   p_date              DATE,
