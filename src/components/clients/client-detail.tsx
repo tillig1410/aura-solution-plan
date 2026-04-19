@@ -80,6 +80,7 @@ interface ClientDetail {
 interface ClientDetailProps {
   clientId: string | null;
   onClose: () => void;
+  onUpdate?: () => void;
 }
 
 // --- Helpers ---
@@ -133,7 +134,7 @@ const formatTime = (iso: string): string => {
 
 // --- Component ---
 
-const ClientDetail = ({ clientId, onClose }: ClientDetailProps) => {
+const ClientDetail = ({ clientId, onClose, onUpdate }: ClientDetailProps) => {
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -224,6 +225,7 @@ const ClientDetail = ({ clientId, onClose }: ClientDetailProps) => {
         );
         setEditingInfo(false);
         toast.success("Fiche client mise à jour");
+        onUpdate?.();
       } else {
         const err = (await res.json().catch(() => ({ error: "Erreur inconnue" }))) as { error?: string };
         toast.error(err.error ?? "Erreur lors de la sauvegarde");
@@ -246,6 +248,7 @@ const ClientDetail = ({ clientId, onClose }: ClientDetailProps) => {
         const updated = (await res.json()) as ClientDetail;
         setClient((prev) => (prev ? { ...prev, notes: updated.notes } : prev));
         setEditingNotes(false);
+        onUpdate?.();
       } else {
         const err = (await res.json().catch(() => ({ error: "Erreur inconnue" }))) as { error?: string };
         toast.error(err.error ?? "Erreur lors de la sauvegarde des notes");

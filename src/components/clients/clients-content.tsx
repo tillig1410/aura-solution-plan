@@ -371,7 +371,11 @@ const ClientsContent = () => {
       </div>
 
       {/* Panneau droit : détail client */}
-      <ClientDetail clientId={selectedId} onClose={() => setSelectedId(null)} />
+      <ClientDetail
+        clientId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onUpdate={() => fetchClients(search, filter, page)}
+      />
 
       {/* Dialog nouveau client */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
