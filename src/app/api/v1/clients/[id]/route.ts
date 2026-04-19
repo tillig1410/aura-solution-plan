@@ -62,6 +62,7 @@ export async function GET(
   const [
     { data: recentBookings, error: bookingsError },
     { data: activePackages, error: packagesError },
+    { count: completedCount, error: completedError },
   ] = await Promise.all([
     supabase
       .from("bookings")
@@ -87,6 +88,12 @@ export async function GET(
       .eq("client_id", id)
       .eq("merchant_id", merchant.id)
       .gt("remaining_uses", 0),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", id)
+      .eq("merchant_id", merchant.id)
+      .eq("status", "completed"),
   ]);
 
   if (bookingsError) {
@@ -95,11 +102,15 @@ export async function GET(
   if (packagesError) {
     logger.error("clients.packages_fetch_failed", { error: packagesError.message, traceId });
   }
+  if (completedError) {
+    logger.error("clients.completed_count_failed", { error: completedError.message, traceId });
+  }
 
   return NextResponse.json({
     ...client,
     recent_bookings: recentBookings ?? [],
     active_packages: activePackages ?? [],
+    completed_count: completedCount ?? 0,
   });
 }
 

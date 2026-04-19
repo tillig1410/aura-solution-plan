@@ -38,6 +38,7 @@ interface ClientWithStats {
   is_blocked: boolean;
   created_at: string;
   booking_count: number;
+  completed_count: number;
   last_booking_at: string | null;
   next_booking_at: string | null;
 }
@@ -295,7 +296,7 @@ const ClientsContent = () => {
                               </p>
                             )}
                           </div>
-                          {client.booking_count === 0 && !client.is_blocked && (
+                          {client.completed_count === 0 && !client.is_blocked && (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200">
                               <Sparkles className="w-3 h-3" />
                               Nouveau

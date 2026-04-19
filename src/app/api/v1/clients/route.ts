@@ -9,6 +9,7 @@ type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 
 export interface ClientWithStats extends ClientRow {
   booking_count: number;
+  completed_count: number;
   last_booking_at: string | null;
   next_booking_at: string | null;
 }
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
 
   const { data: bookingStats, error: statsError } = await supabase
     .from("bookings")
-    .select("client_id, starts_at")
+    .select("client_id, starts_at, status")
     .eq("merchant_id", merchant.id)
     .in("client_id", clientIds)
     .not("status", "in", '("cancelled","no_show")');
@@ -122,9 +123,9 @@ export async function GET(request: NextRequest) {
     logger.error("clients.stats_failed", { error: statsError.message, traceId });
   }
 
-  const statsMap = new Map<string, { booking_count: number; last_booking_at: string | null; next_booking_at: string | null }>();
+  const statsMap = new Map<string, { booking_count: number; completed_count: number; last_booking_at: string | null; next_booking_at: string | null }>();
   for (const clientId of clientIds) {
-    statsMap.set(clientId, { booking_count: 0, last_booking_at: null, next_booking_at: null });
+    statsMap.set(clientId, { booking_count: 0, completed_count: 0, last_booking_at: null, next_booking_at: null });
   }
 
   const now = new Date().toISOString();
@@ -134,6 +135,7 @@ export async function GET(request: NextRequest) {
       const existing = statsMap.get(b.client_id);
       if (!existing) continue;
       existing.booking_count += 1;
+      if (b.status === "completed") existing.completed_count += 1;
       if (!existing.last_booking_at || b.starts_at > existing.last_booking_at) {
         existing.last_booking_at = b.starts_at;
       }
@@ -146,7 +148,7 @@ export async function GET(request: NextRequest) {
   }
 
   const data: ClientWithStats[] = clients.map((c) => {
-    const stats = statsMap.get(c.id) ?? { booking_count: 0, last_booking_at: null, next_booking_at: null };
+    const stats = statsMap.get(c.id) ?? { booking_count: 0, completed_count: 0, last_booking_at: null, next_booking_at: null };
     return { ...c, ...stats };
   });
 

@@ -139,10 +139,10 @@ const AgendaContent = () => {
 
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [clients, setClients] = useState<(Client & { booking_count?: number })[]>([]);
+  const [clients, setClients] = useState<(Client & { booking_count?: number; completed_count?: number })[]>([]);
 
   const newClientIds = useMemo(
-    () => new Set(clients.filter((c) => (c.booking_count ?? 0) <= 1).map((c) => c.id)),
+    () => new Set(clients.filter((c) => (c.completed_count ?? 0) === 0).map((c) => c.id)),
     [clients],
   );
   const [merchantStatus, setMerchantStatus] = useState<{

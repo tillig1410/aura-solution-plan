@@ -76,6 +76,7 @@ interface ClientDetail {
   updated_at: string;
   recent_bookings: RecentBooking[];
   active_packages: ActivePackage[];
+  completed_count: number;
 }
 
 interface ClientDetailProps {
@@ -384,10 +385,7 @@ const ClientDetail = ({ clientId, onClose, onUpdate }: ClientDetailProps) => {
                           </span>
                         </div>
                       )}
-                      {client.recent_bookings.filter(
-                        (b) => b.status !== "cancelled" && b.status !== "no_show",
-                      ).length === 0 &&
-                        !client.is_blocked && (
+                      {client.completed_count === 0 && !client.is_blocked && (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 mt-1">
                             <Sparkles className="w-3 h-3" />
                             Nouveau client
