@@ -15,7 +15,7 @@ const TopBar = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white px-6">
+    <header className="flex h-12 items-center justify-between border-b bg-white px-6">
       <div />
       <Button variant="ghost" size="sm" onClick={handleSignOut}>
         <LogOut className="mr-2 h-4 w-4" />
