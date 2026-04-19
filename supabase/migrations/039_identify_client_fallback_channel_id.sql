@@ -1,14 +1,5 @@
--- Migration 039: identify_or_create_client — fallback lookup par channel_id
---
--- Bug avant : si le phone d'un client a été modifié dans le dashboard mais que
--- son whatsapp_id (ou messenger_id, telegram_id) est resté = au numéro d'origine,
--- le RPC échoue avec "duplicate key violates idx_clients_merchant_whatsapp" car
--- il tente d'INSERT un nouveau client avec le whatsapp_id orphelin.
---
--- Fix : si lookup par phone_normalized échoue, retomber sur lookup par channel_id
--- correspondant. Ne rien modifier (pas de UPDATE silencieux du phone), juste
--- retourner le client existant — le commerçant gère manuellement s'il veut
--- déconnecter le canal de l'ancien contact.
+-- Migration 039: identify_or_create_client fallback lookup par channel_id
+-- Fix duplicate key idx_clients_merchant_whatsapp when phone edited but whatsapp_id orphaned
 
 CREATE OR REPLACE FUNCTION public.identify_or_create_client(
   p_merchant_id UUID,
@@ -39,16 +30,14 @@ BEGIN
     RAISE EXCEPTION 'identify_or_create_client: invalid phone "%"', p_raw_phone;
   END IF;
 
-  -- 1. Lookup par phone_normalized (cas standard)
+  -- Lookup par phone_normalized (cas standard)
   SELECT c.id INTO v_id
   FROM public.clients c
   WHERE c.merchant_id = p_merchant_id
     AND c.phone_normalized = v_norm
   LIMIT 1;
 
-  -- 2. Fallback : lookup par channel_id si phone_normalized n'a rien donné
-  -- (cas où le phone du client a été manuellement modifié mais le channel_id
-  -- est resté = au numéro d'origine de l'expéditeur)
+  -- Fallback lookup par channel_id si phone_normalized vide
   IF v_id IS NULL THEN
     IF p_channel = 'whatsapp' THEN
       SELECT c.id INTO v_id
@@ -72,7 +61,7 @@ BEGIN
   END IF;
 
   IF v_id IS NULL THEN
-    -- 3a. INSERT nouveau client
+    -- INSERT nouveau client
     INSERT INTO public.clients (
       merchant_id, name, phone,
       whatsapp_id, messenger_id, telegram_id,
@@ -88,8 +77,7 @@ BEGIN
     )
     RETURNING clients.id INTO v_id;
   ELSE
-    -- 3b. UPDATE : fill seulement le channel_id manquant
-    -- (ne touche jamais name ni phone original — voir migration 024)
+    -- UPDATE fill channel_id manquant uniquement
     UPDATE public.clients c
     SET
       whatsapp_id  = COALESCE(c.whatsapp_id,  CASE WHEN p_channel = 'whatsapp'  THEN p_raw_phone END),
@@ -109,6 +97,6 @@ END;
 $func$;
 
 COMMENT ON FUNCTION public.identify_or_create_client(UUID, TEXT, TEXT, TEXT) IS
-  'v2 (mig 039) : lookup par phone_normalized puis fallback par channel_id (whatsapp/messenger/telegram) avant INSERT. Évite "duplicate key idx_clients_merchant_whatsapp" quand le phone a été modifié mais le channel_id orphelin reste sur l ancien client. Comportement INSERT/UPDATE inchangé.';
+  'mig 039: lookup phone_normalized then fallback channel_id before INSERT, avoids duplicate key on orphan channel_id';
 
 GRANT EXECUTE ON FUNCTION public.identify_or_create_client(UUID, TEXT, TEXT, TEXT) TO service_role;
