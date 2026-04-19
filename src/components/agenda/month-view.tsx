@@ -102,13 +102,10 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
         {grid.map((day, idx) => {
           const isCurrentMonth = day.getMonth() === currentMonth;
           const isToday = isSameDay(day, today);
-          const isSunday = idx % 7 === 6;
           const dayKey = day.toDateString();
           const dayBookings = bookingsByDay.get(dayKey) ?? [];
 
-          // Skip capacity calc for Sunday or empty
-          const activeCount = isSunday ? 0 : activePracs.length;
-          const totalCapacity = activeCount * DEFAULT_CAPACITY_MIN;
+          const totalCapacity = activePracs.length * DEFAULT_CAPACITY_MIN;
 
           // Booked minutes
           const bookedMinutes = dayBookings.reduce((sum, b) => {
@@ -127,9 +124,9 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
             const mins = pracBookings.reduce((s, b) => s + (b.service?.duration_minutes ?? 30), 0);
             const rate = Math.min(mins / DEFAULT_CAPACITY_MIN, 1);
             return { id: p.id, name: p.name, color: p.color, count: pracBookings.length, rate };
-          }).filter((s) => !isSunday);
+          });
 
-          const bgClass = isCurrentMonth && !isSunday ? fillColor(fillRate) : "";
+          const bgClass = isCurrentMonth ? fillColor(fillRate) : "";
 
           const confirmedCount = dayBookings.filter((b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed").length;
           const pendingCount = dayBookings.filter((b) => b.status === "pending").length;
@@ -140,7 +137,7 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
               onClick={() => onDayClick(day)}
               className={`relative border-r border-b p-1.5 text-left transition-colors flex flex-col overflow-hidden ${
                 isCurrentMonth ? "hover:brightness-95" : "bg-gray-50/60"
-              } ${isSunday ? "bg-gray-50/80" : ""} ${bgClass}`}
+              } ${bgClass}`}
             >
               {/* Day number */}
               <div className="flex items-center justify-between w-full">
@@ -151,48 +148,44 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
                       : isCurrentMonth
                       ? "text-gray-800"
                       : "text-gray-400"
-                  } ${isSunday && !isToday ? "text-gray-400" : ""}`}
+                  }`}
                 >
                   {day.getDate()}
                 </div>
 
-                {/* Stats badges like Résumé du jour */}
-                {!isSunday && (
-                  <div className="flex items-center gap-0.5">
-                    <span className={`text-[11px] font-bold rounded px-1 py-0.5 ${dayBookings.length > 0 ? "text-indigo-600 bg-indigo-50" : "text-gray-300 bg-gray-50"}`}>
-                      {dayBookings.length}
+                {/* Stats badges */}
+                <div className="flex items-center gap-0.5">
+                  <span className={`text-[11px] font-bold rounded px-1 py-0.5 ${dayBookings.length > 0 ? "text-indigo-600 bg-indigo-50" : "text-gray-300 bg-gray-50"}`}>
+                    {dayBookings.length}
+                  </span>
+                  {confirmedCount > 0 && (
+                    <span className="text-[11px] font-bold text-green-600 bg-green-50 rounded px-1 py-0.5 flex items-center gap-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{confirmedCount}
                     </span>
-                    {confirmedCount > 0 && (
-                      <span className="text-[11px] font-bold text-green-600 bg-green-50 rounded px-1 py-0.5 flex items-center gap-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{confirmedCount}
-                      </span>
-                    )}
-                    {pendingCount > 0 && (
-                      <span className="text-[11px] font-bold text-amber-600 bg-amber-50 rounded px-1 py-0.5 flex items-center gap-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{pendingCount}
-                      </span>
-                    )}
-                  </div>
-                )}
+                  )}
+                  {pendingCount > 0 && (
+                    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 rounded px-1 py-0.5 flex items-center gap-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{pendingCount}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Global fill gauge — always visible on working days */}
-              {!isSunday && (
-                <div className="flex items-center gap-1 mt-1 pl-3.5 pr-6">
-                  <div className="flex-1 h-2 rounded-full bg-gray-100">
-                    <div
-                      className={`h-full rounded-full transition-all ${barColor(fillRate)}`}
-                      style={{ width: `${fillPct}%` }}
-                    />
-                  </div>
-                  <span className={`text-xs font-bold shrink-0 ${fillRate >= 0.8 ? "text-red-500" : fillRate >= 0.5 ? "text-amber-500" : "text-green-500"}`}>
-                    {fillPct}%
-                  </span>
+              {/* Global fill gauge */}
+              <div className="flex items-center gap-1 mt-1 pl-3.5 pr-6">
+                <div className="flex-1 h-2 rounded-full bg-gray-100">
+                  <div
+                    className={`h-full rounded-full transition-all ${barColor(fillRate)}`}
+                    style={{ width: `${fillPct}%` }}
+                  />
                 </div>
-              )}
+                <span className={`text-xs font-bold shrink-0 ${fillRate >= 0.8 ? "text-red-500" : fillRate >= 0.5 ? "text-amber-500" : "text-green-500"}`}>
+                  {fillPct}%
+                </span>
+              </div>
 
-              {/* Per-practitioner mini bars — always visible on working days */}
-              {!isSunday && pracStats.length > 0 && (
+              {/* Per-practitioner mini bars */}
+              {pracStats.length > 0 && (
                 <div className="mt-1.5 flex flex-col gap-1 flex-1 min-h-0 overflow-hidden">
                   {pracStats.slice(0, 4).map((ps) => (
                     <div key={ps.id} className="flex items-center gap-1">
@@ -215,13 +208,6 @@ const MonthView = ({ bookings, practitioners, month, onDayClick }: MonthViewProp
                   {pracStats.length > 4 && (
                     <span className="text-[10px] text-gray-400">+{pracStats.length - 4}</span>
                   )}
-                </div>
-              )}
-
-              {/* Sunday */}
-              {isSunday && (
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="text-[9px] text-gray-400">Fermé</span>
                 </div>
               )}
             </button>
