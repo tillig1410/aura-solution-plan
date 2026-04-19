@@ -10,6 +10,7 @@ import {
   Star,
   Package,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -383,6 +384,15 @@ const ClientDetail = ({ clientId, onClose, onUpdate }: ClientDetailProps) => {
                           </span>
                         </div>
                       )}
+                      {client.recent_bookings.filter(
+                        (b) => b.status !== "cancelled" && b.status !== "no_show",
+                      ).length === 0 &&
+                        !client.is_blocked && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 mt-1">
+                            <Sparkles className="w-3 h-3" />
+                            Nouveau client
+                          </span>
+                        )}
                       {client.is_blocked && (
                         <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 mt-1">
                           Bloqué
