@@ -5,6 +5,49 @@
 
 ---
 
+## [3.1.0] — 2026-04-19 — Polish workflow v2 (REGLE 10 + ETAT ACTUEL pré-calculé) + migrations 039/040 + UI
+
+Session intensive de polish post-déploiement workflow v2. 14 commits, focus sur le flow conversationnel (Gemini Lite mieux guidé via pré-processing JS), 2 migrations critiques DB, et UI badge "Nouveau client" + édition inline fiche client.
+
+### Workflow n8n v2.9 (via MCP, pas de fichier local sauf backup)
+
+- **[FEAT]** **REGLE 10 NOM CLIENT** — Gemini demande le prénom si `client_db_name` null (avec exemple "Au fait, comment dois-je vous appeler ?")
+- **[FEAT]** **Tool `set_client_name`** (PATCH `clients`) — Gemini sauvegarde le prénom donné par le client. Connecté à Agent IA via `ai_tool` (workflow passé de 25 → 26 nodes)
+- **[FEAT]** **Pré-processing JS dans Prepare Context** — détection service/date/horaire/prénom depuis historique + message courant, injecté en haut du prompt comme **ETAT ACTUEL**. Compense la faible intelligence de Gemini Flash Lite (qui ignorait souvent l'historique)
+- **[FEAT]** **REGLE 3 fuzzy matching services** — "barbe" matche "Barbe", "coupe" matche "Coupe homme", etc.
+- **[FIX]** **Identify Client `p_name=""`** — ne sauve plus le nom de profil WhatsApp à la création du client (sinon REGLE 10 ne se déclencherait jamais)
+- **[FIX]** **Build Context** — traite `'Inconnu'` comme `null` pour `client_db_name`
+- **[CHORE]** **Backup workflow** — `n8n/workflows/booking-conversation-v2.json` (108k, snapshot du workflow actuel via MCP get)
+
+### Modèle LLM
+
+- **[CHORE]** Tentative `gemini-2.5-flash` full → bug n8n LangChain "Cannot read properties of undefined (reading 'parts')" causé par le mode "thinking" non parsé par n8n
+- **[CHORE]** Tentative `gemini-2.0-flash` → 404 "no longer available to new users"
+- **[KEEP]** Reste sur `gemini-2.5-flash-lite` — stable, le pré-processing JS compense
+
+### Migrations DB (commits multiples — refactors successifs)
+
+- **[FEAT]** **Migration 039** (`identify_client_fallback_channel_id.sql`) — RPC `identify_or_create_client` v2 : fallback lookup par `whatsapp_id`/`messenger_id`/`telegram_id` si `phone_normalized` ne match pas. Évite `duplicate key idx_clients_merchant_whatsapp` quand un client a son channel_id orphelin (commits `ea4b54d` → `2e6a0bf` après refactor SELECT INTO → INSERT RETURNING INTO)
+- **[FEAT]** **Migration 040** (`fix_dow_convention_mismatch.sql`) — RPC `get_available_slots` utilise `EXTRACT(ISODOW) - 1` au lieu de `EXTRACT(DOW)` pour matcher la convention dashboard (0=Lundi, 6=Dimanche). Bug : tous les créneaux étaient décalés d'un jour
+- **[CHORE]** Apprentissage SQL Editor Supabase : `SELECT INTO var FROM table` multi-line échoue avec `ERROR 42P01: relation "v_X" does not exist`. Refactor en `var := (SELECT ... LIMIT 1)` (scalar assign). Voir `feedback_supabase_sql_editor_select_into.md` en mémoire.
+
+### Frontend
+
+- **[FEAT]** **Édition inline fiche client** (commit `17cdb10`) — bouton "Modifier" pour nom/téléphone/email dans le panel ClientDetail, validation min 2 chars sur nom, gestion null pour phone/email vides
+- **[FIX]** **Sync liste après update** (commit `fe709f0`) — callback `onUpdate` branché sur `fetchClients`, plus besoin de hard refresh
+- **[FEAT]** **Badge "Nouveau client"** (commits `b8b141c` + `1b613db`) — pill emerald `✨ Nouveau` affiché tant que `completed_count === 0` (jamais venu pour un RDV terminé). Visible dans : liste `/clients`, panel détail, bulle agenda jour, bulle agenda semaine, dialog résumé RDV, sidebar notifications
+- **[FEAT]** **API `/api/v1/clients[/:id]`** — ajout du champ `completed_count` pour le critère du badge
+- **[FIX]** **Hardcoding Sunday=fermé retiré** (commit `7ef81ad`) — week-view + month-view affichent dimanche comme tout autre jour, source de vérité = `practitioner_availability`
+- **[FIX]** **Sidebar notif "RDV confirmé"** (commit `c2c0e5a`) — affichait pas les nouveaux RDV créés/auto-confirmés en une shot par l'IA. Logique séparée : `created_at >= today_start` → "RDV confirmé", `updated_at - created_at > 60s` → "RDV déplacé"
+
+### Plan de reprise
+
+- **MAJ n8n** sur VPS Hostinger (expire 2026-04-23) — newer versions devraient corriger le bug "parts" → on pourra repasser sur `gemini-2.5-flash` full
+- **Finir test E2E** avec Lite : annulation, multi-RDV, ambiguité service, dates passées, client connu
+- **Cas panne IA** (nouveau besoin) — fallback message + notif dashboard + retry Gemini
+
+---
+
 ## [3.0.0] — 2026-04-18 — Workflow v2 AI Agent + 6 migrations + anti-doublon + fix UTC
 
 Refonte complète du workflow Booking Conversation : passage de 47 nodes (HTTP brut + IF/ELSE manuels) à 25 nodes avec le node AI Agent natif de n8n. L'IA gère nativement le tool-calling (get_available_slots, confirm_booking, cancel_booking) sans parsing manuel. Latence 2-3s au lieu de 5-8s.

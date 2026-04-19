@@ -1,0 +1,2745 @@
+{
+  "success": true,
+  "data": {
+    "updatedAt": "2026-04-19T08:37:09.099Z",
+    "createdAt": "2026-04-18T12:31:15.896Z",
+    "id": "SGH4ltnF5VnsLyJA",
+    "name": "Plan — Booking Conversation v2 (AI Agent)",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "booking-conversation-v2",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "wh-trigger",
+        "name": "Webhook Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -1840,
+          208
+        ],
+        "webhookId": "04c41572-79b9-43be-bd13-d11c27de0e42",
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/merchants",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "select",
+                "value": "id,name,slug,ai_name,ai_tone,ai_languages,cancellation_delay_minutes,opening_hours,ai_monthly_token_budget,ai_alert_email,auto_confirm_bookings"
+              },
+              {
+                "name": "limit",
+                "value": "1"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "find-merchant",
+        "name": "Find Merchant",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1568,
+          208
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/check_message_security",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\"p_phone\": \"{{ $('Webhook Trigger').first().json.body.sender_phone || $('Webhook Trigger').first().json.body.sender_id || '' }}\", \"p_merchant_id\": \"{{ $('Find Merchant').first().json.id }}\"}",
+          "options": {
+            "timeout": 5000
+          }
+        },
+        "id": "check-security",
+        "name": "Check Security",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1280,
+          208
+        ],
+        "executeOnce": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "is-allowed",
+                "leftValue": "={{ $json.allowed }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "security-gate",
+        "name": "Security Gate",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -1008,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={\"status\": \"rate_limited\", \"reason\": \"{{ $('Check Security').first().json.reason }}\"}",
+          "options": {}
+        },
+        "id": "rate-limit-reply",
+        "name": "Rate Limit Reply",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          -1008,
+          448
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/services",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "merchant_id",
+                "value": "=eq.{{ $('Find Merchant').first().json.id }}"
+              },
+              {
+                "name": "is_active",
+                "value": "eq.true"
+              },
+              {
+                "name": "select",
+                "value": "id,name,duration_minutes,price_cents"
+              },
+              {
+                "name": "order",
+                "value": "sort_order.asc"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "load-services",
+        "name": "Load Services",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -720,
+          208
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/practitioners",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "merchant_id",
+                "value": "=eq.{{ $('Find Merchant').first().json.id }}"
+              },
+              {
+                "name": "is_active",
+                "value": "eq.true"
+              },
+              {
+                "name": "select",
+                "value": "id,name,color"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "load-practitioners",
+        "name": "Load Practitioners",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -448,
+          208
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/identify_or_create_client",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\"p_merchant_id\": \"{{ $('Find Merchant').first().json.id }}\", \"p_raw_phone\": \"{{ $('Webhook Trigger').first().json.body.sender_phone || $('Webhook Trigger').first().json.sender_phone }}\", \"p_name\": \"\", \"p_channel\": \"{{ $('Webhook Trigger').first().json.body.channel || $('Webhook Trigger').first().json.channel || 'whatsapp' }}\"}",
+          "options": {}
+        },
+        "id": "identify-client",
+        "name": "Identify Client",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -160,
+          208
+        ],
+        "executeOnce": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const wh = $('Webhook Trigger').first().json;\nconst body = wh.body || wh;\nconst merchantArr = $('Find Merchant').first().json;\nconst merchant = (Array.isArray(merchantArr) && merchantArr.length > 0) ? merchantArr[0] : (merchantArr || {});\nconst clientResp = $('Identify Client').first().json;\nconst client = Array.isArray(clientResp) && clientResp.length > 0 ? clientResp[0] : (clientResp && clientResp.id ? clientResp : {});\n\n// Nom \"reel\" : present en BDD ET pas le placeholder 'Inconnu'.\n// On NE saouve PAS le sender_name WhatsApp a la creation (cf. Identify Client p_name=''),\n// donc client.name = 'Inconnu' tant que le client n'a pas donne son prenom via Gemini.\nconst dbName = (client.name && client.name !== 'Inconnu') ? client.name : null;\n\nreturn [{json: {\n  channel: body.channel || 'whatsapp',\n  sender_id: body.sender_phone || body.sender_id,\n  sender_name: body.sender_name,\n  message_text: body.message_text || '',\n  wa_message_id: body.wa_message_id,\n  wa_phone_number_id: body.wa_phone_number_id,\n  timestamp: body.timestamp,\n  merchant_id: merchant.id,\n  salon_name: merchant.name || 'Salon',\n  ai_name: merchant.ai_name || 'AurA',\n  ai_tone: merchant.ai_tone || 'friendly',\n  cancellation_delay_minutes: merchant.cancellation_delay_minutes || 120,\n  opening_hours: merchant.opening_hours || {},\n  client_id: client.id,\n  client_name: dbName || body.sender_name || 'Inconnu',\n  client_db_name: dbName,\n  loyalty_points: client.loyalty_points || 0,\n  preferred_service: client.preferred_service_id || 'aucun',\n  preferred_practitioner: client.preferred_practitioner_id || 'aucun'\n}}];"
+        },
+        "id": "build-context",
+        "name": "Build Context",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          128,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/get_or_create_active_conversation",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              },
+              {
+                "name": "Accept",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "p_merchant_id",
+                "value": "={{ $('Build Context').first().json.merchant_id }}"
+              },
+              {
+                "name": "p_client_id",
+                "value": "={{ $('Build Context').first().json.client_id }}"
+              },
+              {
+                "name": "p_channel",
+                "value": "={{ $('Build Context').first().json.channel || 'whatsapp' }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "ensure-conversation",
+        "name": "Ensure Conversation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          400,
+          208
+        ],
+        "executeOnce": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/messages",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "conversation_id",
+                "value": "=eq.{{ $('Ensure Conversation').first().json.id }}"
+              },
+              {
+                "name": "select",
+                "value": "content,sender,created_at"
+              },
+              {
+                "name": "order",
+                "value": "created_at.asc"
+              },
+              {
+                "name": "limit",
+                "value": "20"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "load-history",
+        "name": "Load Conversation History",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          688,
+          208
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/messages",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "merchant_id",
+                "value": "={{ $('Build Context').first().json.merchant_id }}"
+              },
+              {
+                "name": "conversation_id",
+                "value": "={{ $('Ensure Conversation').first().json.id }}"
+              },
+              {
+                "name": "sender",
+                "value": "client"
+              },
+              {
+                "name": "content",
+                "value": "={{ $('Build Context').first().json.message_text }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "save-client-msg",
+        "name": "Save Client Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          960,
+          208
+        ],
+        "executeOnce": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/client_packages",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "merchant_id",
+                "value": "=eq.{{ $('Build Context').first().json.merchant_id }}"
+              },
+              {
+                "name": "client_id",
+                "value": "=eq.{{ $('Build Context').first().json.client_id }}"
+              },
+              {
+                "name": "remaining_uses",
+                "value": "gt.0"
+              },
+              {
+                "name": "select",
+                "value": "id,remaining_uses,expires_at,package:packages(name,service_id,is_active)"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "check-packages",
+        "name": "Check Client Packages",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1248,
+          208
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/client_subscriptions",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "merchant_id",
+                "value": "=eq.{{ $('Build Context').first().json.merchant_id }}"
+              },
+              {
+                "name": "client_id",
+                "value": "=eq.{{ $('Build Context').first().json.client_id }}"
+              },
+              {
+                "name": "status",
+                "value": "eq.active"
+              },
+              {
+                "name": "select",
+                "value": "id,name,service_id"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "check-subs",
+        "name": "Check Client Subscriptions",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1520,
+          208
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/get_client_upcoming_bookings",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\"p_merchant_id\": \"{{ $('Find Merchant').first().json.id }}\", \"p_client_id\": \"{{ $('Identify Client').first().json.id }}\"}",
+          "options": {}
+        },
+        "id": "load-bookings",
+        "name": "Load Client Bookings",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1808,
+          208
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "/**\n * Prepare Context for AI Agent v2.9\n * v2.9: detection JS \"client donne son prenom\" (last AI message asked + short response) -> instruction PRIORITE 1\n */\nconst MAX_MSG = 500;\nconst MAX_HIST = 15;\n\nfunction san(s, max) {\n  if (!s) return '';\n  s = String(s);\n  const patterns = ['system:', 'assistant:', 'admin:', 'ACT AS', 'INSTRUCTIONS:'];\n  for (const p of patterns) {\n    while (s.toLowerCase().includes(p.toLowerCase())) {\n      s = s.replace(new RegExp(p, 'gi'), '[FILTERED]');\n    }\n  }\n  return s.length > max ? s.substring(0, max) + '...' : s;\n}\n\nfunction normalize(s) {\n  return String(s || '').toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/['-]/g, ' ');\n}\n\nfunction extractGivenName(text) {\n  if (!text) return null;\n  const t = String(text).trim();\n  // Patterns explicites\n  const patterns = [\n    /je\\s+m\\s*appelle\\s+([A-Za-zÀ-ÿ-]{2,30})/i,\n    /c\\s*est\\s+([A-Za-zÀ-ÿ-]{2,30})/i,\n    /moi\\s+c\\s*est\\s+([A-Za-zÀ-ÿ-]{2,30})/i,\n    /mon\\s+(?:pr[eé]nom|nom)\\s+(?:c\\s*est\\s+)?([A-Za-zÀ-ÿ-]{2,30})/i,\n    /appelez[\\s-]moi\\s+([A-Za-zÀ-ÿ-]{2,30})/i\n  ];\n  for (const p of patterns) {\n    const m = t.match(p);\n    if (m) return m[1].trim();\n  }\n  // Cas \"reponse courte = mot unique probable nom\" : 1 mot 2-30 chars alphabetique uniquement\n  if (/^[A-Za-zÀ-ÿ-]{2,30}$/.test(t)) return t;\n  return null;\n}\n\nconst ctx = $('Build Context').first().json;\nconst merchant = $('Find Merchant').first().json;\n\nlet svcItems = [];\ntry {\n  svcItems = $('Load Services').all().map(i => i.json).filter(s => s.name);\n} catch(e) {}\nlet svcList = svcItems.length\n  ? svcItems.map(s => {\n      const p = s.price_cents ? ', ' + (s.price_cents / 100).toFixed(0) + 'E' : '';\n      return s.name + ' [id:' + s.id + '] (' + s.duration_minutes + ' min' + p + ')';\n    }).join(', ')\n  : 'Aucun service actif';\n\nlet pracList = 'Aucun praticien';\ntry {\n  const items = $('Load Practitioners').all().map(i => i.json).filter(p => p.name);\n  const seen = new Set();\n  if (items.length) pracList = items.filter(p => {\n    if (seen.has(p.id)) return false;\n    seen.add(p.id);\n    return true;\n  }).map(p => p.name + ' [id:' + p.id + ']').join(', ');\n} catch(e) {}\n\nlet bkList = 'Aucun RDV a venir';\ntry {\n  const items = $('Load Client Bookings').all().map(i => i.json).filter(b => b.starts_at);\n  if (items.length) {\n    const f = new Intl.DateTimeFormat('fr-FR', {\n      timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric',\n      month: 'long', hour: '2-digit', minute: '2-digit'\n    });\n    bkList = items.map(b =>\n      (b.service_name || 'RDV') + ' avec ' + (b.practitioner_name || '?') +\n      ' le ' + f.format(new Date(b.starts_at)) + ' (id:' + b.booking_id + ')'\n    ).join('; ');\n  }\n} catch(e) {}\n\nlet cov = 'aucun';\ntry {\n  const pkgs = [].concat($('Check Client Packages').first()?.json || []).filter(c => c?.package?.is_active);\n  const subs = [].concat($('Check Client Subscriptions').first()?.json || []);\n  const parts = [];\n  pkgs.forEach(c => parts.push('Forfait ' + (c.package?.name || 'inconnu') + ' (' + c.remaining_uses + ' restantes)'));\n  subs.forEach(c => parts.push('Abo ' + (c.name || c.id || 'inconnu') + ' (actif)'));\n  if (parts.length) cov = parts.join(', ');\n} catch(e) {}\n\nlet histMsgs = [];\nlet hasH = false;\ntry {\n  histMsgs = $('Load Conversation History').all().map(i => i.json)\n    .filter(m => m.content && m.sender)\n    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))\n    .slice(-MAX_HIST);\n  if (histMsgs.length) hasH = true;\n} catch(e) {}\nconst hist = histMsgs.length\n  ? histMsgs.map(m => '[' + (m.sender === 'ai' ? 'IA' : 'Client') + '] ' + m.content).join('\\n')\n  : 'Premiere interaction';\n\nconst tz = 'Europe/Paris';\nconst now = DateTime.now().setZone(tz);\nconst wd = now.weekday;\nconst gw = (now.hour >= 18 || now.hour < 5) ? 'Bonsoir' : 'Bonjour';\nconst nwd = t => {\n  const d = ((t - wd + 7) % 7) || 7;\n  return now.plus({ days: d }).toFormat('yyyy-MM-dd');\n};\nconst td = now.toFormat('yyyy-MM-dd');\nconst tl = now.setLocale('fr').toFormat('cccc d MMMM yyyy');\nconst tm = now.plus({ days: 1 }).toFormat('yyyy-MM-dd');\nconst da = now.plus({ days: 2 }).toFormat('yyyy-MM-dd');\n\nconst clientText = normalize(\n  histMsgs.filter(m => m.sender !== 'ai').map(m => m.content).join(' ') +\n  ' ' + (ctx.message_text || '')\n);\n\nlet detectedService = null;\nfor (const svc of svcItems) {\n  const tokens = normalize(svc.name).split(/\\s+/).filter(t => t.length >= 3);\n  for (const tok of tokens) {\n    if (clientText.includes(tok)) {\n      detectedService = svc.name + ' [id:' + svc.id + ', ' + svc.duration_minutes + 'min]';\n      break;\n    }\n  }\n  if (detectedService) break;\n}\n\nconst dateMap = [\n  ['aujourd hui', td], ['ce soir', td], ['demain', tm], ['apres demain', da],\n  ['lundi', nwd(1)], ['mardi', nwd(2)], ['mercredi', nwd(3)], ['jeudi', nwd(4)],\n  ['vendredi', nwd(5)], ['samedi', nwd(6)], ['dimanche', nwd(7)]\n];\nlet detectedDate = null;\nfor (const [kw, dt] of dateMap) {\n  if (clientText.includes(kw)) { detectedDate = dt + ' (' + kw + ')'; break; }\n}\n\nlet detectedTime = null;\nif (clientText.includes('matin')) detectedTime = 'matin (entre 7h et 12h)';\nelse if (clientText.includes('apres midi') || clientText.includes('aprem')) detectedTime = 'apres-midi (entre 12h et 18h)';\nelse if (clientText.includes('soir')) detectedTime = 'soir (apres 18h)';\n\n// Detection \"client donne son prenom\"\nconst nameMissing = !ctx.client_db_name;\nlet givenName = null;\nlet aiAskedName = false;\nif (nameMissing) {\n  // Last AI message asked the name ?\n  const lastAi = [...histMsgs].reverse().find(m => m.sender === 'ai');\n  if (lastAi) {\n    const lastAiNorm = normalize(lastAi.content);\n    aiAskedName = /comment\\s+dois\\s+je\\s+vous\\s+appeler|votre\\s+prenom|comment\\s+vous\\s+appelez|quel\\s+est\\s+votre\\s+prenom/i.test(lastAi.content);\n  }\n  // Try to extract a name from the current message\n  givenName = extractGivenName(ctx.message_text);\n}\n\nlet convId = null;\ntry {\n  const ec = $('Ensure Conversation').first().json;\n  convId = ec?.id || (Array.isArray(ec) ? ec[0]?.id : null);\n} catch(e) {}\n\nconst etatActuel = '=== ETAT ACTUEL (pre-calcule depuis historique + message courant) ===\\n' +\n'Service identifie : ' + (detectedService || 'AUCUN — a demander') + '\\n' +\n'Date identifiee  : ' + (detectedDate || 'AUCUNE — a demander') + '\\n' +\n'Horaire identifie: ' + (detectedTime || 'aucune preference') + '\\n' +\n'Nom client BDD   : ' + (ctx.client_db_name || 'INCONNU — a demander') + '\\n' +\n(givenName\n  ? 'PRENOM DONNE PAR CLIENT : \"' + givenName + '\" (detecte dans le message courant)\\n'\n  : '') +\n(aiAskedName ? 'IA a demande le prenom dans son dernier message : OUI\\n' : '') +\n'\\n' +\n'INSTRUCTIONS PRIORITAIRES :\\n' +\n(givenName\n  ? '1. PRIORITE ABSOLUE : appelle IMMEDIATEMENT l\\'outil set_client_name avec client_name=\"' + givenName + '\". Puis reponds avec un message de bienvenue court (\"Enchante, ' + givenName + ' !\"). NE REDEMANDE JAMAIS le prenom.\\n'\n  : (nameMissing ? '1. NOM INCONNU : tu DOIS demander le prenom dans ta reponse (\"Au fait, comment dois-je vous appeler ?\").\\n' : '')) +\n'2. Si Service ET Date sont identifies ci-dessus, appelle get_available_slots IMMEDIATEMENT.\\n' +\n'\\n';\n\nconst sys = 'Tu es ' + (ctx.ai_name || 'AurA') + ', assistant IA du salon ' + (ctx.salon_name || 'le salon') + '.\\n\\n' +\netatActuel +\n'=== REGLE 1 ANTI-HALLUCINATION ===\\n' +\n'INTERDIT de mentionner date/horaire/disponibilite sans avoir appele get_available_slots.\\n\\n' +\n'=== REGLE 2 SALUTATION ===\\n' +\n(hasH ? 'Historique existe : NE COMMENCE PAS par Bonjour/Bonsoir, enchaine directement.\\n\\n' :\n        'Premiere interaction : commence par ' + gw + '.\\n\\n') +\n'=== REGLE 3 NE JAMAIS REDEMANDER ===\\n' +\n'Le bloc ETAT ACTUEL contient ce qui est DEJA CONNU. Si service ou date y figure, NE LES REDEMANDE JAMAIS.\\n' +\n'MATCHING FUZZY DES SERVICES : compare CASE-INSENSITIVE et accepte le mot-clef principal (ex: \"barbe\" = \"Barbe\").\\n\\n' +\n'=== REGLE 4 INFERENCE DE DATE ===\\n' +\n'Quand le client dit un jour de la semaine, c\\'est TOUJOURS le PROCHAIN. Annee = ' + now.year + '.\\n\\n' +\n'=== REGLE 5 PRESENTATION DES CRENEAUX ===\\n' +\n'Quand get_available_slots retourne des creneaux : propose EXACTEMENT 2 ou 3 creneaux espaces, format court.\\n\\n' +\n'=== REGLE 6 CONFIRMATION DE CRENEAU ===\\n' +\n'Si DERNIER message proposait creneaux et client repond avec UNE HEURE -> confirm_booking IMMEDIATEMENT.\\n\\n' +\n'=== REGLE 7 FLOW DE RESERVATION ===\\n' +\n'1. Service + date connus -> get_available_slots\\n' +\n'2. Service mais pas date -> demande date\\n' +\n'3. Date mais pas service -> demande service\\n' +\n'4. Propose creneaux\\n' +\n'5. Client confirme -> confirm_booking\\n\\n' +\n'=== REGLE 8 RDV EXISTANTS ===\\n' +\n'Source unique = section RDV A VENIR ci-dessous.\\n\\n' +\n'=== REGLE 9 ===\\n' +\n'Plusieurs RDV le meme jour autorises.\\n\\n' +\n'=== REGLE 10 NOM CLIENT (CRITIQUE) ===\\n' +\n(givenName\n  ? 'Le client vient de te donner son prenom : \"' + givenName + '\". APPELLE set_client_name(\"' + givenName + '\") IMMEDIATEMENT puis remercie. NE REDEMANDE PLUS JAMAIS le nom.'\n  : (nameMissing\n    ? 'NOM INCONNU. Demande poliment le prenom dans ta reponse (\"Au fait, comment dois-je vous appeler ?\"). IGNORE tout nom de l\\'historique. NE DIS JAMAIS \"Bonjour [nom]\".'\n    : 'Nom connu : ' + ctx.client_db_name + '. Utilise-le poliment, NE REDEMANDE JAMAIS, N\\'APPELLE PAS set_client_name.')) +\n'\\n\\n' +\n'STYLE : Vouvoiement, chaleureux, professionnel. Max 2-3 phrases.\\n\\n' +\n'AUJOURD\\'HUI : ' + tl + '\\n\\n' +\n'DATES :\\n' +\n'aujourd\\'hui=' + td + ', demain=' + tm + ', apres-demain=' + da + '\\n' +\n'lundi=' + nwd(1) + ', mardi=' + nwd(2) + ', mercredi=' + nwd(3) + ', jeudi=' + nwd(4) + '\\n' +\n'vendredi=' + nwd(5) + ', samedi=' + nwd(6) + ', dimanche=' + nwd(7) + '\\n\\n' +\n'NOM CLIENT (BDD) : ' + (ctx.client_db_name || 'INCONNU') + '\\n' +\n'SERVICES : ' + svcList + '\\n' +\n'PRATICIENS : ' + pracList + '\\n' +\n'FORFAITS : ' + cov + '\\n\\n' +\n'RDV A VENIR : ' + bkList + '\\n' +\n'Annulation via cancel_booking. Delai min : ' + (ctx.cancellation_delay_minutes || 120) + ' min.\\n\\n' +\n'HISTORIQUE :\\n' + hist;\n\nconst chatInput = san(ctx.message_text, MAX_MSG);\n\nreturn [{\n  json: {\n    chatInput,\n    systemMessage: sys,\n    sessionId: ctx.merchant_id + '_' + ctx.client_id,\n    merchant_id: ctx.merchant_id,\n    client_id: ctx.client_id,\n    channel: ctx.channel || 'whatsapp',\n    sender_id: ctx.sender_id,\n    auto_confirm: merchant.auto_confirm_bookings || false,\n    conversation_id: convId\n  }\n}];"
+        },
+        "id": "prepare-context",
+        "name": "Prepare Context",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2112,
+          208
+        ],
+        "notes": "Prepare Context for AI Agent - builds systemMessage + chatInput from all upstream data"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.chatInput }}",
+          "options": {
+            "systemMessage": "={{ $json.systemMessage }}",
+            "maxIterations": 5
+          }
+        },
+        "id": "ai-agent",
+        "name": "Agent IA",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2,
+        "position": [
+          2512,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "modelName": "models/gemini-2.5-flash-lite",
+          "options": {
+            "maxOutputTokens": 500,
+            "temperature": 0.2
+          }
+        },
+        "id": "gemini-model",
+        "name": "Gemini Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1,
+        "position": [
+          2304,
+          512
+        ],
+        "credentials": {
+          "googlePalmApi": {
+            "id": "pjP2x7bHfRp2SKTH",
+            "name": "Google Gemini(PaLM) Api account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "toolDescription": "Recherche les creneaux disponibles dans le salon pour un service donne. Appelle cette fonction AVANT de mentionner une date ou un horaire. Parametres: p_date (YYYY-MM-DD), p_duration_minutes (entier, duree du service), p_scan_days (entier, nombre de jours a scanner, default 1, max 14. Utilise 14 pour le plus tot possible).",
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/get_available_slots",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "parametersHeaders": {
+            "values": [
+              {
+                "name": "Content-Type",
+                "valueProvider": "fieldValue",
+                "value": "application/json"
+              },
+              {
+                "name": "Authorization",
+                "valueProvider": "fieldValue",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "p_merchant_id",
+                "valueProvider": "fieldValue",
+                "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+              },
+              {
+                "name": "p_date"
+              },
+              {
+                "name": "p_duration_minutes"
+              },
+              {
+                "name": "p_scan_days",
+                "valueProvider": "modelOptional"
+              }
+            ]
+          },
+          "optimizeResponse": true
+        },
+        "id": "tool-slots",
+        "name": "Tool: Creneaux disponibles",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2512,
+          512
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "toolDescription": "CREE un rendez-vous dans le systeme. UTILISE CET OUTIL quand le client CONFIRME un creneau que tu as propose. Exemples de confirmation du client : 'A 14h', 'ok pour 15h', 'le premier', 'oui 14h', 'parfait', 'ca me va'. Quand le client repond avec une heure apres que tu as propose des creneaux, c'est TOUJOURS une confirmation. NE RAPPELLE PAS get_available_slots dans ce cas. Parametres : practitioner_id (UUID du praticien), service_id (UUID du service), starts_at (ISO 8601 ex: 2026-04-22T14:00:00+02:00), ends_at (ISO 8601 = starts_at + duree du service).",
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/bookings",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "parametersHeaders": {
+            "values": [
+              {
+                "name": "Content-Type",
+                "valueProvider": "fieldValue",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "valueProvider": "fieldValue",
+                "value": "return=representation"
+              },
+              {
+                "name": "Authorization",
+                "valueProvider": "fieldValue",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "merchant_id",
+                "valueProvider": "fieldValue",
+                "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+              },
+              {
+                "name": "client_id",
+                "valueProvider": "fieldValue",
+                "value": "={{ $('Prepare Context').first().json.client_id }}"
+              },
+              {
+                "name": "practitioner_id"
+              },
+              {
+                "name": "service_id"
+              },
+              {
+                "name": "starts_at"
+              },
+              {
+                "name": "ends_at"
+              },
+              {
+                "name": "status",
+                "valueProvider": "fieldValue",
+                "value": "={{ $('Prepare Context').first().json.auto_confirm ? 'confirmed' : 'pending' }}"
+              },
+              {
+                "name": "source_channel",
+                "valueProvider": "fieldValue",
+                "value": "={{ $('Prepare Context').first().json.channel }}"
+              }
+            ]
+          },
+          "optimizeResponse": true
+        },
+        "id": "tool-confirm",
+        "name": "Tool: Confirmer RDV",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2704,
+          512
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "toolDescription": "Annule un rendez-vous existant. Utilise le booking_id fourni dans la liste des RDV a venir du client. Parametre requis: booking_id (UUID du RDV a annuler).",
+          "method": "PATCH",
+          "url": "=https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/bookings?id=eq.{booking_id}&merchant_id=eq.{{ $('Prepare Context').first().json.merchant_id }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "parametersHeaders": {
+            "values": [
+              {
+                "name": "Content-Type",
+                "valueProvider": "fieldValue",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "valueProvider": "fieldValue",
+                "value": "return=minimal"
+              },
+              {
+                "name": "Authorization",
+                "valueProvider": "fieldValue",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\"status\": \"cancelled\", \"cancelled_at\": \"{{ $now.toISO() }}\", \"cancelled_by\": \"ai\"}",
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "booking_id",
+                "description": "UUID du rendez-vous a annuler, recupere depuis la liste des RDV a venir du client",
+                "type": "string"
+              }
+            ]
+          },
+          "optimizeResponse": true
+        },
+        "id": "tool-cancel",
+        "name": "Tool: Annuler RDV",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2912,
+          512
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/messages",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "merchant_id",
+                "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+              },
+              {
+                "name": "conversation_id",
+                "value": "={{ $('Prepare Context').first().json.conversation_id }}"
+              },
+              {
+                "name": "sender",
+                "value": "ai"
+              },
+              {
+                "name": "content",
+                "value": "={{ $json.output }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "save-ai-msg",
+        "name": "Save AI Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2912,
+          208
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://resaapp.fr/api/v1/channels/send",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "channel",
+                "value": "={{ $('Prepare Context').first().json.channel }}"
+              },
+              {
+                "name": "recipient_id",
+                "value": "={{ $('Prepare Context').first().json.sender_id }}"
+              },
+              {
+                "name": "message",
+                "value": "={{ $('Agent IA').first().json.output }}"
+              },
+              {
+                "name": "merchant_id",
+                "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "send-reply",
+        "name": "Send Reply",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3184,
+          208
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "EaRZ4TQKBMrRdlVX",
+            "name": "Internal API Secret"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({status: 'ok', response_text: $('Agent IA').first().json.output || ''}) }}",
+          "options": {}
+        },
+        "id": "respond-ok",
+        "name": "Respond OK",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          3472,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## Booking Conversation v2 — AI Agent\n\n### TODO avant activation\n1. Creer une credential 'Google PaLM API' (Credentials > New > Google PaLM API) avec la cle API Gemini\n2. La lier au node 'Gemini Chat Model'\n3. Mettre a jour le code du node 'Prepare Context' avec le prompt complet\n4. Mettre a jour le webhook dans 'WhatsApp Incoming' pour pointer vers /booking-conversation-v2\n5. Desactiver l'ancien workflow v1\n\n### Architecture\nWebhook > Data Loading (15 nodes) > Prepare Context > AI Agent + 3 outils > Save + Send + Respond\n\n### Outils de l'Agent\n- get_available_slots : cherche les creneaux libres (RPC Supabase)\n- confirm_booking : cree un RDV (INSERT bookings)\n- cancel_booking : annule un RDV (PATCH bookings)",
+          "height": 380,
+          "width": 500
+        },
+        "id": "sticky-instructions",
+        "name": "Sticky Note",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -1856,
+          -240
+        ]
+      },
+      {
+        "id": "tool-set-name",
+        "name": "Tool: Enregistrer nom client",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          3120,
+          512
+        ],
+        "parameters": {
+          "toolDescription": "Enregistre le PRENOM du client dans sa fiche BDD. Utilise cet outil DES que le client te donne son prenom (ex: 'Je m'appelle Marie', 'C'est Marie', 'Marie'). Parametre requis : client_name (le prenom du client, sans titre, ex: 'Marie' pas 'Mme Marie'). N'appelle pas cet outil si le client n'a pas explicitement donne son prenom.",
+          "method": "PATCH",
+          "url": "=https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/clients?id=eq.{{ $('Prepare Context').first().json.client_id }}&merchant_id=eq.{{ $('Prepare Context').first().json.merchant_id }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "parametersHeaders": {
+            "values": [
+              {
+                "name": "Content-Type",
+                "valueProvider": "fieldValue",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "valueProvider": "fieldValue",
+                "value": "return=minimal"
+              },
+              {
+                "name": "Authorization",
+                "valueProvider": "fieldValue",
+                "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\"name\": \"{client_name}\"}",
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "client_name",
+                "description": "Prenom du client, sans titre (ex: 'Marie', 'Jean'). N'inclus PAS Mme/M./Mr.",
+                "type": "string"
+              }
+            ]
+          },
+          "optimizeResponse": true
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "oRRRgpJ5HWoIrVpQ",
+            "name": "Supabase apikey"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook Trigger": {
+        "main": [
+          [
+            {
+              "node": "Find Merchant",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Find Merchant": {
+        "main": [
+          [
+            {
+              "node": "Check Security",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Security": {
+        "main": [
+          [
+            {
+              "node": "Security Gate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Security Gate": {
+        "main": [
+          [
+            {
+              "node": "Load Services",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Rate Limit Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Load Services": {
+        "main": [
+          [
+            {
+              "node": "Load Practitioners",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Load Practitioners": {
+        "main": [
+          [
+            {
+              "node": "Identify Client",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Identify Client": {
+        "main": [
+          [
+            {
+              "node": "Build Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Context": {
+        "main": [
+          [
+            {
+              "node": "Ensure Conversation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ensure Conversation": {
+        "main": [
+          [
+            {
+              "node": "Load Conversation History",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Load Conversation History": {
+        "main": [
+          [
+            {
+              "node": "Save Client Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Client Message": {
+        "main": [
+          [
+            {
+              "node": "Check Client Packages",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Client Packages": {
+        "main": [
+          [
+            {
+              "node": "Check Client Subscriptions",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Client Subscriptions": {
+        "main": [
+          [
+            {
+              "node": "Load Client Bookings",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Load Client Bookings": {
+        "main": [
+          [
+            {
+              "node": "Prepare Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Context": {
+        "main": [
+          [
+            {
+              "node": "Agent IA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agent IA": {
+        "main": [
+          [
+            {
+              "node": "Save AI Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save AI Message": {
+        "main": [
+          [
+            {
+              "node": "Send Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Reply": {
+        "main": [
+          [
+            {
+              "node": "Respond OK",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gemini Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Agent IA",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tool: Creneaux disponibles": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agent IA",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tool: Confirmer RDV": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agent IA",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tool: Annuler RDV": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agent IA",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tool: Enregistrer nom client": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agent IA",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "timezone": "Europe/Paris",
+      "saveDataSuccessExecution": "all",
+      "callerPolicy": "workflowsFromSameOwner",
+      "availableInMCP": false,
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "11a65d8d-b334-4023-8f14-a6812377af6f",
+    "activeVersionId": "11a65d8d-b334-4023-8f14-a6812377af6f",
+    "versionCounter": 64,
+    "triggerCount": 1,
+    "shared": [
+      {
+        "updatedAt": "2026-04-18T12:31:15.923Z",
+        "createdAt": "2026-04-18T12:31:15.923Z",
+        "role": "workflow:owner",
+        "workflowId": "SGH4ltnF5VnsLyJA",
+        "projectId": "fKL1gEmfjlOAtUqR",
+        "project": {
+          "updatedAt": "2026-04-05T11:51:47.454Z",
+          "createdAt": "2026-04-05T11:49:53.339Z",
+          "id": "fKL1gEmfjlOAtUqR",
+          "name": "Alex Aura_Solutions <projet.dev.aurasolutions@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "207c7094-166b-443e-979e-36ed4b287e4f"
+        }
+      }
+    ],
+    "tags": [],
+    "activeVersion": {
+      "updatedAt": "2026-04-19T08:37:09.100Z",
+      "createdAt": "2026-04-19T08:37:09.100Z",
+      "versionId": "11a65d8d-b334-4023-8f14-a6812377af6f",
+      "workflowId": "SGH4ltnF5VnsLyJA",
+      "nodes": [
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "booking-conversation-v2",
+            "responseMode": "responseNode",
+            "options": {}
+          },
+          "id": "wh-trigger",
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "position": [
+            -1840,
+            208
+          ],
+          "webhookId": "04c41572-79b9-43be-bd13-d11c27de0e42",
+          "onError": "continueRegularOutput"
+        },
+        {
+          "parameters": {
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/merchants",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendQuery": true,
+            "queryParameters": {
+              "parameters": [
+                {
+                  "name": "select",
+                  "value": "id,name,slug,ai_name,ai_tone,ai_languages,cancellation_delay_minutes,opening_hours,ai_monthly_token_budget,ai_alert_email,auto_confirm_bookings"
+                },
+                {
+                  "name": "limit",
+                  "value": "1"
+                }
+              ]
+            },
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "find-merchant",
+          "name": "Find Merchant",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            -1568,
+            208
+          ],
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/check_message_security",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                },
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                }
+              ]
+            },
+            "sendBody": true,
+            "specifyBody": "json",
+            "jsonBody": "={\"p_phone\": \"{{ $('Webhook Trigger').first().json.body.sender_phone || $('Webhook Trigger').first().json.body.sender_id || '' }}\", \"p_merchant_id\": \"{{ $('Find Merchant').first().json.id }}\"}",
+            "options": {
+              "timeout": 5000
+            }
+          },
+          "id": "check-security",
+          "name": "Check Security",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            -1280,
+            208
+          ],
+          "executeOnce": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "is-allowed",
+                  "leftValue": "={{ $json.allowed }}",
+                  "operator": {
+                    "type": "boolean",
+                    "operation": "true",
+                    "singleValue": true
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "security-gate",
+          "name": "Security Gate",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [
+            -1008,
+            208
+          ]
+        },
+        {
+          "parameters": {
+            "respondWith": "json",
+            "responseBody": "={\"status\": \"rate_limited\", \"reason\": \"{{ $('Check Security').first().json.reason }}\"}",
+            "options": {}
+          },
+          "id": "rate-limit-reply",
+          "name": "Rate Limit Reply",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1,
+          "position": [
+            -1008,
+            448
+          ]
+        },
+        {
+          "parameters": {
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/services",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendQuery": true,
+            "queryParameters": {
+              "parameters": [
+                {
+                  "name": "merchant_id",
+                  "value": "=eq.{{ $('Find Merchant').first().json.id }}"
+                },
+                {
+                  "name": "is_active",
+                  "value": "eq.true"
+                },
+                {
+                  "name": "select",
+                  "value": "id,name,duration_minutes,price_cents"
+                },
+                {
+                  "name": "order",
+                  "value": "sort_order.asc"
+                }
+              ]
+            },
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "load-services",
+          "name": "Load Services",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            -720,
+            208
+          ],
+          "alwaysOutputData": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/practitioners",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendQuery": true,
+            "queryParameters": {
+              "parameters": [
+                {
+                  "name": "merchant_id",
+                  "value": "=eq.{{ $('Find Merchant').first().json.id }}"
+                },
+                {
+                  "name": "is_active",
+                  "value": "eq.true"
+                },
+                {
+                  "name": "select",
+                  "value": "id,name,color"
+                }
+              ]
+            },
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "load-practitioners",
+          "name": "Load Practitioners",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            -448,
+            208
+          ],
+          "alwaysOutputData": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/identify_or_create_client",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "sendBody": true,
+            "specifyBody": "json",
+            "jsonBody": "={\"p_merchant_id\": \"{{ $('Find Merchant').first().json.id }}\", \"p_raw_phone\": \"{{ $('Webhook Trigger').first().json.body.sender_phone || $('Webhook Trigger').first().json.sender_phone }}\", \"p_name\": \"\", \"p_channel\": \"{{ $('Webhook Trigger').first().json.body.channel || $('Webhook Trigger').first().json.channel || 'whatsapp' }}\"}",
+            "options": {}
+          },
+          "id": "identify-client",
+          "name": "Identify Client",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            -160,
+            208
+          ],
+          "executeOnce": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "jsCode": "const wh = $('Webhook Trigger').first().json;\nconst body = wh.body || wh;\nconst merchantArr = $('Find Merchant').first().json;\nconst merchant = (Array.isArray(merchantArr) && merchantArr.length > 0) ? merchantArr[0] : (merchantArr || {});\nconst clientResp = $('Identify Client').first().json;\nconst client = Array.isArray(clientResp) && clientResp.length > 0 ? clientResp[0] : (clientResp && clientResp.id ? clientResp : {});\n\n// Nom \"reel\" : present en BDD ET pas le placeholder 'Inconnu'.\n// On NE saouve PAS le sender_name WhatsApp a la creation (cf. Identify Client p_name=''),\n// donc client.name = 'Inconnu' tant que le client n'a pas donne son prenom via Gemini.\nconst dbName = (client.name && client.name !== 'Inconnu') ? client.name : null;\n\nreturn [{json: {\n  channel: body.channel || 'whatsapp',\n  sender_id: body.sender_phone || body.sender_id,\n  sender_name: body.sender_name,\n  message_text: body.message_text || '',\n  wa_message_id: body.wa_message_id,\n  wa_phone_number_id: body.wa_phone_number_id,\n  timestamp: body.timestamp,\n  merchant_id: merchant.id,\n  salon_name: merchant.name || 'Salon',\n  ai_name: merchant.ai_name || 'AurA',\n  ai_tone: merchant.ai_tone || 'friendly',\n  cancellation_delay_minutes: merchant.cancellation_delay_minutes || 120,\n  opening_hours: merchant.opening_hours || {},\n  client_id: client.id,\n  client_name: dbName || body.sender_name || 'Inconnu',\n  client_db_name: dbName,\n  loyalty_points: client.loyalty_points || 0,\n  preferred_service: client.preferred_service_id || 'aucun',\n  preferred_practitioner: client.preferred_practitioner_id || 'aucun'\n}}];"
+          },
+          "id": "build-context",
+          "name": "Build Context",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [
+            128,
+            208
+          ]
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/get_or_create_active_conversation",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                },
+                {
+                  "name": "Accept",
+                  "value": "application/json"
+                }
+              ]
+            },
+            "sendBody": true,
+            "bodyParameters": {
+              "parameters": [
+                {
+                  "name": "p_merchant_id",
+                  "value": "={{ $('Build Context').first().json.merchant_id }}"
+                },
+                {
+                  "name": "p_client_id",
+                  "value": "={{ $('Build Context').first().json.client_id }}"
+                },
+                {
+                  "name": "p_channel",
+                  "value": "={{ $('Build Context').first().json.channel || 'whatsapp' }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "ensure-conversation",
+          "name": "Ensure Conversation",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            400,
+            208
+          ],
+          "executeOnce": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/messages",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendQuery": true,
+            "queryParameters": {
+              "parameters": [
+                {
+                  "name": "conversation_id",
+                  "value": "=eq.{{ $('Ensure Conversation').first().json.id }}"
+                },
+                {
+                  "name": "select",
+                  "value": "content,sender,created_at"
+                },
+                {
+                  "name": "order",
+                  "value": "created_at.asc"
+                },
+                {
+                  "name": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "load-history",
+          "name": "Load Conversation History",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            688,
+            208
+          ],
+          "alwaysOutputData": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/messages",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "sendBody": true,
+            "bodyParameters": {
+              "parameters": [
+                {
+                  "name": "merchant_id",
+                  "value": "={{ $('Build Context').first().json.merchant_id }}"
+                },
+                {
+                  "name": "conversation_id",
+                  "value": "={{ $('Ensure Conversation').first().json.id }}"
+                },
+                {
+                  "name": "sender",
+                  "value": "client"
+                },
+                {
+                  "name": "content",
+                  "value": "={{ $('Build Context').first().json.message_text }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "save-client-msg",
+          "name": "Save Client Message",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            960,
+            208
+          ],
+          "executeOnce": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/client_packages",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendQuery": true,
+            "queryParameters": {
+              "parameters": [
+                {
+                  "name": "merchant_id",
+                  "value": "=eq.{{ $('Build Context').first().json.merchant_id }}"
+                },
+                {
+                  "name": "client_id",
+                  "value": "=eq.{{ $('Build Context').first().json.client_id }}"
+                },
+                {
+                  "name": "remaining_uses",
+                  "value": "gt.0"
+                },
+                {
+                  "name": "select",
+                  "value": "id,remaining_uses,expires_at,package:packages(name,service_id,is_active)"
+                }
+              ]
+            },
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "check-packages",
+          "name": "Check Client Packages",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            1248,
+            208
+          ],
+          "alwaysOutputData": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/client_subscriptions",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendQuery": true,
+            "queryParameters": {
+              "parameters": [
+                {
+                  "name": "merchant_id",
+                  "value": "=eq.{{ $('Build Context').first().json.merchant_id }}"
+                },
+                {
+                  "name": "client_id",
+                  "value": "=eq.{{ $('Build Context').first().json.client_id }}"
+                },
+                {
+                  "name": "status",
+                  "value": "eq.active"
+                },
+                {
+                  "name": "select",
+                  "value": "id,name,service_id"
+                }
+              ]
+            },
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "check-subs",
+          "name": "Check Client Subscriptions",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            1520,
+            208
+          ],
+          "alwaysOutputData": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/get_client_upcoming_bookings",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                },
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                }
+              ]
+            },
+            "sendBody": true,
+            "specifyBody": "json",
+            "jsonBody": "={\"p_merchant_id\": \"{{ $('Find Merchant').first().json.id }}\", \"p_client_id\": \"{{ $('Identify Client').first().json.id }}\"}",
+            "options": {}
+          },
+          "id": "load-bookings",
+          "name": "Load Client Bookings",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            1808,
+            208
+          ],
+          "alwaysOutputData": true,
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "jsCode": "/**\n * Prepare Context for AI Agent v2.9\n * v2.9: detection JS \"client donne son prenom\" (last AI message asked + short response) -> instruction PRIORITE 1\n */\nconst MAX_MSG = 500;\nconst MAX_HIST = 15;\n\nfunction san(s, max) {\n  if (!s) return '';\n  s = String(s);\n  const patterns = ['system:', 'assistant:', 'admin:', 'ACT AS', 'INSTRUCTIONS:'];\n  for (const p of patterns) {\n    while (s.toLowerCase().includes(p.toLowerCase())) {\n      s = s.replace(new RegExp(p, 'gi'), '[FILTERED]');\n    }\n  }\n  return s.length > max ? s.substring(0, max) + '...' : s;\n}\n\nfunction normalize(s) {\n  return String(s || '').toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/['-]/g, ' ');\n}\n\nfunction extractGivenName(text) {\n  if (!text) return null;\n  const t = String(text).trim();\n  // Patterns explicites\n  const patterns = [\n    /je\\s+m\\s*appelle\\s+([A-Za-zÀ-ÿ-]{2,30})/i,\n    /c\\s*est\\s+([A-Za-zÀ-ÿ-]{2,30})/i,\n    /moi\\s+c\\s*est\\s+([A-Za-zÀ-ÿ-]{2,30})/i,\n    /mon\\s+(?:pr[eé]nom|nom)\\s+(?:c\\s*est\\s+)?([A-Za-zÀ-ÿ-]{2,30})/i,\n    /appelez[\\s-]moi\\s+([A-Za-zÀ-ÿ-]{2,30})/i\n  ];\n  for (const p of patterns) {\n    const m = t.match(p);\n    if (m) return m[1].trim();\n  }\n  // Cas \"reponse courte = mot unique probable nom\" : 1 mot 2-30 chars alphabetique uniquement\n  if (/^[A-Za-zÀ-ÿ-]{2,30}$/.test(t)) return t;\n  return null;\n}\n\nconst ctx = $('Build Context').first().json;\nconst merchant = $('Find Merchant').first().json;\n\nlet svcItems = [];\ntry {\n  svcItems = $('Load Services').all().map(i => i.json).filter(s => s.name);\n} catch(e) {}\nlet svcList = svcItems.length\n  ? svcItems.map(s => {\n      const p = s.price_cents ? ', ' + (s.price_cents / 100).toFixed(0) + 'E' : '';\n      return s.name + ' [id:' + s.id + '] (' + s.duration_minutes + ' min' + p + ')';\n    }).join(', ')\n  : 'Aucun service actif';\n\nlet pracList = 'Aucun praticien';\ntry {\n  const items = $('Load Practitioners').all().map(i => i.json).filter(p => p.name);\n  const seen = new Set();\n  if (items.length) pracList = items.filter(p => {\n    if (seen.has(p.id)) return false;\n    seen.add(p.id);\n    return true;\n  }).map(p => p.name + ' [id:' + p.id + ']').join(', ');\n} catch(e) {}\n\nlet bkList = 'Aucun RDV a venir';\ntry {\n  const items = $('Load Client Bookings').all().map(i => i.json).filter(b => b.starts_at);\n  if (items.length) {\n    const f = new Intl.DateTimeFormat('fr-FR', {\n      timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric',\n      month: 'long', hour: '2-digit', minute: '2-digit'\n    });\n    bkList = items.map(b =>\n      (b.service_name || 'RDV') + ' avec ' + (b.practitioner_name || '?') +\n      ' le ' + f.format(new Date(b.starts_at)) + ' (id:' + b.booking_id + ')'\n    ).join('; ');\n  }\n} catch(e) {}\n\nlet cov = 'aucun';\ntry {\n  const pkgs = [].concat($('Check Client Packages').first()?.json || []).filter(c => c?.package?.is_active);\n  const subs = [].concat($('Check Client Subscriptions').first()?.json || []);\n  const parts = [];\n  pkgs.forEach(c => parts.push('Forfait ' + (c.package?.name || 'inconnu') + ' (' + c.remaining_uses + ' restantes)'));\n  subs.forEach(c => parts.push('Abo ' + (c.name || c.id || 'inconnu') + ' (actif)'));\n  if (parts.length) cov = parts.join(', ');\n} catch(e) {}\n\nlet histMsgs = [];\nlet hasH = false;\ntry {\n  histMsgs = $('Load Conversation History').all().map(i => i.json)\n    .filter(m => m.content && m.sender)\n    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))\n    .slice(-MAX_HIST);\n  if (histMsgs.length) hasH = true;\n} catch(e) {}\nconst hist = histMsgs.length\n  ? histMsgs.map(m => '[' + (m.sender === 'ai' ? 'IA' : 'Client') + '] ' + m.content).join('\\n')\n  : 'Premiere interaction';\n\nconst tz = 'Europe/Paris';\nconst now = DateTime.now().setZone(tz);\nconst wd = now.weekday;\nconst gw = (now.hour >= 18 || now.hour < 5) ? 'Bonsoir' : 'Bonjour';\nconst nwd = t => {\n  const d = ((t - wd + 7) % 7) || 7;\n  return now.plus({ days: d }).toFormat('yyyy-MM-dd');\n};\nconst td = now.toFormat('yyyy-MM-dd');\nconst tl = now.setLocale('fr').toFormat('cccc d MMMM yyyy');\nconst tm = now.plus({ days: 1 }).toFormat('yyyy-MM-dd');\nconst da = now.plus({ days: 2 }).toFormat('yyyy-MM-dd');\n\nconst clientText = normalize(\n  histMsgs.filter(m => m.sender !== 'ai').map(m => m.content).join(' ') +\n  ' ' + (ctx.message_text || '')\n);\n\nlet detectedService = null;\nfor (const svc of svcItems) {\n  const tokens = normalize(svc.name).split(/\\s+/).filter(t => t.length >= 3);\n  for (const tok of tokens) {\n    if (clientText.includes(tok)) {\n      detectedService = svc.name + ' [id:' + svc.id + ', ' + svc.duration_minutes + 'min]';\n      break;\n    }\n  }\n  if (detectedService) break;\n}\n\nconst dateMap = [\n  ['aujourd hui', td], ['ce soir', td], ['demain', tm], ['apres demain', da],\n  ['lundi', nwd(1)], ['mardi', nwd(2)], ['mercredi', nwd(3)], ['jeudi', nwd(4)],\n  ['vendredi', nwd(5)], ['samedi', nwd(6)], ['dimanche', nwd(7)]\n];\nlet detectedDate = null;\nfor (const [kw, dt] of dateMap) {\n  if (clientText.includes(kw)) { detectedDate = dt + ' (' + kw + ')'; break; }\n}\n\nlet detectedTime = null;\nif (clientText.includes('matin')) detectedTime = 'matin (entre 7h et 12h)';\nelse if (clientText.includes('apres midi') || clientText.includes('aprem')) detectedTime = 'apres-midi (entre 12h et 18h)';\nelse if (clientText.includes('soir')) detectedTime = 'soir (apres 18h)';\n\n// Detection \"client donne son prenom\"\nconst nameMissing = !ctx.client_db_name;\nlet givenName = null;\nlet aiAskedName = false;\nif (nameMissing) {\n  // Last AI message asked the name ?\n  const lastAi = [...histMsgs].reverse().find(m => m.sender === 'ai');\n  if (lastAi) {\n    const lastAiNorm = normalize(lastAi.content);\n    aiAskedName = /comment\\s+dois\\s+je\\s+vous\\s+appeler|votre\\s+prenom|comment\\s+vous\\s+appelez|quel\\s+est\\s+votre\\s+prenom/i.test(lastAi.content);\n  }\n  // Try to extract a name from the current message\n  givenName = extractGivenName(ctx.message_text);\n}\n\nlet convId = null;\ntry {\n  const ec = $('Ensure Conversation').first().json;\n  convId = ec?.id || (Array.isArray(ec) ? ec[0]?.id : null);\n} catch(e) {}\n\nconst etatActuel = '=== ETAT ACTUEL (pre-calcule depuis historique + message courant) ===\\n' +\n'Service identifie : ' + (detectedService || 'AUCUN — a demander') + '\\n' +\n'Date identifiee  : ' + (detectedDate || 'AUCUNE — a demander') + '\\n' +\n'Horaire identifie: ' + (detectedTime || 'aucune preference') + '\\n' +\n'Nom client BDD   : ' + (ctx.client_db_name || 'INCONNU — a demander') + '\\n' +\n(givenName\n  ? 'PRENOM DONNE PAR CLIENT : \"' + givenName + '\" (detecte dans le message courant)\\n'\n  : '') +\n(aiAskedName ? 'IA a demande le prenom dans son dernier message : OUI\\n' : '') +\n'\\n' +\n'INSTRUCTIONS PRIORITAIRES :\\n' +\n(givenName\n  ? '1. PRIORITE ABSOLUE : appelle IMMEDIATEMENT l\\'outil set_client_name avec client_name=\"' + givenName + '\". Puis reponds avec un message de bienvenue court (\"Enchante, ' + givenName + ' !\"). NE REDEMANDE JAMAIS le prenom.\\n'\n  : (nameMissing ? '1. NOM INCONNU : tu DOIS demander le prenom dans ta reponse (\"Au fait, comment dois-je vous appeler ?\").\\n' : '')) +\n'2. Si Service ET Date sont identifies ci-dessus, appelle get_available_slots IMMEDIATEMENT.\\n' +\n'\\n';\n\nconst sys = 'Tu es ' + (ctx.ai_name || 'AurA') + ', assistant IA du salon ' + (ctx.salon_name || 'le salon') + '.\\n\\n' +\netatActuel +\n'=== REGLE 1 ANTI-HALLUCINATION ===\\n' +\n'INTERDIT de mentionner date/horaire/disponibilite sans avoir appele get_available_slots.\\n\\n' +\n'=== REGLE 2 SALUTATION ===\\n' +\n(hasH ? 'Historique existe : NE COMMENCE PAS par Bonjour/Bonsoir, enchaine directement.\\n\\n' :\n        'Premiere interaction : commence par ' + gw + '.\\n\\n') +\n'=== REGLE 3 NE JAMAIS REDEMANDER ===\\n' +\n'Le bloc ETAT ACTUEL contient ce qui est DEJA CONNU. Si service ou date y figure, NE LES REDEMANDE JAMAIS.\\n' +\n'MATCHING FUZZY DES SERVICES : compare CASE-INSENSITIVE et accepte le mot-clef principal (ex: \"barbe\" = \"Barbe\").\\n\\n' +\n'=== REGLE 4 INFERENCE DE DATE ===\\n' +\n'Quand le client dit un jour de la semaine, c\\'est TOUJOURS le PROCHAIN. Annee = ' + now.year + '.\\n\\n' +\n'=== REGLE 5 PRESENTATION DES CRENEAUX ===\\n' +\n'Quand get_available_slots retourne des creneaux : propose EXACTEMENT 2 ou 3 creneaux espaces, format court.\\n\\n' +\n'=== REGLE 6 CONFIRMATION DE CRENEAU ===\\n' +\n'Si DERNIER message proposait creneaux et client repond avec UNE HEURE -> confirm_booking IMMEDIATEMENT.\\n\\n' +\n'=== REGLE 7 FLOW DE RESERVATION ===\\n' +\n'1. Service + date connus -> get_available_slots\\n' +\n'2. Service mais pas date -> demande date\\n' +\n'3. Date mais pas service -> demande service\\n' +\n'4. Propose creneaux\\n' +\n'5. Client confirme -> confirm_booking\\n\\n' +\n'=== REGLE 8 RDV EXISTANTS ===\\n' +\n'Source unique = section RDV A VENIR ci-dessous.\\n\\n' +\n'=== REGLE 9 ===\\n' +\n'Plusieurs RDV le meme jour autorises.\\n\\n' +\n'=== REGLE 10 NOM CLIENT (CRITIQUE) ===\\n' +\n(givenName\n  ? 'Le client vient de te donner son prenom : \"' + givenName + '\". APPELLE set_client_name(\"' + givenName + '\") IMMEDIATEMENT puis remercie. NE REDEMANDE PLUS JAMAIS le nom.'\n  : (nameMissing\n    ? 'NOM INCONNU. Demande poliment le prenom dans ta reponse (\"Au fait, comment dois-je vous appeler ?\"). IGNORE tout nom de l\\'historique. NE DIS JAMAIS \"Bonjour [nom]\".'\n    : 'Nom connu : ' + ctx.client_db_name + '. Utilise-le poliment, NE REDEMANDE JAMAIS, N\\'APPELLE PAS set_client_name.')) +\n'\\n\\n' +\n'STYLE : Vouvoiement, chaleureux, professionnel. Max 2-3 phrases.\\n\\n' +\n'AUJOURD\\'HUI : ' + tl + '\\n\\n' +\n'DATES :\\n' +\n'aujourd\\'hui=' + td + ', demain=' + tm + ', apres-demain=' + da + '\\n' +\n'lundi=' + nwd(1) + ', mardi=' + nwd(2) + ', mercredi=' + nwd(3) + ', jeudi=' + nwd(4) + '\\n' +\n'vendredi=' + nwd(5) + ', samedi=' + nwd(6) + ', dimanche=' + nwd(7) + '\\n\\n' +\n'NOM CLIENT (BDD) : ' + (ctx.client_db_name || 'INCONNU') + '\\n' +\n'SERVICES : ' + svcList + '\\n' +\n'PRATICIENS : ' + pracList + '\\n' +\n'FORFAITS : ' + cov + '\\n\\n' +\n'RDV A VENIR : ' + bkList + '\\n' +\n'Annulation via cancel_booking. Delai min : ' + (ctx.cancellation_delay_minutes || 120) + ' min.\\n\\n' +\n'HISTORIQUE :\\n' + hist;\n\nconst chatInput = san(ctx.message_text, MAX_MSG);\n\nreturn [{\n  json: {\n    chatInput,\n    systemMessage: sys,\n    sessionId: ctx.merchant_id + '_' + ctx.client_id,\n    merchant_id: ctx.merchant_id,\n    client_id: ctx.client_id,\n    channel: ctx.channel || 'whatsapp',\n    sender_id: ctx.sender_id,\n    auto_confirm: merchant.auto_confirm_bookings || false,\n    conversation_id: convId\n  }\n}];"
+          },
+          "id": "prepare-context",
+          "name": "Prepare Context",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [
+            2112,
+            208
+          ],
+          "notes": "Prepare Context for AI Agent - builds systemMessage + chatInput from all upstream data"
+        },
+        {
+          "parameters": {
+            "promptType": "define",
+            "text": "={{ $json.chatInput }}",
+            "options": {
+              "systemMessage": "={{ $json.systemMessage }}",
+              "maxIterations": 5
+            }
+          },
+          "id": "ai-agent",
+          "name": "Agent IA",
+          "type": "@n8n/n8n-nodes-langchain.agent",
+          "typeVersion": 2,
+          "position": [
+            2512,
+            208
+          ]
+        },
+        {
+          "parameters": {
+            "modelName": "models/gemini-2.5-flash-lite",
+            "options": {
+              "maxOutputTokens": 500,
+              "temperature": 0.2
+            }
+          },
+          "id": "gemini-model",
+          "name": "Gemini Chat Model",
+          "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+          "typeVersion": 1,
+          "position": [
+            2304,
+            512
+          ],
+          "credentials": {
+            "googlePalmApi": {
+              "id": "pjP2x7bHfRp2SKTH",
+              "name": "Google Gemini(PaLM) Api account 2"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "toolDescription": "Recherche les creneaux disponibles dans le salon pour un service donne. Appelle cette fonction AVANT de mentionner une date ou un horaire. Parametres: p_date (YYYY-MM-DD), p_duration_minutes (entier, duree du service), p_scan_days (entier, nombre de jours a scanner, default 1, max 14. Utilise 14 pour le plus tot possible).",
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/rpc/get_available_slots",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "parametersHeaders": {
+              "values": [
+                {
+                  "name": "Content-Type",
+                  "valueProvider": "fieldValue",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Authorization",
+                  "valueProvider": "fieldValue",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "sendBody": true,
+            "parametersBody": {
+              "values": [
+                {
+                  "name": "p_merchant_id",
+                  "valueProvider": "fieldValue",
+                  "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+                },
+                {
+                  "name": "p_date"
+                },
+                {
+                  "name": "p_duration_minutes"
+                },
+                {
+                  "name": "p_scan_days",
+                  "valueProvider": "modelOptional"
+                }
+              ]
+            },
+            "optimizeResponse": true
+          },
+          "id": "tool-slots",
+          "name": "Tool: Creneaux disponibles",
+          "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+          "typeVersion": 1.1,
+          "position": [
+            2512,
+            512
+          ],
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "toolDescription": "CREE un rendez-vous dans le systeme. UTILISE CET OUTIL quand le client CONFIRME un creneau que tu as propose. Exemples de confirmation du client : 'A 14h', 'ok pour 15h', 'le premier', 'oui 14h', 'parfait', 'ca me va'. Quand le client repond avec une heure apres que tu as propose des creneaux, c'est TOUJOURS une confirmation. NE RAPPELLE PAS get_available_slots dans ce cas. Parametres : practitioner_id (UUID du praticien), service_id (UUID du service), starts_at (ISO 8601 ex: 2026-04-22T14:00:00+02:00), ends_at (ISO 8601 = starts_at + duree du service).",
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/bookings",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "parametersHeaders": {
+              "values": [
+                {
+                  "name": "Content-Type",
+                  "valueProvider": "fieldValue",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Prefer",
+                  "valueProvider": "fieldValue",
+                  "value": "return=representation"
+                },
+                {
+                  "name": "Authorization",
+                  "valueProvider": "fieldValue",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "sendBody": true,
+            "parametersBody": {
+              "values": [
+                {
+                  "name": "merchant_id",
+                  "valueProvider": "fieldValue",
+                  "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+                },
+                {
+                  "name": "client_id",
+                  "valueProvider": "fieldValue",
+                  "value": "={{ $('Prepare Context').first().json.client_id }}"
+                },
+                {
+                  "name": "practitioner_id"
+                },
+                {
+                  "name": "service_id"
+                },
+                {
+                  "name": "starts_at"
+                },
+                {
+                  "name": "ends_at"
+                },
+                {
+                  "name": "status",
+                  "valueProvider": "fieldValue",
+                  "value": "={{ $('Prepare Context').first().json.auto_confirm ? 'confirmed' : 'pending' }}"
+                },
+                {
+                  "name": "source_channel",
+                  "valueProvider": "fieldValue",
+                  "value": "={{ $('Prepare Context').first().json.channel }}"
+                }
+              ]
+            },
+            "optimizeResponse": true
+          },
+          "id": "tool-confirm",
+          "name": "Tool: Confirmer RDV",
+          "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+          "typeVersion": 1.1,
+          "position": [
+            2704,
+            512
+          ],
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "toolDescription": "Annule un rendez-vous existant. Utilise le booking_id fourni dans la liste des RDV a venir du client. Parametre requis: booking_id (UUID du RDV a annuler).",
+            "method": "PATCH",
+            "url": "=https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/bookings?id=eq.{booking_id}&merchant_id=eq.{{ $('Prepare Context').first().json.merchant_id }}",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "parametersHeaders": {
+              "values": [
+                {
+                  "name": "Content-Type",
+                  "valueProvider": "fieldValue",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Prefer",
+                  "valueProvider": "fieldValue",
+                  "value": "return=minimal"
+                },
+                {
+                  "name": "Authorization",
+                  "valueProvider": "fieldValue",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "sendBody": true,
+            "specifyBody": "json",
+            "jsonBody": "{\"status\": \"cancelled\", \"cancelled_at\": \"{{ $now.toISO() }}\", \"cancelled_by\": \"ai\"}",
+            "placeholderDefinitions": {
+              "values": [
+                {
+                  "name": "booking_id",
+                  "description": "UUID du rendez-vous a annuler, recupere depuis la liste des RDV a venir du client",
+                  "type": "string"
+                }
+              ]
+            },
+            "optimizeResponse": true
+          },
+          "id": "tool-cancel",
+          "name": "Tool: Annuler RDV",
+          "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+          "typeVersion": 1.1,
+          "position": [
+            2912,
+            512
+          ],
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/messages",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "sendBody": true,
+            "bodyParameters": {
+              "parameters": [
+                {
+                  "name": "merchant_id",
+                  "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+                },
+                {
+                  "name": "conversation_id",
+                  "value": "={{ $('Prepare Context').first().json.conversation_id }}"
+                },
+                {
+                  "name": "sender",
+                  "value": "ai"
+                },
+                {
+                  "name": "content",
+                  "value": "={{ $json.output }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "save-ai-msg",
+          "name": "Save AI Message",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            2912,
+            208
+          ],
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          },
+          "onError": "continueRegularOutput"
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "https://resaapp.fr/api/v1/channels/send",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                }
+              ]
+            },
+            "sendBody": true,
+            "bodyParameters": {
+              "parameters": [
+                {
+                  "name": "channel",
+                  "value": "={{ $('Prepare Context').first().json.channel }}"
+                },
+                {
+                  "name": "recipient_id",
+                  "value": "={{ $('Prepare Context').first().json.sender_id }}"
+                },
+                {
+                  "name": "message",
+                  "value": "={{ $('Agent IA').first().json.output }}"
+                },
+                {
+                  "name": "merchant_id",
+                  "value": "={{ $('Prepare Context').first().json.merchant_id }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "send-reply",
+          "name": "Send Reply",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            3184,
+            208
+          ],
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "EaRZ4TQKBMrRdlVX",
+              "name": "Internal API Secret"
+            }
+          },
+          "onError": "continueRegularOutput"
+        },
+        {
+          "parameters": {
+            "respondWith": "json",
+            "responseBody": "={{ JSON.stringify({status: 'ok', response_text: $('Agent IA').first().json.output || ''}) }}",
+            "options": {}
+          },
+          "id": "respond-ok",
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1,
+          "position": [
+            3472,
+            208
+          ]
+        },
+        {
+          "parameters": {
+            "content": "## Booking Conversation v2 — AI Agent\n\n### TODO avant activation\n1. Creer une credential 'Google PaLM API' (Credentials > New > Google PaLM API) avec la cle API Gemini\n2. La lier au node 'Gemini Chat Model'\n3. Mettre a jour le code du node 'Prepare Context' avec le prompt complet\n4. Mettre a jour le webhook dans 'WhatsApp Incoming' pour pointer vers /booking-conversation-v2\n5. Desactiver l'ancien workflow v1\n\n### Architecture\nWebhook > Data Loading (15 nodes) > Prepare Context > AI Agent + 3 outils > Save + Send + Respond\n\n### Outils de l'Agent\n- get_available_slots : cherche les creneaux libres (RPC Supabase)\n- confirm_booking : cree un RDV (INSERT bookings)\n- cancel_booking : annule un RDV (PATCH bookings)",
+            "height": 380,
+            "width": 500
+          },
+          "id": "sticky-instructions",
+          "name": "Sticky Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [
+            -1856,
+            -240
+          ]
+        },
+        {
+          "id": "tool-set-name",
+          "name": "Tool: Enregistrer nom client",
+          "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+          "typeVersion": 1.1,
+          "position": [
+            3120,
+            512
+          ],
+          "parameters": {
+            "toolDescription": "Enregistre le PRENOM du client dans sa fiche BDD. Utilise cet outil DES que le client te donne son prenom (ex: 'Je m'appelle Marie', 'C'est Marie', 'Marie'). Parametre requis : client_name (le prenom du client, sans titre, ex: 'Marie' pas 'Mme Marie'). N'appelle pas cet outil si le client n'a pas explicitement donne son prenom.",
+            "method": "PATCH",
+            "url": "=https://txebdgmufdsnkrntzvwn.supabase.co/rest/v1/clients?id=eq.{{ $('Prepare Context').first().json.client_id }}&merchant_id=eq.{{ $('Prepare Context').first().json.merchant_id }}",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "sendHeaders": true,
+            "parametersHeaders": {
+              "values": [
+                {
+                  "name": "Content-Type",
+                  "valueProvider": "fieldValue",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Prefer",
+                  "valueProvider": "fieldValue",
+                  "value": "return=minimal"
+                },
+                {
+                  "name": "Authorization",
+                  "valueProvider": "fieldValue",
+                  "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+                }
+              ]
+            },
+            "sendBody": true,
+            "specifyBody": "json",
+            "jsonBody": "{\"name\": \"{client_name}\"}",
+            "placeholderDefinitions": {
+              "values": [
+                {
+                  "name": "client_name",
+                  "description": "Prenom du client, sans titre (ex: 'Marie', 'Jean'). N'inclus PAS Mme/M./Mr.",
+                  "type": "string"
+                }
+              ]
+            },
+            "optimizeResponse": true
+          },
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "oRRRgpJ5HWoIrVpQ",
+              "name": "Supabase apikey"
+            }
+          }
+        }
+      ],
+      "connections": {
+        "Webhook Trigger": {
+          "main": [
+            [
+              {
+                "node": "Find Merchant",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Find Merchant": {
+          "main": [
+            [
+              {
+                "node": "Check Security",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Check Security": {
+          "main": [
+            [
+              {
+                "node": "Security Gate",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Security Gate": {
+          "main": [
+            [
+              {
+                "node": "Load Services",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Rate Limit Reply",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Load Services": {
+          "main": [
+            [
+              {
+                "node": "Load Practitioners",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Load Practitioners": {
+          "main": [
+            [
+              {
+                "node": "Identify Client",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Identify Client": {
+          "main": [
+            [
+              {
+                "node": "Build Context",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Build Context": {
+          "main": [
+            [
+              {
+                "node": "Ensure Conversation",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Ensure Conversation": {
+          "main": [
+            [
+              {
+                "node": "Load Conversation History",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Load Conversation History": {
+          "main": [
+            [
+              {
+                "node": "Save Client Message",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Save Client Message": {
+          "main": [
+            [
+              {
+                "node": "Check Client Packages",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Check Client Packages": {
+          "main": [
+            [
+              {
+                "node": "Check Client Subscriptions",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Check Client Subscriptions": {
+          "main": [
+            [
+              {
+                "node": "Load Client Bookings",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Load Client Bookings": {
+          "main": [
+            [
+              {
+                "node": "Prepare Context",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Prepare Context": {
+          "main": [
+            [
+              {
+                "node": "Agent IA",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Agent IA": {
+          "main": [
+            [
+              {
+                "node": "Save AI Message",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Save AI Message": {
+          "main": [
+            [
+              {
+                "node": "Send Reply",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Send Reply": {
+          "main": [
+            [
+              {
+                "node": "Respond OK",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Gemini Chat Model": {
+          "ai_languageModel": [
+            [
+              {
+                "node": "Agent IA",
+                "type": "ai_languageModel",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Tool: Creneaux disponibles": {
+          "ai_tool": [
+            [
+              {
+                "node": "Agent IA",
+                "type": "ai_tool",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Tool: Confirmer RDV": {
+          "ai_tool": [
+            [
+              {
+                "node": "Agent IA",
+                "type": "ai_tool",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Tool: Annuler RDV": {
+          "ai_tool": [
+            [
+              {
+                "node": "Agent IA",
+                "type": "ai_tool",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Tool: Enregistrer nom client": {
+          "ai_tool": [
+            [
+              {
+                "node": "Agent IA",
+                "type": "ai_tool",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      },
+      "authors": "Alex Aura_Solutions",
+      "name": null,
+      "description": null,
+      "autosaved": false,
+      "workflowPublishHistory": [
+        {
+          "createdAt": "2026-04-19T08:37:09.156Z",
+          "id": 356,
+          "workflowId": "SGH4ltnF5VnsLyJA",
+          "versionId": "11a65d8d-b334-4023-8f14-a6812377af6f",
+          "event": "activated",
+          "userId": "207c7094-166b-443e-979e-36ed4b287e4f"
+        },
+        {
+          "createdAt": "2026-04-19T08:37:09.140Z",
+          "id": 355,
+          "workflowId": "SGH4ltnF5VnsLyJA",
+          "versionId": "11a65d8d-b334-4023-8f14-a6812377af6f",
+          "event": "deactivated",
+          "userId": "207c7094-166b-443e-979e-36ed4b287e4f"
+        }
+      ]
+    }
+  }
+}
