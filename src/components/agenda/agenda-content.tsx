@@ -17,6 +17,8 @@ import {
   CreditCard,
   RotateCcw,
   UserX,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,6 +148,20 @@ const AgendaContent = () => {
     [clients],
   );
 
+  // Toggle "Par canal" dans Résumé du jour (persisté en localStorage)
+  const [showChannels, setShowChannels] = useState<boolean>(true);
+  useEffect(() => {
+    const stored = localStorage.getItem("agenda_show_channels");
+    if (stored !== null) setShowChannels(stored === "true");
+  }, []);
+  const toggleChannels = () => {
+    setShowChannels((prev) => {
+      const next = !prev;
+      localStorage.setItem("agenda_show_channels", String(next));
+      return next;
+    });
+  };
+
   // Bookings masqués (annulés dont la notif a été dismissed)
   const [hiddenBookingIds, setHiddenBookingIds] = useState<Set<string>>(new Set());
 
@@ -157,6 +173,17 @@ const AgendaContent = () => {
     loadHidden();
     window.addEventListener("agenda-hidden-bookings-changed", loadHidden);
     return () => window.removeEventListener("agenda-hidden-bookings-changed", loadHidden);
+  }, []);
+
+  // Booking surligné (depuis click "VOIR" sur une notif)
+  const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
+  useEffect(() => {
+    const loadHighlight = () => {
+      setHighlightedBookingId(sessionStorage.getItem("agenda_highlighted_booking"));
+    };
+    loadHighlight();
+    window.addEventListener("agenda-highlighted-booking-changed", loadHighlight);
+    return () => window.removeEventListener("agenda-highlighted-booking-changed", loadHighlight);
   }, []);
 
   const visibleBookings = useMemo(
@@ -489,6 +516,14 @@ const AgendaContent = () => {
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-2 ring-1 ring-foreground/10">
+          {/* Aujourd'hui — déplacé à gauche, plus visible */}
+          <button
+            onClick={goToToday}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+          >
+            Aujourd&apos;hui
+          </button>
+
           {/* View selector */}
           <div className="flex rounded-lg overflow-hidden border border-input">
             {(["day", "week", "month"] as ViewMode[]).map((v) => (
@@ -518,10 +553,6 @@ const AgendaContent = () => {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-
-          <Button variant="outline" size="sm" onClick={goToToday}>
-            Aujourd&apos;hui
-          </Button>
 
           {/* Practitioner filters */}
           <div className="flex items-center gap-2 ml-auto flex-wrap">
@@ -560,6 +591,7 @@ const AgendaContent = () => {
               date={currentDate}
               onBookingClick={handleBookingClick}
               newClientIds={newClientIds}
+              highlightedBookingId={highlightedBookingId}
             />
           )}
           {view === "week" && (
@@ -570,6 +602,7 @@ const AgendaContent = () => {
               selectedPractitionerIds={selectedPractitionerIds}
               onBookingClick={handleBookingClick}
               newClientIds={newClientIds}
+              highlightedBookingId={highlightedBookingId}
             />
           )}
           {view === "month" && (
@@ -626,24 +659,32 @@ const AgendaContent = () => {
               );
             })()}
 
-            {/* Canaux */}
+            {/* Canaux (collapsible) */}
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1.5">Par canal</div>
-              <div className="flex flex-col gap-1">
-                {(["dashboard", "whatsapp", "messenger", "telegram", "sms", "voice"] as Booking["source_channel"][])
-                  .filter((ch) => ch !== "voice" || merchantStatus?.voiceEnabled)
-                  .map((channel) => {
-                    const config = CHANNEL_CONFIG[channel];
-                    const count = channelCounts[channel] ?? 0;
-                    return (
-                      <div key={channel} className="flex items-center gap-2 text-xs text-gray-600">
-                        <span className={config.color}>{config.icon}</span>
-                        <span className="flex-1">{config.label}</span>
-                        <span className={`font-medium ${count > 0 ? "text-gray-800" : "text-gray-300"}`}>{count}</span>
-                      </div>
-                    );
-                  })}
-              </div>
+              <button
+                onClick={toggleChannels}
+                className="flex items-center gap-1 text-xs font-medium text-gray-500 mb-1.5 hover:text-gray-700 transition-colors w-full"
+              >
+                <span className="flex-1 text-left">Par canal</span>
+                {showChannels ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+              {showChannels && (
+                <div className="flex flex-col gap-1">
+                  {(["dashboard", "whatsapp", "messenger", "telegram", "sms", "voice"] as Booking["source_channel"][])
+                    .filter((ch) => ch !== "voice" || merchantStatus?.voiceEnabled)
+                    .map((channel) => {
+                      const config = CHANNEL_CONFIG[channel];
+                      const count = channelCounts[channel] ?? 0;
+                      return (
+                        <div key={channel} className="flex items-center gap-2 text-xs text-gray-600">
+                          <span className={config.color}>{config.icon}</span>
+                          <span className="flex-1">{config.label}</span>
+                          <span className={`font-medium ${count > 0 ? "text-gray-800" : "text-gray-300"}`}>{count}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

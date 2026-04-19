@@ -203,14 +203,24 @@ const SidebarNotifications = () => {
       dismissed.push(id);
       sessionStorage.setItem("dismissed_notifs", JSON.stringify(dismissed));
     }
-    // Si c'est une notif d'annulation/no-show, masquer aussi le RDV de l'agenda
-    if (id.startsWith("change-")) {
-      const bookingId = id.replace("change-", "");
-      const hidden = JSON.parse(sessionStorage.getItem("agenda_hidden_bookings") || "[]") as string[];
-      if (!hidden.includes(bookingId)) {
-        hidden.push(bookingId);
-        sessionStorage.setItem("agenda_hidden_bookings", JSON.stringify(hidden));
-        window.dispatchEvent(new Event("agenda-hidden-bookings-changed"));
+    // Extraire le booking_id si c'est une notif booking (change/reschedule)
+    const bookingMatch = id.match(/^(?:change|reschedule)-(.+)$/);
+    if (bookingMatch) {
+      const bookingId = bookingMatch[1];
+      // Si c'est une notif d'annulation/no-show, masquer aussi le RDV de l'agenda
+      if (id.startsWith("change-")) {
+        const hidden = JSON.parse(sessionStorage.getItem("agenda_hidden_bookings") || "[]") as string[];
+        if (!hidden.includes(bookingId)) {
+          hidden.push(bookingId);
+          sessionStorage.setItem("agenda_hidden_bookings", JSON.stringify(hidden));
+          window.dispatchEvent(new Event("agenda-hidden-bookings-changed"));
+        }
+      }
+      // Clear le highlight si c'est ce booking qui était surligné
+      const currentHighlight = sessionStorage.getItem("agenda_highlighted_booking");
+      if (currentHighlight === bookingId) {
+        sessionStorage.removeItem("agenda_highlighted_booking");
+        window.dispatchEvent(new Event("agenda-highlighted-booking-changed"));
       }
     }
   };
@@ -272,7 +282,6 @@ const SidebarNotifications = () => {
                           } else if (notif.actionDate) {
                             // Navigate to agenda on the booking date
                             if (pathname === "/agenda") {
-                              // Already on agenda — store date to trigger navigation
                               sessionStorage.setItem("agenda_goto_date", notif.actionDate);
                               window.dispatchEvent(new Event("agenda-goto-date"));
                             } else {
@@ -280,7 +289,15 @@ const SidebarNotifications = () => {
                               router.push("/agenda");
                             }
                           }
-                          dismiss(notif.id);
+                          // Highlight le booking sur l'agenda (extrait l'id depuis notif.id)
+                          // Formats : "change-{bookingId}", "reschedule-{bookingId}", "tip-{tipId}", etc.
+                          const match = notif.id.match(/^(?:change|reschedule)-(.+)$/);
+                          if (match) {
+                            const bookingId = match[1];
+                            sessionStorage.setItem("agenda_highlighted_booking", bookingId);
+                            window.dispatchEvent(new Event("agenda-highlighted-booking-changed"));
+                          }
+                          // NE PAS dismiss la notif ici — elle reste visible jusqu'au clic sur la croix
                         }}
                       >
                         {notif.action}

@@ -21,6 +21,7 @@ interface WeekViewProps {
   selectedPractitionerIds: string[];
   onBookingClick: (b: BookingWithDetails) => void;
   newClientIds?: Set<string>;
+  highlightedBookingId?: string | null;
 }
 
 const HOUR_START = 8;
@@ -112,6 +113,7 @@ const WeekView = ({
   selectedPractitionerIds,
   onBookingClick,
   newClientIds,
+  highlightedBookingId,
 }: WeekViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pxPerMinute, setPxPerMinute] = useState(1);
@@ -327,10 +329,11 @@ const WeekView = ({
                       const widthPct = 100 / pos.total;
                       const leftPct = pos.col * widthPct;
 
+                      const isHighlighted = highlightedBookingId === booking.id;
                       return (
                         <div
                           key={booking.id}
-                          className={`absolute group/tip ${isNoShow || isCancelled ? "opacity-40 grayscale" : ""}`}
+                          className={`absolute group/tip ${isNoShow || isCancelled ? "opacity-40 grayscale" : ""} ${isHighlighted ? "ring-4 ring-red-500 ring-offset-2 rounded-lg animate-pulse z-20" : ""}`}
                           style={{
                             top,
                             height,

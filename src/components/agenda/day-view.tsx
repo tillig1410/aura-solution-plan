@@ -20,6 +20,7 @@ interface DayViewProps {
   date: Date;
   onBookingClick: (b: BookingWithDetails) => void;
   newClientIds?: Set<string>;
+  highlightedBookingId?: string | null;
 }
 
 const HOUR_START = 8;
@@ -35,7 +36,7 @@ const minutesFromMidnight = (isoStr: string): number => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
-const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds }: DayViewProps) => {
+const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, highlightedBookingId }: DayViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pxPerMinute, setPxPerMinute] = useState(1);
   const [currentMinute, setCurrentMinute] = useState<number>(() => {
@@ -222,10 +223,11 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds }
                   const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
                   const timeEnd = new Date(booking.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
+                  const isHighlighted = highlightedBookingId === booking.id;
                   return (
                     <div
                       key={booking.id}
-                      className={`absolute left-1.5 right-1.5 group/tip ${isNoShow || isCancelled ? "opacity-40 grayscale" : ""}`}
+                      className={`absolute left-1.5 right-1.5 group/tip ${isNoShow || isCancelled ? "opacity-40 grayscale" : ""} ${isHighlighted ? "ring-4 ring-red-500 ring-offset-2 rounded-xl animate-pulse" : ""}`}
                       style={{ top, height }}
                     >
                       <button
