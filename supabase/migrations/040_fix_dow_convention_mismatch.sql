@@ -47,7 +47,6 @@ BEGIN
 
   FOR v_day_offset IN 0..(v_scan_count - 1) LOOP
     v_current_date := p_date + v_day_offset;
-    -- ISODOW: 1=Lundi ... 7=Dimanche; -1 pour match convention dashboard (0=Lundi, 6=Dimanche)
     v_dow_num := (EXTRACT(ISODOW FROM v_current_date)::INTEGER - 1);
 
     RETURN QUERY
