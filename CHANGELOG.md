@@ -5,6 +5,56 @@
 
 ---
 
+## [3.2.0] — 2026-04-19 PM — Migration Claude Haiku 4.5 + 60j limite + retouches UI sidebar/agenda
+
+Session intensive de l'après-midi : MAJ n8n 2.16.1, switch IA Gemini → Claude Haiku 4.5 (avec achat $20 crédit Anthropic), 13 itérations du prompt v3.x (combo service, créneaux contigus, limite 60j, détection date prioritaire message courant), fix annulation booking, et 6 retouches UI (sidebar topbar mini-calendar, agenda toggle canaux, badge Nouveau, highlight RDV depuis notif).
+
+### IA / Workflow n8n v2 — 13 itérations prompt + switch modèle
+
+- **[CHORE]** **MAJ n8n VPS** 2.15.0 → 2.16.1 (commit serveur, pas de fichier) — fix bug "parts" LangChain V2 partiel
+- **[FEAT]** **Switch modèle Gemini Lite → Claude Haiku 4.5** (`claude-haiku-4-5-20251001`) — meilleur tool calling, pas de truncation
+- **[FEAT]** **Pré-processing JS étendu** dans Prepare Context (~250 lignes) :
+  - Détection date PRIORISE message courant > historique (évite collision dates anciennes)
+  - Détection intent "regrouper/coller" → propose UNIQUEMENT créneaux contigus (pas créneaux intermédiaires)
+  - Détection combo service (ex: "Coupe + Barbe" si créé manuellement par merchant)
+  - Limite **60 jours** sur réservations futures (anti-spam, standard industrie)
+  - Warning RDV proche ±7 jours (avec dedup pour ne pas se répéter)
+- **[FIX]** **Tool Annuler RDV** (commit `b224735` — backup workflow) :
+  - `cancelled_by` : `"ai"` → `"client"` (CHECK constraint exigeait client/merchant)
+  - Préfixe `=` ajouté au `jsonBody` pour évaluer `{{ $now.toISO() }}`
+  - `Prefer: return=minimal` → `return=representation` (sinon IA hallucinait l'échec sur réponse vide)
+- **[CHORE]** **Backup workflow** : `n8n/workflows/booking-conversation-v2.json` snapshot v3.13 (commit `b224735`)
+
+### Frontend — 6 retouches UI
+
+- **[FIX]** **API services POST** : `description: z.string().optional().nullable()` (alignement PATCH) — fix erreur "Validation failed" lors création service "Coupe + Barbe" (commit `ed2af6f`)
+- **[FEAT]** **Hide RDV annulé** au clic X sur notif sidebar (commit `a851870`) — sessionStorage `agenda_hidden_bookings` + event broadcasting, le RDV grisé disparait de l'agenda
+- **[FEAT]** **4 retouches agenda** (commit `5552c4c`) :
+  - Couleur verte (`#22c55e`) retirée de la palette praticien
+  - Section "Par canal" du Résumé du jour devient collapsible (chevron + localStorage)
+  - Bouton **"Aujourd'hui"** déplacé à GAUCHE de Jour/Semaine/Mois + style indigo plus visible
+  - **Highlight RDV depuis notif** : click "VOIR" → ring red-500 pulsé autour du RDV concerné, notif reste visible. Click X → ring + notif disparaissent
+- **[FEAT]** **Layout topbar + mini-calendar sidebar** (commit `8f372dc`) :
+  - TopBar `h-16` → `h-12` (bandeau ~25% plus fin)
+  - Sidebar header aligné à `h-12`, logo réduit (`h-7` vs `h-9`)
+  - `border-r` déplacé du `<aside>` vers div interne — trait vertical commence SOUS le header (plus de séparation gênante)
+  - Nouveau composant `SidebarMiniCalendar` (react-day-picker, locale fr, lundi premier jour) entre nav et notifications. Click date → navigation agenda sur ce jour précis
+
+### Bonus — découvertes techniques
+
+- **[CHORE]** Anthropic credit promo (gratuit) ne suffit pas pour API → faut acheter du crédit "payé" (min $5) sinon "credit balance too low"
+- **[CHORE]** WebSocket Realtime Supabase échouait à cause d'un `\n` invisible dans la variable `NEXT_PUBLIC_SUPABASE_ANON_KEY` côté Vercel — fixé en re-collant la clé propre
+- **[CHORE]** `Essai expiré` dans agenda est juste un label UI client-side (calculé `created_at + 14j`), ne bloque pas l'API
+- **[CHORE]** Service combo créable manuellement par le merchant via `/services` (pas besoin de schema change pour les combos basiques)
+
+### TODOs sauvegardés en mémoire
+
+- `project_todo_modify_booking_combo.md` — vrai combo (changement schema DB) si besoin futur
+- `project_todo_max_booking_days_configurable.md` — rendre la limite 60j paramétrable par merchant
+- `project_workflow_v3_state.md` — snapshot complet du workflow + bugs résiduels (combo détecté mais Claude propose contigu, conversations longues confondent, modify_booking inexistant)
+
+---
+
 ## [3.1.0] — 2026-04-19 — Polish workflow v2 (REGLE 10 + ETAT ACTUEL pré-calculé) + migrations 039/040 + UI
 
 Session intensive de polish post-déploiement workflow v2. 14 commits, focus sur le flow conversationnel (Gemini Lite mieux guidé via pré-processing JS), 2 migrations critiques DB, et UI badge "Nouveau client" + édition inline fiche client.
