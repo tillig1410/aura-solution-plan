@@ -153,15 +153,15 @@ const SidebarNotifications = () => {
         }
       }
 
-      // Confirmed/rescheduled bookings (updated_at significantly after created_at)
+      // Confirmed bookings : nouveau (created today) OU déplacé (created earlier, updated today >60s after creation)
       if (rescheduled) {
         for (const b of rescheduled) {
           const created = new Date(b.created_at).getTime();
           const updated = new Date(b.updated_at).getTime();
-          // Only show if updated at least 1 min after creation (= real modification)
-          if (updated - created > 60_000) {
+          const createdToday = new Date(b.created_at) >= todayStart;
+          const isReschedule = !createdToday && updated - created > 60_000;
+          if (createdToday || isReschedule) {
             const clientName = (b.client as { name: string | null } | null)?.name ?? "Un client";
-            const createdToday = new Date(b.created_at) >= todayStart;
             notifs.push({
               id: `reschedule-${b.id}`,
               type: "booking_change",
@@ -169,7 +169,7 @@ const SidebarNotifications = () => {
               description: `${clientName} → ${new Date(b.starts_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} à ${new Date(b.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
               action: "VOIR",
               actionDate: b.starts_at.slice(0, 10),
-              timestamp: b.updated_at,
+              timestamp: createdToday ? b.created_at : b.updated_at,
               dismissed: false,
             });
           }
