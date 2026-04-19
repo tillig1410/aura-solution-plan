@@ -140,6 +140,9 @@ const ClientDetail = ({ clientId, onClose }: ClientDetailProps) => {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [infoForm, setInfoForm] = useState({ name: "", phone: "", email: "" });
+  const [savingInfo, setSavingInfo] = useState(false);
 
   const fetchClient = useCallback(async (id: string) => {
     setLoading(true);
@@ -167,6 +170,68 @@ const ClientDetail = ({ clientId, onClose }: ClientDetailProps) => {
       setClient(null);
     }
   }, [clientId, fetchClient]);
+
+  const startEditingInfo = () => {
+    if (!client) return;
+    setInfoForm({
+      name: client.name ?? "",
+      phone: client.phone ?? "",
+      email: client.email ?? "",
+    });
+    setEditingInfo(true);
+  };
+
+  const saveInfo = async () => {
+    if (!client) return;
+
+    const trimmedName = infoForm.name.trim();
+    const trimmedPhone = infoForm.phone.trim();
+    const trimmedEmail = infoForm.email.trim();
+
+    const payload: Record<string, string | null> = {};
+    if (trimmedName !== (client.name ?? "")) {
+      if (trimmedName.length > 0 && trimmedName.length < 2) {
+        toast.error("Le nom doit contenir au moins 2 caractères");
+        return;
+      }
+      if (trimmedName.length >= 2) payload.name = trimmedName;
+    }
+    if (trimmedPhone !== (client.phone ?? "")) {
+      payload.phone = trimmedPhone === "" ? null : trimmedPhone;
+    }
+    if (trimmedEmail !== (client.email ?? "")) {
+      payload.email = trimmedEmail === "" ? null : trimmedEmail;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setEditingInfo(false);
+      return;
+    }
+
+    setSavingInfo(true);
+    try {
+      const res = await fetch(`/api/v1/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const updated = (await res.json()) as ClientDetail;
+        setClient((prev) =>
+          prev
+            ? { ...prev, name: updated.name, phone: updated.phone, email: updated.email }
+            : prev,
+        );
+        setEditingInfo(false);
+        toast.success("Fiche client mise à jour");
+      } else {
+        const err = (await res.json().catch(() => ({ error: "Erreur inconnue" }))) as { error?: string };
+        toast.error(err.error ?? "Erreur lors de la sauvegarde");
+      }
+    } finally {
+      setSavingInfo(false);
+    }
+  };
 
   const saveNotes = async () => {
     if (!client) return;
@@ -235,37 +300,92 @@ const ClientDetail = ({ clientId, onClose }: ClientDetailProps) => {
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
                   <span className="text-indigo-700 font-bold text-lg">
-                    {getInitials(client.name)}
+                    {getInitials(editingInfo ? infoForm.name || null : client.name)}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 text-lg truncate">
-                    {client.name ?? "Client anonyme"}
-                  </h3>
-                  {client.phone && (
-                    <p className="text-sm text-gray-500">{client.phone}</p>
-                  )}
-                  {client.email && (
-                    <p className="text-sm text-gray-500 truncate">{client.email}</p>
-                  )}
-                  {/* Badge fidélité */}
-                  {client.loyalty_tier && loyaltyConfig[client.loyalty_tier] && (
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <span
-                        className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${loyaltyConfig[client.loyalty_tier].color}`}
-                      >
-                        {loyaltyConfig[client.loyalty_tier].dot}{" "}
-                        {loyaltyConfig[client.loyalty_tier].label}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {client.loyalty_points} pts
-                      </span>
+                  {editingInfo ? (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={infoForm.name}
+                        onChange={(e) => setInfoForm({ ...infoForm, name: e.target.value })}
+                        placeholder="Nom du client"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <input
+                        type="tel"
+                        value={infoForm.phone}
+                        onChange={(e) => setInfoForm({ ...infoForm, phone: e.target.value })}
+                        placeholder="+33612345678"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <input
+                        type="email"
+                        value={infoForm.email}
+                        onChange={(e) => setInfoForm({ ...infoForm, email: e.target.value })}
+                        placeholder="email@exemple.fr"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          onClick={saveInfo}
+                          disabled={savingInfo}
+                          className="text-xs"
+                        >
+                          {savingInfo ? "Enregistrement..." : "Enregistrer"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingInfo(false)}
+                          disabled={savingInfo}
+                          className="text-xs"
+                        >
+                          Annuler
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                  {client.is_blocked && (
-                    <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 mt-1">
-                      Bloqué
-                    </span>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-gray-900 text-lg truncate">
+                          {client.name ?? "Client anonyme"}
+                        </h3>
+                        <button
+                          onClick={startEditingInfo}
+                          className="text-xs text-indigo-600 hover:underline flex-shrink-0 mt-1.5"
+                        >
+                          Modifier
+                        </button>
+                      </div>
+                      {client.phone && (
+                        <p className="text-sm text-gray-500">{client.phone}</p>
+                      )}
+                      {client.email && (
+                        <p className="text-sm text-gray-500 truncate">{client.email}</p>
+                      )}
+                      {/* Badge fidélité */}
+                      {client.loyalty_tier && loyaltyConfig[client.loyalty_tier] && (
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${loyaltyConfig[client.loyalty_tier].color}`}
+                          >
+                            {loyaltyConfig[client.loyalty_tier].dot}{" "}
+                            {loyaltyConfig[client.loyalty_tier].label}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {client.loyalty_points} pts
+                          </span>
+                        </div>
+                      )}
+                      {client.is_blocked && (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 mt-1">
+                          Bloqué
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
