@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Sidebar from "@/components/layout/sidebar";
-import TopBar from "@/components/layout/topbar";
 
 export default async function DashboardLayout({
   children,
@@ -22,12 +21,10 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen">
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          {children}
-        </main>
-      </div>
+      <main className="flex-1 overflow-y-auto bg-gray-50">
+        {/* Padding global pour les pages classiques. La page Agenda annule ce padding via -m-6 sur son wrapper. */}
+        <div className="p-6 h-full">{children}</div>
+      </main>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Check } from "lucide-react";
 import type { Practitioner, Booking } from "@/types/supabase";
+import { getBookingColor, type ColorBy } from "@/lib/agenda/colors";
+import { ChannelIcon } from "@/lib/agenda/channels";
 
 interface BookingWithDetails extends Booking {
   client: { id: string; name: string | null; phone: string | null; preferred_language: string; notes: string | null; loyalty_tier: string; loyalty_points: number } | null;
@@ -19,8 +21,11 @@ interface DayViewProps {
   practitioners: PractitionerWithAvailability[];
   date: Date;
   onBookingClick: (b: BookingWithDetails) => void;
+  onSlotClick?: (practitionerId: string, dateAtSlot: Date) => void;
   newClientIds?: Set<string>;
   highlightedBookingId?: string | null;
+  colorBy?: ColorBy;
+  density?: "compact" | "comfortable";
 }
 
 const HOUR_START = 8;
@@ -36,7 +41,7 @@ const minutesFromMidnight = (isoStr: string): number => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
-const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, highlightedBookingId }: DayViewProps) => {
+const DayView = ({ bookings, practitioners, date, onBookingClick, onSlotClick, newClientIds, highlightedBookingId, colorBy = "practitioner", density = "comfortable" }: DayViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pxPerMinute, setPxPerMinute] = useState(1);
   const [currentMinute, setCurrentMinute] = useState<number>(() => {
@@ -44,18 +49,22 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, 
     return now.getHours() * 60 + now.getMinutes();
   });
 
+  // En "confort", on force un minimum plus haut → grille plus aérée (scroll si besoin).
+  // En "compact", on garde le calcul fit-to-screen avec un plancher bas.
+  const minPxPerMinute = density === "comfortable" ? 2.6 : 1.2;
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const update = () => {
       const available = el.clientHeight - PADDING_TOP;
-      setPxPerMinute(Math.max(1.5, available / TOTAL_MINUTES));
+      setPxPerMinute(Math.max(minPxPerMinute, available / TOTAL_MINUTES));
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [minPxPerMinute]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -91,29 +100,6 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, 
 
   return (
     <div className="flex flex-col h-full">
-      {/* Practitioners header */}
-      <div className="flex border-b bg-white relative z-10">
-        <div className="w-14 shrink-0 border-r" />
-        {activePractitioners.map((p) => {
-          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-          const onVacation = p.availability?.some((a) => a.exception_date === dateStr && !a.is_available) ?? false;
-          return (
-            <div
-              key={p.id}
-              className={`flex-1 flex items-center gap-2 px-3 py-2 border-r last:border-r-0 ${onVacation ? "opacity-40" : ""}`}
-            >
-              <span
-                className="h-3 w-3 rounded-full shrink-0"
-                style={{ backgroundColor: p.color }}
-              />
-              <span className="text-sm font-medium text-gray-700 truncate">
-                {p.name}{onVacation ? " (congé)" : ""}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Scrollable grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="flex relative" style={{ height: TOTAL_MINUTES * pxPerMinute + PADDING_TOP }}>
@@ -141,7 +127,24 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, 
             const pracEnd = pracDayAvail ? parseInt(pracDayAvail.end_time.slice(0, 2)) * 60 + parseInt(pracDayAvail.end_time.slice(3, 5)) : HOUR_END * 60;
 
             return (
-              <div key={p.id} className="flex-1 relative border-r last:border-r-0">
+              <div
+                key={p.id}
+                className="flex-1 relative border-r last:border-r-0 cursor-pointer"
+                onClick={(e) => {
+                  if (!onSlotClick) return;
+                  // Ignorer les clics sur les RDV (button) ou enfants
+                  if ((e.target as HTMLElement).closest("button")) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const yInCol = e.clientY - rect.top;
+                  const minsFromOpen = (yInCol - PADDING_TOP) / pxPerMinute;
+                  const totalMins = HOUR_START * 60 + Math.round(minsFromOpen / 15) * 15;
+                  const h = Math.max(HOUR_START, Math.min(HOUR_END - 1, Math.floor(totalMins / 60)));
+                  const m = totalMins % 60;
+                  const dateAtSlot = new Date(date);
+                  dateAtSlot.setHours(h, m, 0, 0);
+                  onSlotClick(p.id, dateAtSlot);
+                }}
+              >
                 {/* Hour lines */}
                 {HOURS.map((hour) => (
                   <div
@@ -217,7 +220,7 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, 
                   const endMin = minutesFromMidnight(booking.ends_at);
                   const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
                   const height = Math.max((endMin - startMin) * pxPerMinute, 28);
-                  const color = booking.practitioner?.color ?? p.color;
+                  const color = getBookingColor(booking, colorBy, p.color);
                   const isNoShow = booking.status === "no_show";
                   const isCancelled = booking.status === "cancelled";
                   const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -232,28 +235,53 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, 
                     >
                       <button
                         onClick={() => onBookingClick(booking)}
-                        className="w-full h-full rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:brightness-95 transition-all relative"
+                        className="w-full h-full rounded-[10px] px-2.5 py-1.5 text-left overflow-hidden hover:brightness-[0.98] transition-all relative"
                         style={{
-                          backgroundColor: `${isNoShow || isCancelled ? "#9ca3af" : color}15`,
+                          background: isNoShow || isCancelled
+                            ? "#f3f4f6"
+                            : `color-mix(in oklch, ${color} 14%, white)`,
                           borderLeft: `4px solid ${isNoShow || isCancelled ? "#9ca3af" : color}`,
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                          borderTop: `1px solid color-mix(in oklch, ${color} 25%, white)`,
+                          borderRight: `1px solid color-mix(in oklch, ${color} 18%, white)`,
+                          borderBottom: `1px solid color-mix(in oklch, ${color} 30%, white)`,
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                         }}
                       >
                         {booking.client && newClientIds?.has(booking.client.id) && !isCancelled && !isNoShow && (
-                          <span className="absolute top-1 right-1 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-500 text-white rounded-full px-1.5 py-0.5 shadow-sm">
+                          <span className="absolute top-1 right-1 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-500 text-white rounded-full px-1.5 py-0.5 shadow-sm z-10">
                             <Sparkles className="w-2.5 h-2.5" />
                             Nouveau
                           </span>
                         )}
+
+                        {/* Done checkmark — coin haut droite */}
+                        {booking.status === "completed" && !isCancelled && !isNoShow && (
+                          <span className="absolute top-1 right-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white shadow-sm z-10">
+                            <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                          </span>
+                        )}
+
+                        {/* Channel icon — coin bas droite */}
+                        {!isCancelled && !isNoShow && (
+                          <span className="absolute bottom-1 right-1.5 opacity-70">
+                            <ChannelIcon channel={booking.source_channel} size={11} />
+                          </span>
+                        )}
+
                         <div className="flex items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${booking.status === "pending" ? "bg-amber-500" : "bg-green-500"}`} />
                           <span className="text-[11px] font-semibold truncate" style={{ color }}>
                             {timeStart} — {timeEnd}
                           </span>
                         </div>
-                        {height >= 40 && (
-                          <div className="text-sm font-bold text-gray-900 truncate leading-tight mt-0.5">
-                            {booking.service?.name}
+                        {height >= 40 && booking.client?.name && (
+                          <div className="text-[13px] font-bold text-gray-900 truncate leading-tight mt-0.5">
+                            {booking.client.name}
+                          </div>
+                        )}
+                        {height >= 56 && booking.service?.name && (
+                          <div className="text-[11px] text-gray-500 truncate leading-tight mt-0.5">
+                            {booking.service.name}
                           </div>
                         )}
                       </button>
@@ -294,15 +322,27 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, newClientIds, 
             );
           })}
 
-          {/* Current time line */}
+          {/* Current time line + label heure (proto Claude Design) */}
           {currentLineTop !== null && (
-            <div
-              className="absolute left-14 right-0 flex items-center pointer-events-none z-20"
-              style={{ top: currentLineTop }}
-            >
-              <div className="h-2 w-2 rounded-full bg-red-500 -ml-1" />
-              <div className="flex-1 border-t-2 border-red-500" />
-            </div>
+            <>
+              {/* Badge heure dans le gutter gauche */}
+              <div
+                className="absolute left-0 z-20 pointer-events-none flex items-center justify-center"
+                style={{ top: currentLineTop - 9, width: 56 }}
+              >
+                <span className="rounded-md bg-red-500 text-white text-[11px] font-bold px-1.5 py-0.5 shadow-sm">
+                  {String(Math.floor(currentMinute / 60)).padStart(2, "0")}:{String(currentMinute % 60).padStart(2, "0")}
+                </span>
+              </div>
+              {/* Ligne rouge dans la grille */}
+              <div
+                className="absolute left-14 right-0 flex items-center pointer-events-none z-20"
+                style={{ top: currentLineTop }}
+              >
+                <div className="h-2 w-2 rounded-full bg-red-500 -ml-1" />
+                <div className="flex-1 border-t-2 border-red-500" />
+              </div>
+            </>
           )}
         </div>
       </div>
