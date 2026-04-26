@@ -8,12 +8,14 @@ interface Props {
   onChange: (next: string[]) => void;
   /** Label affiché à gauche du bandeau (ex: "VUE SEMAINE DE", "VUE 3 JOURS DE") */
   label: string;
+  /** Compteurs RDV affichés à droite du bandeau pour la sélection courante */
+  summary?: { total: number; confirmed: number };
 }
 
 const getInitials = (name: string): string =>
   name.split(/\s+/).map((w) => w[0]).filter(Boolean).join("").slice(0, 2).toUpperCase();
 
-const PractitionerPillsFilter = ({ practitioners, selected, onChange, label }: Props) => {
+const PractitionerPillsFilter = ({ practitioners, selected, onChange, label, summary }: Props) => {
   const active = practitioners.filter((p) => p.is_active);
   if (active.length === 0) return null;
 
@@ -86,6 +88,24 @@ const PractitionerPillsFilter = ({ practitioners, selected, onChange, label }: P
           </button>
         );
       })}
+      {summary && (
+        <div
+          className="ml-auto inline-flex items-center gap-2 rounded-md px-2.5 py-1"
+          style={{
+            background: "var(--agenda-surface)",
+            border: "1px solid var(--agenda-border)",
+          }}
+        >
+          <div className="text-right leading-tight">
+            <div className="text-[12px] font-semibold" style={{ color: "var(--agenda-fg)" }}>
+              {summary.total} RDV
+            </div>
+            <div className="text-[10px]" style={{ color: "var(--agenda-fg-subtle)" }}>
+              {summary.confirmed} confirmé{summary.confirmed > 1 ? "s" : ""}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

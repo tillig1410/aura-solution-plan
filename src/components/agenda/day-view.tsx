@@ -100,59 +100,6 @@ const DayView = ({ bookings, practitioners, date, onBookingClick, onSlotClick, n
 
   return (
     <div className="flex flex-col h-full">
-      {/* Practitioners header — colonnes : avatar + nom + spécialité + compteurs (proto Claude Design) */}
-      <div className="flex border-b bg-white relative z-10">
-        <div className="w-14 shrink-0 border-r" />
-        {activePractitioners.map((p) => {
-          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-          const onVacation = p.availability?.some((a) => a.exception_date === dateStr && !a.is_available) ?? false;
-          const pratBookings = dayBookings.filter((b) => b.practitioner_id === p.id);
-          const totalCount = pratBookings.length;
-          const confirmedCount = pratBookings.filter(
-            (b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed"
-          ).length;
-          const initials = p.name
-            .split(/\s+/)
-            .map((w) => w[0])
-            .filter(Boolean)
-            .join("")
-            .slice(0, 2)
-            .toUpperCase();
-          const specialty = p.specialties?.[0] ?? "";
-          return (
-            <div
-              key={p.id}
-              className={`flex-1 flex items-center gap-2.5 px-3 py-2 border-r last:border-r-0 ${onVacation ? "opacity-40" : ""}`}
-            >
-              <div
-                className="rounded-full flex items-center justify-center text-white font-semibold shrink-0"
-                style={{ background: p.color, width: 28, height: 28, fontSize: 11 }}
-              >
-                {initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold truncate" style={{ color: "var(--agenda-fg)" }}>
-                  {p.name}{onVacation ? " (congé)" : ""}
-                </div>
-                {specialty && (
-                  <div className="text-[11px] truncate" style={{ color: "var(--agenda-fg-subtle)" }}>
-                    {specialty}
-                  </div>
-                )}
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-[12px] font-semibold leading-tight" style={{ color: "var(--agenda-fg)" }}>
-                  {totalCount} RDV
-                </div>
-                <div className="text-[11px] leading-tight" style={{ color: "var(--agenda-fg-subtle)" }}>
-                  {confirmedCount} confirmé{confirmedCount > 1 ? "s" : ""}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Scrollable grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="flex relative" style={{ height: TOTAL_MINUTES * pxPerMinute + PADDING_TOP }}>

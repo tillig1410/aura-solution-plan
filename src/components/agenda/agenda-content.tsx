@@ -236,6 +236,20 @@ const AgendaContent = () => {
     () => bookings.filter((b) => !hiddenBookingIds.has(b.id)),
     [bookings, hiddenBookingIds],
   );
+
+  // Compteurs RDV affichés dans le bandeau pills — vue Jour, périmètre praticiens sélectionnés
+  const currentDayCounts = useMemo(() => {
+    const dayStr = currentDate.toDateString();
+    const sel = visibleBookings.filter((b) => {
+      if (new Date(b.starts_at).toDateString() !== dayStr) return false;
+      if (selectedPractitionerIds.length > 0 && !selectedPractitionerIds.includes(b.practitioner_id)) return false;
+      return b.status !== "cancelled";
+    });
+    const confirmed = sel.filter(
+      (b) => b.status === "confirmed" || b.status === "in_progress" || b.status === "completed",
+    ).length;
+    return { total: sel.length, confirmed };
+  }, [visibleBookings, currentDate, selectedPractitionerIds]);
   const [merchantStatus, setMerchantStatus] = useState<{
     hasSubscription: boolean;
     trialEnd: string | null;
@@ -717,6 +731,7 @@ const AgendaContent = () => {
               : view === "3day" ? "Vue 3 jours de"
               : "Vue jour de"
             }
+            summary={view === "day" ? currentDayCounts : undefined}
           />
         )}
 
