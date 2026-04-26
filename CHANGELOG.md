@@ -5,6 +5,36 @@
 
 ---
 
+## [3.3.0] — 2026-04-26 — Patch sécu n8n 2.17.5 + horizon réservation configurable
+
+Session courte (~40 min) en parallèle d'une alerte sécu n8n (2 RCE critiques + 4 vulnérabilités élevées). Upgrade VPS appliqué et feature `max_booking_days_ahead` rendue configurable par merchant.
+
+### Sécu — upgrade n8n VPS Hostinger
+
+- **[CHORE]** **MAJ n8n VPS** 2.16.1 → 2.17.5 (saut mineur dans branche stable v2, 0 breaking change observé)
+  - Why : 2 RCE critiques non authentifiées (XML node prototype pollution + webhook XML body parser) + 4 élevées (XSS MCP, DoS MCP, Python sandbox escape, OAuth dynamic-node-parameters)
+  - Backup volume avant upgrade : `/opt/resaapp/n8n-backup-20260426-1433.tgz` (17 Mo, volume `resaapp_n8n_data` complet via `docker run alpine tar`)
+  - Pin de la version dans `/opt/resaapp/docker-compose.yml` : `image: n8nio/n8n:latest` → `image: n8nio/n8n:2.17.5` (anti tag flottant)
+  - Healthz `https://n8n.resaapp.fr/healthz` → `{"status":"ok"}` post-upgrade
+
+### Frontend — horizon de réservation configurable (commit `5e45074`, branche `feat/agenda-ui-v2`)
+
+- **[FEAT]** Migration `041_add_max_booking_days_ahead.sql` — colonne `merchants.max_booking_days_ahead INTEGER NOT NULL DEFAULT 60 CHECK (BETWEEN 7 AND 365)`
+- **[FEAT]** UI Paramètres > IA & Canaux : nouvelle Card "Horizon de réservation" avec input number (icône `CalendarRange`, repère industrie : Planity 90j · Treatwell 120j · Calendly 60j)
+- **[CHORE]** Types Supabase mis à jour (Row + Insert + Update) + mock unitaire `tests/unit/ai-config.test.ts`
+
+### Restant pour activer la feature côté workflow live
+
+- Appliquer migration 041 sur Supabase prod (`supabase db push` ou SQL Editor)
+- Merger `feat/agenda-ui-v2` → `main` (déploie auto sur Vercel)
+- Éditer 2 nodes du Booking Conversation v2 : Build Context (charger le champ) + Prepare Context (remplacer `MAX_BOOKING_DAYS_AHEAD = 60` par `ctx.max_booking_days_ahead || 60`)
+
+### Découverte — bridge Telegram absent
+
+- Le test Telegram post-upgrade n'a déclenché **aucune execution** côté n8n. Diagnostic : la stack n8n a `WhatsApp Incoming` mais **pas de `Telegram Incoming`**. Le pivot Telegram acté le 25/04 (suite blocage comptes Meta) reste à brancher côté worker n8n. Mémo `project_waba_account_restricted` mis à jour.
+
+---
+
 ## [3.2.0] — 2026-04-19 PM — Migration Claude Haiku 4.5 + 60j limite + retouches UI sidebar/agenda
 
 Session intensive de l'après-midi : MAJ n8n 2.16.1, switch IA Gemini → Claude Haiku 4.5 (avec achat $20 crédit Anthropic), 13 itérations du prompt v3.x (combo service, créneaux contigus, limite 60j, détection date prioritaire message courant), fix annulation booking, et 6 retouches UI (sidebar topbar mini-calendar, agenda toggle canaux, badge Nouveau, highlight RDV depuis notif).
