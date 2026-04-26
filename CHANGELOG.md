@@ -5,6 +5,148 @@
 
 ---
 
+## [3.4.0] — 2026-04-26 PM — Refonte UI agenda fidèle proto Claude Design
+
+Session longue (~6h) de refonte ergonomie/visuel de la page Agenda à partir d'un prototype HTML produit dans Claude Design (`D:\AURAsolutions\10_Claude design\Ergonomie Agenda\`). **Déployé en prod via commit `2692f6a` le 2026-04-26 PM** (merge `feat/agenda-ui-v2` → `main` → Vercel auto + migration 041 appliquée Supabase prod).
+
+### Tokens & layout global
+
+- **[FEAT]** Nouveaux tokens OKLCH dans `src/app/globals.css` (préfixés `--agenda-*` pour ne pas écraser shadcn) : palette praticiens p1-p6 + variantes soft, services par catégorie, états RDV (confirmed/pending/cancelled/noshow/done/blocked/pause), brand violet sombre proto, surfaces + borders neutres froids, variables de densité pilotées par `[data-agenda-density]`
+- **[FEAT]** Suppression du `<TopBar />` du dashboard layout (`src/app/(dashboard)/layout.tsx`) — l'agenda va jusqu'en haut de la page comme dans le proto
+- **[FEAT]** Bouton **Déconnexion** déplacé en bas de la sidebar (sous Notifications, séparé par un `border-top`)
+- **[FEAT]** Sidebar logo refondu : avatar carré 34px avec dégradé radial jaune oklch, "Resa app" 14px tracking 0.04em, "PAR AURA SOLUTIONS" 10.5px uppercase letter-spaced
+- **[CHORE]** Padding global remis sur `<main>` via wrapper `<div className="p-6 h-full">` ; agenda l'annule via `-m-6 + width: calc(100% + 3rem)` pour aller plein écran sans casser les autres pages
+
+### Header + toolbar agenda
+
+- **[FEAT]** Header refait : "Agenda" 22px tracking -0.02em + date sur même ligne en baseline (`var(--agenda-fg-muted)`)
+- **[FEAT]** Bouton **Nouveau RDV** en violet sombre `var(--agenda-brand)` avec hover `--agenda-brand-2`
+- **[FEAT]** Toolbar segmented unifiée : `Aujourd'hui ⏐ Jour ⏐ 3 jours ⏐ Semaine ⏐ Mois` dans une seule pill (fond blanc, radius 10px, padding 3) — bouton actif violet sombre + ombre subtle
+- **[FEAT]** Sélecteur **Code couleur** : Praticien / Service / État (persisté en `localStorage agenda_color_by`)
+- **[FEAT]** Toggle **Densité** : Compact / Confort (persisté en `agenda_density`) — pilote `minPxPerMinute` de DayView/WeekView (1.2 compact / 2.6 confort)
+
+### Filtre praticien — 2 composants synchronisés
+
+- **[FEAT]** Nouveau `practitioner-filter-dropdown.tsx` : single button avec **avatars empilés** (4 max, marges -6px) + label intelligent ("Tous les praticiens" / "Sophie" / "3 praticiens") + dropdown checklist 260px avec checkbox custom + avatar coloré
+- **[FEAT]** Nouveau `practitioner-pills-filter.tsx` : bandeau "VUE [JOUR / 3 JOURS / SEMAINE] DE [pills cliquables]" sous la toolbar — convention de toggle exclusif depuis "tous actifs", normalisation `[]` quand tous cochés. Affiché sur Jour / 3 jours / Semaine (pas Mois)
+- **[FEAT]** Compteurs RDV optionnels à droite du bandeau pills (prop `summary={{ total, confirmed }}`)
+
+### Vues
+
+- **[FEAT]** Nouvelle vue **3 jours** : réutilise `WeekView` avec prop `daysCount={3}` (pas de duplication), `weekStart` memoized depuis currentDate à minuit local
+- **[FEAT]** Helper `lib/agenda/colors.ts` `getBookingColor(booking, colorBy, fallback)` : praticien (default) / service par mot-clé / état par statut
+- **[FEAT]** Helper `lib/agenda/channels.tsx` `<ChannelIcon channel size />` : icônes lucide colorées (WhatsApp vert, Messenger bleu, Telegram cyan, SMS gris, Tél IA violet, Site indigo, Dashboard gris)
+- **[FEAT]** **Cartes RDV refondues** (DayView + WeekView) :
+  - Fond `color-mix(in oklch, ${color} 14%, white)` + bordures fines de la même teinte (proto exact)
+  - Border-left 4px (DayView) / 3px (WeekView) coloré selon `colorBy`
+  - Nom client en gras (au lieu juste du service)
+  - Service en gris subtle en dessous (si carte assez haute)
+  - **Icône canal** en coin bas-droite (proto)
+  - **Checkmark vert** rond en coin haut-droite si `completed`
+  - Badge "Nouveau" Sparkles conservé
+  - **Tooltips au hover préservés** (cf. memory `feedback_agenda_tooltips_preserve`)
+- **[FEAT]** **Header DayView** : avatar circulaire 28px + nom gras + spécialité (`p.specialties[0]`) + compteurs droite **"X RDV / Y confirmé(s)"** calculés en temps réel
+- **[FEAT]** **Heure courante** affichée en badge rouge dans le gutter gauche au niveau de la ligne rouge horizontale (mise à jour chaque minute)
+- **[FEAT]** **Clic-pour-créer** sur la grille :
+  - Vue **Jour** : clic sur colonne praticien → BookingForm avec praticien + date+heure (snap 15 min) pré-remplis + bandeau vert "Créneau pré-rempli depuis votre clic sur la grille"
+  - Vue **3 jours** : clic sur colonne jour → BookingForm avec date+heure pré-remplies, praticien pré-sélectionné si filtre = 1 praticien (ou 1 seul praticien actif total)
+  - Vue **Semaine** : clic → BookingForm avec date+heure, jamais de pré-sélection praticien
+  - Détection `closest("button")` pour ne pas double-déclencher quand on clique sur un RDV existant
+
+### Légende couleur conditionnelle
+
+- **[FEAT]** Nouveau `color-legend.tsx` : bandeau visible automatiquement sous la toolbar **quand colorBy ≠ praticien**
+  - Mode Service → 6 catégories (Coupe & brushing, Couleur, Mèches, Barbe, Soin, Autre)
+  - Mode État → 6 statuts (Confirmé, En attente *en pointillé*, En cours, Terminé, Annulé *barré*, Absent)
+  - Échantillons stylés border-left coloré + fond `color-mix` (proto exact)
+
+### Panneau résumé droit
+
+- **[FEAT]** Aside collapsible : largeur 288px ↔ 40px avec label vertical "RÉSUMÉ DU JOUR" rotated en mode replié, état persisté `agenda_summary_collapsed`
+- **[FEAT]** Stats tiles "RDV total / Confirmés / À confirmer" hauteur réduite (text-base au lieu text-2xl, py-1)
+- **[FEAT]** Bloc "Client actuel" → "**● EN COURS**" avec dot vert clignotant (animate-ping), placeholder vide stylisé proto
+- **[FEAT]** **Progress bar** colorée selon le praticien quand RDV in_progress : "X% écoulé · Y min restantes"
+
+### BookingForm — refonte complète (~800 lignes)
+
+- **[FEAT]** Header "Nouveau rendez-vous" + bouton X custom (showCloseButton=false du shadcn Dialog pour éviter doublon)
+- **[FEAT]** **Stepper 01 / 02 / 03** avec underline violet sur l'étape active (calcul automatique : pas de client → 01 / pas de service → 02 / sinon → 03)
+- **[FEAT]** Section **01 Client** :
+  - Champ recherche avec icône loupe (filtre par nom/téléphone)
+  - Suggestions en liste avec avatar initiales
+  - Bouton "Créer un nouveau client « X »" si pas de résultat (pré-remplit le nom dans le formulaire de création)
+  - Liste déroulante `<select>` "— ou choisir dans la liste —" sous la recherche pour sélection rapide
+  - Si client sélectionné → carte compacte avec avatar + nom + téléphone, bouton X reset
+- **[FEAT]** Section **02 Prestation** : recherche + grille 2 colonnes de cards services avec border-left coloré par catégorie (proto)
+- **[FEAT]** Section **03 Praticien & créneau** :
+  - Pills avec avatars circulaires colorés (initiales) + nom
+  - "Peu importe" en première position (icône Sparkles) si plusieurs praticiens
+  - Tabs date "Aujourd'hui / Demain / J+2" + datepicker à droite
+  - Grille 3 colonnes de créneaux avec horaire principal + heure de fin secondaire (selon durée du service sélectionné)
+  - Bandeau vert "✓ Créneau pré-rempli depuis votre clic sur la grille" quand `initialPractitionerId` fourni
+- **[FEAT]** Footer : "Complétez les étapes pour valider" + Annuler + bouton "✓ Créer le RDV" violet (désactivé tant qu'incomplet)
+
+### Review pré-merge — 3 bloquants corrigés
+
+- **[FIX]** `useMemo` side-effect → `useEffect` dans `booking-form.tsx:205` (auto-sélection practitioner)
+- **[FIX]** Padding global restauré sur `<main>` du layout pour ne pas casser clients / messages / services / settings / stats ; agenda compense via `-m-6`
+- **[FIX]** Champ `internalNote` retiré (state + textarea + import `Phone`) — n'était pas câblé à l'API booking, UX trompeuse
+- **[CHORE]** Review automatisée via subagent — verdict "merge avec corrections" → 3 bloquants traités, non-bloquants documentés en suivi
+
+### Polish post-review (commit `aaace29`)
+
+- **[FIX]** Suppression du **header de colonne praticien** dans DayView (lignes 100-154) qui faisait doublon avec le bandeau `PractitionerPillsFilter` au-dessus
+- **[FEAT]** Nouvelle prop optionnelle `summary` sur `PractitionerPillsFilter` : box bordée à droite affichant `{total} RDV / {confirmed} confirmé(s)` calculée en temps réel sur les bookings du jour pour les praticiens sélectionnés
+- **[FEAT]** Affichage conditionnel : `summary` passé uniquement en vue **Jour** (pas pertinent en 3 jours / Semaine)
+
+### Non-bloquants documentés (à traiter en suivi, hors merge initial)
+
+- Code mort : `src/components/layout/topbar.tsx` orphelin + constante `DAY_LABELS` morte dans `week-view.tsx`
+- `getInitials` dupliqué 3× (`practitioner-pills-filter`, `practitioner-filter-dropdown`, `booking-form`) → centraliser dans `lib/agenda/`
+- 2 logiques filtre praticien légèrement divergentes (dropdown ne normalise pas `[]` quand tous cochés, pills oui)
+- a11y : aria-labels manquants sur boutons icône (Aujourd'hui, sélecteur vue, collapse, Encaissement / Reprogrammer / Absent), créneaux clic non-clavier (`<div onClick>` sans role/tabIndex)
+- Contraste à vérifier : `--agenda-fg-subtle` (oklch 0.65) sur fond blanc pour textes 10-11px (ratio probablement < 4.5:1)
+- `BookingForm` re-mount complet à chaque changement de `clients.length` via `key` complexe
+- Realtime Supabase non débounce (`fetchAllData` complet à chaque change)
+
+### Memory mise à jour
+
+- **[CHORE]** Nouvelle feedback memory `feedback_agenda_tooltips_preserve.md` — règle de conservation tooltips RDV `group/tip` au survol (pattern day-view + week-view)
+- **[CHORE]** Mise à jour `project_security_todo.md` — précision sur la séquence d'activation hCaptcha (sitekey frontend AVANT activation Supabase, sinon login bloqué — bug rencontré et résolu en désactivant côté Supabase Dashboard)
+
+### Fichiers créés (4)
+
+- `src/lib/agenda/colors.ts`
+- `src/lib/agenda/channels.tsx`
+- `src/components/agenda/color-legend.tsx`
+- `src/components/agenda/practitioner-filter-dropdown.tsx`
+- `src/components/agenda/practitioner-pills-filter.tsx`
+
+### Fichiers modifiés (8)
+
+- `src/app/(dashboard)/layout.tsx`
+- `src/app/globals.css`
+- `src/components/layout/sidebar.tsx`
+- `src/components/agenda/agenda-content.tsx` (~534 lignes diff)
+- `src/components/agenda/day-view.tsx` (~153 lignes diff)
+- `src/components/agenda/week-view.tsx` (~94 lignes diff)
+- `src/components/agenda/booking-form.tsx` (~845 lignes diff — réécriture complète)
+
+### Mise en prod ✅
+
+- Push branche `feat/agenda-ui-v2` (commit `dde9d66` refonte + `aaace29` polish doublon)
+- Test visuel local OK (port 3001 — port 3000 occupé par dashboard-aura interne)
+- Merge `--no-ff` dans `main` (commit `2692f6a`) + push origin → Vercel deploy auto
+- Migration 041 (`max_booking_days_ahead`) appliquée Supabase prod via SQL Editor (Success. No rows returned.)
+
+### Restant en suivi (hors merge)
+
+- Brancher `max_booking_days_ahead` côté workflow n8n live (Build Context + Prepare Context node `SGH4ltnF5VnsLyJA`) — sinon l'IA continue d'utiliser 60 hardcodé
+- Bridge Telegram absent dans la stack n8n (testé pendant la session, aucune execution déclenchée → diagnostic : pas de worker `Telegram Incoming`, pivot post-blocage Meta acté mais pas implémenté)
+- Code review non-bloquants : a11y aria-labels, dédoublonnage `getInitials` 3×, code mort `topbar.tsx` orphelin, debounce realtime Supabase
+
+---
+
 ## [3.3.0] — 2026-04-26 — Patch sécu n8n 2.17.5 + horizon réservation configurable
 
 Session courte (~40 min) en parallèle d'une alerte sécu n8n (2 RCE critiques + 4 vulnérabilités élevées). Upgrade VPS appliqué et feature `max_booking_days_ahead` rendue configurable par merchant.
