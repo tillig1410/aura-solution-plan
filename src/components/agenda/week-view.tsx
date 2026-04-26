@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Check } from "lucide-react";
 import type { Practitioner, Booking } from "@/types/supabase";
+import { getBookingColor, type ColorBy } from "@/lib/agenda/colors";
+import { ChannelIcon } from "@/lib/agenda/channels";
 
 interface BookingWithDetails extends Booking {
   client: { id: string; name: string | null; phone: string | null; preferred_language: string; notes: string | null; loyalty_tier: string; loyalty_points: number } | null;
@@ -20,8 +22,13 @@ interface WeekViewProps {
   weekStart: Date;
   selectedPractitionerIds: string[];
   onBookingClick: (b: BookingWithDetails) => void;
+  onSlotClick?: (dateAtSlot: Date) => void;
   newClientIds?: Set<string>;
   highlightedBookingId?: string | null;
+  colorBy?: ColorBy;
+  density?: "compact" | "comfortable";
+  /** Nombre de jours à afficher (3 ou 7). Default: 7. */
+  daysCount?: number;
 }
 
 const HOUR_START = 8;
@@ -99,12 +106,21 @@ const computeOverlapLayout = (dayBookings: BookingWithDetails[]): Map<string, { 
   return result;
 };
 
-const getWeekDays = (weekStart: Date): Date[] =>
-  Array.from({ length: 7 }, (_, i) => {
+const getWeekDays = (weekStart: Date, count = 7): Date[] =>
+  Array.from({ length: count }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + i);
     return d;
   });
+
+const buildDayLabels = (count: number, weekStart: Date): string[] => {
+  if (count === 7) return ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "");
+  });
+};
 
 const WeekView = ({
   bookings,
@@ -114,6 +130,10 @@ const WeekView = ({
   onBookingClick,
   newClientIds,
   highlightedBookingId,
+  colorBy = "practitioner",
+  density = "comfortable",
+  daysCount = 7,
+  onSlotClick,
 }: WeekViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pxPerMinute, setPxPerMinute] = useState(1);
@@ -122,18 +142,22 @@ const WeekView = ({
     return now.getHours() * 60 + now.getMinutes();
   });
 
+  // En "confort" : minimum plus haut → grille aérée, scroll si besoin.
+  // En "compact" : plancher bas → tout rentre dans le viewport.
+  const minPxPerMinute = density === "comfortable" ? 2.6 : 1.2;
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const update = () => {
       const available = el.clientHeight - PADDING_TOP;
-      setPxPerMinute(Math.max(1.5, available / TOTAL_MINUTES));
+      setPxPerMinute(Math.max(minPxPerMinute, available / TOTAL_MINUTES));
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [minPxPerMinute]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -143,7 +167,8 @@ const WeekView = ({
     return () => clearInterval(interval);
   }, []);
 
-  const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
+  const weekDays = useMemo(() => getWeekDays(weekStart, daysCount), [weekStart, daysCount]);
+  const dayLabels = useMemo(() => buildDayLabels(daysCount, weekStart), [daysCount, weekStart]);
 
   const todayStr = new Date().toDateString();
 
@@ -197,7 +222,7 @@ const WeekView = ({
               }`}
             >
               <div className="text-xs text-gray-500 uppercase tracking-wide">
-                {DAY_LABELS[idx]}
+                {dayLabels[idx]}
               </div>
               <div
                 className={`text-sm font-semibold mt-0.5 ${
@@ -211,7 +236,7 @@ const WeekView = ({
               {/* Pastilles praticiens qui travaillent ce jour */}
               <div className="flex justify-center gap-0.5 mt-1">
                 {practitioners.filter((p) => p.is_active).map((p) => {
-                  const dayOfWeek = idx; // 0=Lun, 6=Dim
+                  const dayOfWeek = (day.getDay() + 6) % 7; // 0=Lun, 6=Dim
                   const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
                   // Check vacation (exception_date)
                   const isVacation = p.availability?.some(
@@ -263,7 +288,20 @@ const WeekView = ({
                 key={idx}
                 className={`flex-1 relative border-r last:border-r-0 ${
                   isToday ? "bg-blue-50/40" : ""
-                }`}
+                } ${onSlotClick ? "cursor-pointer" : ""}`}
+                onClick={(e) => {
+                  if (!onSlotClick) return;
+                  if ((e.target as HTMLElement).closest("button")) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const yInCol = e.clientY - rect.top;
+                  const minsFromOpen = (yInCol - PADDING_TOP) / pxPerMinute;
+                  const totalMins = HOUR_START * 60 + Math.round(minsFromOpen / 15) * 15;
+                  const h = Math.max(HOUR_START, Math.min(HOUR_END - 1, Math.floor(totalMins / 60)));
+                  const m = totalMins % 60;
+                  const dateAtSlot = new Date(day);
+                  dateAtSlot.setHours(h, m, 0, 0);
+                  onSlotClick(dateAtSlot);
+                }}
               >
                 {/* Hour lines */}
                 {HOURS.map((hour) => (
@@ -285,7 +323,7 @@ const WeekView = ({
 
                 {/* Lunch break — dynamic from first active practitioner */}
                 {(() => {
-                  const dayOfWeek = idx;
+                  const dayOfWeek = (day.getDay() + 6) % 7;
                   const firstPrac = practitioners.find((p) => p.is_active);
                   const dayAvail = firstPrac?.availability?.find(
                     (a) => a.day_of_week === dayOfWeek && a.exception_date === null
@@ -317,10 +355,10 @@ const WeekView = ({
                       const endMin = minutesFromMidnight(booking.ends_at);
                       const top = (startMin - HOUR_START * 60) * pxPerMinute + PADDING_TOP;
                       const height = Math.max((endMin - startMin) * pxPerMinute, 28);
-                      const color =
-                        booking.practitioner?.color ??
+                      const fallbackColor =
                         visiblePractitioners.find((p) => p.id === booking.practitioner_id)?.color ??
                         "#6366f1";
+                      const color = getBookingColor(booking, colorBy, fallbackColor);
                       const isNoShow = booking.status === "no_show";
                       const isCancelled = booking.status === "cancelled";
                       const timeStart = new Date(booking.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -343,16 +381,31 @@ const WeekView = ({
                         >
                           <button
                             onClick={() => onBookingClick(booking)}
-                            className="w-full h-full rounded-lg text-left overflow-hidden hover:brightness-90 transition-all px-1 py-0.5 relative"
+                            className="w-full h-full rounded-lg text-left overflow-hidden hover:brightness-[0.98] transition-all px-1 py-0.5 relative"
                             style={{
-                              backgroundColor: `${color}20`,
+                              background: isNoShow || isCancelled
+                                ? "#f3f4f6"
+                                : `color-mix(in oklch, ${color} 14%, white)`,
                               borderLeft: `3px solid ${color}`,
-                              boxShadow: "0 1px 3px rgba(0,0,0,0.10)",
+                              borderTop: `1px solid color-mix(in oklch, ${color} 25%, white)`,
+                              borderRight: `1px solid color-mix(in oklch, ${color} 18%, white)`,
+                              borderBottom: `1px solid color-mix(in oklch, ${color} 30%, white)`,
+                              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                             }}
                           >
                             {booking.client && newClientIds?.has(booking.client.id) && !isCancelled && !isNoShow && (
-                              <span className="absolute top-0.5 right-0.5 inline-flex items-center justify-center bg-emerald-500 text-white rounded-full p-0.5 shadow-sm" title="Nouveau client">
+                              <span className="absolute top-0.5 right-0.5 inline-flex items-center justify-center bg-emerald-500 text-white rounded-full p-0.5 shadow-sm z-10" title="Nouveau client">
                                 <Sparkles className="w-2.5 h-2.5" />
+                              </span>
+                            )}
+                            {booking.status === "completed" && !isCancelled && !isNoShow && (
+                              <span className="absolute top-0.5 right-0.5 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-green-500 text-white shadow-sm z-10">
+                                <Check className="w-2 h-2" strokeWidth={3} />
+                              </span>
+                            )}
+                            {!isCancelled && !isNoShow && (
+                              <span className="absolute bottom-0.5 right-0.5 opacity-70">
+                                <ChannelIcon channel={booking.source_channel} size={10} />
                               </span>
                             )}
                             <div className="flex items-center gap-1">
@@ -361,9 +414,14 @@ const WeekView = ({
                                 {timeStart}
                               </span>
                             </div>
-                            {height >= 30 && (
+                            {height >= 30 && booking.client?.name && (
                               <div className="text-[10px] font-bold text-gray-900 truncate leading-tight">
-                                {booking.service?.name}
+                                {booking.client.name}
+                              </div>
+                            )}
+                            {height >= 44 && booking.service?.name && (
+                              <div className="text-[9px] text-gray-500 truncate leading-tight">
+                                {booking.service.name}
                               </div>
                             )}
                           </button>

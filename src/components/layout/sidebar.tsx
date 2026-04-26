@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarDays,
   Users,
@@ -9,8 +9,10 @@ import {
   Scissors,
   BarChart3,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import SidebarNotifications from "@/components/layout/sidebar-notifications";
 import SidebarMiniCalendar from "@/components/layout/sidebar-mini-calendar";
 
@@ -25,21 +27,54 @@ const navItems = [
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
-    <aside className="flex h-full w-64 flex-col bg-white">
-      <div className="flex h-12 items-center px-4 gap-3 border-b">
-        <Link href="/agenda" className="flex items-center gap-2.5">
-          <img src="/logo-aura.png" alt="Logo" className="h-7 w-7 rounded-full object-cover" />
-          <div className="flex flex-col">
-            <span className="text-sm font-bold leading-tight">Resa app</span>
-            <span className="text-[8px] text-gray-400 leading-none">par AURA Solutions</span>
-          </div>
-        </Link>
-      </div>
+    <aside
+      className="flex h-full w-60 flex-col"
+      style={{ background: "var(--agenda-surface)", borderRight: "1px solid var(--agenda-border)" }}
+    >
+      {/* Brand — proto Claude Design */}
+      <Link
+        href="/agenda"
+        className="flex items-center gap-2.5 px-4 py-4"
+        style={{ borderBottom: "1px solid var(--agenda-border)" }}
+      >
+        <div
+          className="flex items-center justify-center overflow-hidden shrink-0"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 9,
+            background: "radial-gradient(circle at 35% 30%, oklch(0.97 0.02 80), oklch(0.92 0.04 75))",
+            border: "1px solid oklch(0.85 0.05 75)",
+          }}
+        >
+          <img
+            src="/logo-aura.png"
+            alt=""
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "30% 65%", transform: "scale(1.6)", filter: "saturate(1.15) contrast(1.05)" }}
+          />
+        </div>
+        <div className="flex flex-col">
+          <span style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.1, letterSpacing: "0.04em", color: "var(--agenda-fg)" }}>
+            Resa app
+          </span>
+          <span style={{ fontSize: 10.5, color: "var(--agenda-fg-subtle)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            par AURA Solutions
+          </span>
+        </div>
+      </Link>
 
-      <div className="flex flex-1 flex-col border-r min-h-0">
-        <nav className="space-y-1 px-3 py-3">
+      <div className="flex flex-1 flex-col min-h-0">
+        <nav className="space-y-1 px-2 py-2">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
@@ -47,13 +82,15 @@ const Sidebar = () => {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] transition-colors",
+                  isActive ? "font-semibold" : "font-normal",
                 )}
+                style={{
+                  background: isActive ? "var(--agenda-surface-3)" : "transparent",
+                  color: "var(--agenda-fg)",
+                }}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-4 w-4" />
                 {item.label}
               </Link>
             );
@@ -63,6 +100,21 @@ const Sidebar = () => {
         <SidebarMiniCalendar />
 
         <SidebarNotifications />
+
+        {/* Bouton Déconnexion — bas de sidebar (proto place actions secondaires en bas) */}
+        <div className="mt-auto p-3" style={{ borderTop: "1px solid var(--agenda-border)" }}>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors"
+            style={{ color: "var(--agenda-fg-muted)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--agenda-surface-3)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <LogOut className="h-4 w-4" />
+            Déconnexion
+          </button>
+        </div>
       </div>
     </aside>
   );

@@ -19,6 +19,8 @@ import {
   UserX,
   ChevronDown,
   ChevronUp,
+  Palette,
+  Rows3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,10 +30,15 @@ import MonthView from "@/components/agenda/month-view";
 import BookingForm from "@/components/agenda/booking-form";
 import BookingSummary from "@/components/agenda/booking-summary";
 import BookingPendingReview from "@/components/agenda/booking-pending-review";
+import PractitionerFilterDropdown from "@/components/agenda/practitioner-filter-dropdown";
+import PractitionerPillsFilter from "@/components/agenda/practitioner-pills-filter";
+import ColorLegend from "@/components/agenda/color-legend";
 import { createClient } from "@/lib/supabase/client";
 import type { Booking, Practitioner, Service, Client } from "@/types/supabase";
 
-type ViewMode = "day" | "week" | "month";
+type ViewMode = "day" | "3day" | "week" | "month";
+type ColorBy = "practitioner" | "service" | "state";
+type Density = "compact" | "comfortable";
 
 interface BookingWithDetails extends Booking {
   client: { id: string; name: string | null; phone: string | null; preferred_language: string; notes: string | null; loyalty_tier: string; loyalty_points: number } | null;
@@ -68,6 +75,13 @@ const formatDateLabel = (date: Date, view: ViewMode): string => {
       year: "numeric",
     });
   }
+  if (view === "3day") {
+    const end = new Date(date);
+    end.setDate(date.getDate() + 2);
+    const from = date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    const to = end.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+    return `${from} — ${to}`;
+  }
   if (view === "week") {
     const monday = getMonday(date);
     const sunday = new Date(monday);
@@ -86,6 +100,7 @@ const formatDateLabel = (date: Date, view: ViewMode): string => {
 const navigateDate = (date: Date, view: ViewMode, direction: -1 | 1): Date => {
   const d = new Date(date);
   if (view === "day") d.setDate(d.getDate() + direction);
+  else if (view === "3day") d.setDate(d.getDate() + direction * 3);
   else if (view === "week") d.setDate(d.getDate() + direction * 7);
   else d.setMonth(d.getMonth() + direction);
   return d;
@@ -158,6 +173,37 @@ const AgendaContent = () => {
     setShowChannels((prev) => {
       const next = !prev;
       localStorage.setItem("agenda_show_channels", String(next));
+      return next;
+    });
+  };
+
+  // Color-by + density (persistés en localStorage) — refonte UI v2 (proto Claude Design)
+  const [colorBy, setColorBy] = useState<ColorBy>("practitioner");
+  const [density, setDensity] = useState<Density>("comfortable");
+  const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(false);
+  useEffect(() => {
+    const sc = localStorage.getItem("agenda_color_by");
+    if (sc === "practitioner" || sc === "service" || sc === "state") setColorBy(sc);
+    const sd = localStorage.getItem("agenda_density");
+    if (sd === "compact" || sd === "comfortable") setDensity(sd);
+    const ss = localStorage.getItem("agenda_summary_collapsed");
+    if (ss === "true" || ss === "false") setSummaryCollapsed(ss === "true");
+  }, []);
+  const handleColorByChange = (next: ColorBy) => {
+    setColorBy(next);
+    localStorage.setItem("agenda_color_by", next);
+  };
+  const toggleDensity = () => {
+    setDensity((prev) => {
+      const next = prev === "compact" ? "comfortable" : "compact";
+      localStorage.setItem("agenda_density", next);
+      return next;
+    });
+  };
+  const toggleSummary = () => {
+    setSummaryCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("agenda_summary_collapsed", String(next));
       return next;
     });
   };
@@ -295,6 +341,11 @@ const AgendaContent = () => {
   }, []);
 
   const weekStart = useMemo(() => getMonday(currentDate), [currentDate]);
+  const threeDayStart = useMemo(() => {
+    const d = new Date(currentDate);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [currentDate]);
 
   // Today's bookings for the summary panel
   const todayStr = new Date().toDateString();
@@ -349,13 +400,6 @@ const AgendaContent = () => {
   const goToToday = useCallback(() => setCurrentDate(new Date()), []);
   const goBack = useCallback(() => setCurrentDate((d) => navigateDate(d, view, -1)), [view]);
   const goForward = useCallback(() => setCurrentDate((d) => navigateDate(d, view, 1)), [view]);
-
-  // Practitioner filter toggle
-  const togglePractitioner = useCallback((id: string) => {
-    setSelectedPractitionerIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }, []);
 
   // Booking handlers
   const handleBookingClick = useCallback((b: BookingWithDetails) => {
@@ -419,7 +463,30 @@ const AgendaContent = () => {
   const handleFormClose = useCallback(() => {
     setFormOpen(false);
     setSelectedBooking(null);
+    setSlotPrefill(null);
   }, []);
+
+  // Pré-remplissage praticien + date depuis clic sur la grille (vue Jour)
+  const [slotPrefill, setSlotPrefill] = useState<{ practitionerId?: string; date: Date } | null>(null);
+  const handleSlotClick = useCallback((practitionerId: string, dateAtSlot: Date) => {
+    setSelectedBooking(null);
+    setSlotPrefill({ practitionerId, date: dateAtSlot });
+    setFormOpen(true);
+  }, []);
+
+  // Clic sur grille 3 jours / Semaine — pas de practitionerId direct (colonne = jour)
+  // Pré-sélection auto si exactement 1 praticien actif dans le filtre OU 1 seul praticien total
+  const handleSlotClickByDay = useCallback((dateAtSlot: Date, allowPrefill: boolean) => {
+    setSelectedBooking(null);
+    let prefilledId: string | undefined;
+    if (allowPrefill) {
+      const activeIds = practitioners.filter((p) => p.is_active).map((p) => p.id);
+      if (selectedPractitionerIds.length === 1) prefilledId = selectedPractitionerIds[0];
+      else if (selectedPractitionerIds.length === 0 && activeIds.length === 1) prefilledId = activeIds[0];
+    }
+    setSlotPrefill({ practitionerId: prefilledId, date: dateAtSlot });
+    setFormOpen(true);
+  }, [practitioners, selectedPractitionerIds]);
 
   const handleSummaryClose = useCallback(() => {
     setSummaryOpen(false);
@@ -467,131 +534,223 @@ const AgendaContent = () => {
   }, []);
 
   return (
-    <div className="flex h-full gap-4">
+    <div className="flex h-full gap-4 -m-6" style={{ width: "calc(100% + 3rem)" }} data-agenda-density={density}>
       {/* Main calendar area */}
       <div className="flex flex-1 flex-col gap-3 min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
-            <p className="text-sm text-gray-500">
-              {new Date().toLocaleDateString("fr-FR", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-2">
-              <Button onClick={() => { setSelectedBooking(null); setFormOpen(true); }}>
-                <Plus className="h-4 w-4" />
-                Nouveau RDV
-              </Button>
-            </div>
-            {merchantStatus && (() => {
-              const isActive = merchantStatus.hasSubscription;
-              const trialExpired = !isActive && merchantStatus.trialEnd && new Date(merchantStatus.trialEnd) < new Date();
-              const label = isActive ? "Actif" : trialExpired ? "Essai expiré" : "Période d'essai";
-              const colors = isActive
-                ? "bg-green-50 text-green-600"
-                : trialExpired
-                  ? "bg-red-50 text-red-600"
-                  : "bg-amber-50 text-amber-600";
-              const dateText = !isActive && merchantStatus.trialEnd
-                ? `Essai jusqu'au ${new Date(merchantStatus.trialEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`
-                : null;
-              return (
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors}`}>
-                    {label}
-                  </span>
-                  {dateText && <span className="text-xs text-gray-400">{dateText}</span>}
-                </div>
-              );
-            })()}
-          </div>
+        {/* Header — proto Claude Design */}
+        <div className="flex items-baseline gap-3.5 flex-wrap pt-1 px-1">
+          <h1 className="m-0 text-[22px] font-bold tracking-[-0.02em] text-gray-900">Agenda</h1>
+          <span className="text-[13px] capitalize" style={{ color: "var(--agenda-fg-muted)" }}>
+            {new Date().toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </span>
+          <div className="flex-1" />
+          {merchantStatus && (() => {
+            const isActive = merchantStatus.hasSubscription;
+            const trialExpired = !isActive && merchantStatus.trialEnd && new Date(merchantStatus.trialEnd) < new Date();
+            const label = isActive ? "Actif" : trialExpired ? "Essai expiré" : "Période d'essai";
+            const colors = isActive
+              ? "bg-green-50 text-green-600"
+              : trialExpired
+                ? "bg-red-50 text-red-600"
+                : "bg-amber-50 text-amber-600";
+            const dateText = !isActive && merchantStatus.trialEnd
+              ? `Essai jusqu'au ${new Date(merchantStatus.trialEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`
+              : null;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors}`}>
+                  {label}
+                </span>
+                {dateText && <span className="text-xs text-gray-400">{dateText}</span>}
+              </div>
+            );
+          })()}
+          <button
+            type="button"
+            onClick={() => { setSelectedBooking(null); setFormOpen(true); }}
+            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-[10px] font-medium text-[13.5px] text-white shadow-sm transition-colors"
+            style={{ backgroundColor: "var(--agenda-brand)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--agenda-brand-2)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "var(--agenda-brand)"; }}
+          >
+            <Plus className="h-4 w-4" />
+            <span>Nouveau RDV</span>
+          </button>
         </div>
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-2 ring-1 ring-foreground/10">
-          {/* Aujourd'hui — déplacé à gauche, plus visible */}
-          <button
-            onClick={goToToday}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+        {/* Toolbar — proto Claude Design */}
+        <div
+          className="flex flex-wrap items-center gap-2 px-[22px] py-[10px]"
+          style={{
+            background: "var(--agenda-surface-2)",
+            borderTop: "1px solid var(--agenda-border)",
+            borderBottom: "1px solid var(--agenda-border)",
+          }}
+        >
+          {/* Segmented — Aujourd'hui + vues regroupés */}
+          <div
+            className="inline-flex items-center gap-0.5 p-[3px] rounded-[10px]"
+            style={{ background: "var(--agenda-surface)", border: "1px solid var(--agenda-border)" }}
           >
-            Aujourd&apos;hui
-          </button>
-
-          {/* View selector */}
-          <div className="flex rounded-lg overflow-hidden border border-input">
-            {(["day", "week", "month"] as ViewMode[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors capitalize ${
-                  view === v
-                    ? "bg-indigo-600 text-white"
-                    : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {v === "day" ? "Jour" : v === "week" ? "Semaine" : "Mois"}
-              </button>
-            ))}
-          </div>
-
-          {/* Navigation */}
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={goBack} aria-label="Précédent">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium text-gray-700 min-w-[180px] text-center">
-              {formatDateLabel(currentDate, view)}
-            </span>
-            <Button variant="ghost" size="icon" onClick={goForward} aria-label="Suivant">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Practitioner filters */}
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
-            {practitioners.map((p) => {
-              const active =
-                selectedPractitionerIds.length === 0 ||
-                selectedPractitionerIds.includes(p.id);
+            <button
+              onClick={goToToday}
+              className="h-[30px] px-3 rounded-[7px] text-[13px] font-medium transition-colors"
+              style={{ color: "var(--agenda-fg-muted)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--agenda-surface-3)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              Aujourd&apos;hui
+            </button>
+            <div className="w-px h-4 mx-0.5" style={{ background: "var(--agenda-border)" }} />
+            {(["day", "3day", "week", "month"] as ViewMode[]).map((v) => {
+              const active = view === v;
+              const label = v === "day" ? "Jour" : v === "3day" ? "3 jours" : v === "week" ? "Semaine" : "Mois";
               return (
                 <button
-                  key={p.id}
-                  onClick={() => togglePractitioner(p.id)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-all ${
-                    active
-                      ? "border-transparent text-white"
-                      : "border-gray-200 text-gray-400 bg-white"
-                  }`}
-                  style={active ? { backgroundColor: p.color } : {}}
+                  key={v}
+                  onClick={() => setView(v)}
+                  className="h-[30px] px-3 rounded-[7px] text-[13px] transition-colors"
+                  style={{
+                    background: active ? "var(--agenda-brand)" : "transparent",
+                    color: active ? "white" : "var(--agenda-fg-muted)",
+                    fontWeight: active ? 600 : 500,
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--agenda-surface-3)"; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
                 >
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: active ? "white" : p.color }}
-                  />
-                  {p.name}
+                  {label}
                 </button>
               );
             })}
           </div>
+
+          {/* Navigation date */}
+          <div className="flex items-center gap-0.5 ml-3">
+            <button
+              onClick={goBack}
+              aria-label="Précédent"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-[10px] transition-colors"
+              style={{ color: "var(--agenda-fg-muted)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--agenda-surface-3)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="min-w-[200px] text-center font-semibold text-[14px] px-2" style={{ color: "var(--agenda-fg)" }}>
+              {formatDateLabel(currentDate, view)}
+            </div>
+            <button
+              onClick={goForward}
+              aria-label="Suivant"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-[10px] transition-colors"
+              style={{ color: "var(--agenda-fg-muted)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--agenda-surface-3)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="flex-1" />
+
+          {/* Filtre praticien — avatars empilés + dropdown checklist */}
+          <PractitionerFilterDropdown
+            practitioners={practitioners}
+            selected={selectedPractitionerIds}
+            onChange={setSelectedPractitionerIds}
+          />
+
+          {/* Color-by select — style proto */}
+          <select
+            value={colorBy}
+            onChange={(e) => handleColorByChange(e.target.value as ColorBy)}
+            aria-label="Code couleur des RDV"
+            className="h-8 px-2.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors focus:outline-none"
+            style={{
+              background: "var(--agenda-surface)",
+              border: "1px solid var(--agenda-border)",
+              color: "var(--agenda-fg)",
+            }}
+          >
+            <option value="practitioner">Couleur : praticien</option>
+            <option value="service">Couleur : service</option>
+            <option value="state">Couleur : état</option>
+          </select>
+
+          {/* Density toggle — style proto */}
+          <button
+            type="button"
+            onClick={toggleDensity}
+            title={density === "compact" ? "Passer en mode confort" : "Passer en mode compact"}
+            aria-label="Densité"
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-[8px] text-[12.5px] font-medium transition-colors"
+            style={{
+              background: "var(--agenda-surface)",
+              border: "1px solid var(--agenda-border)",
+              color: "var(--agenda-fg)",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--agenda-surface-2)"; e.currentTarget.style.borderColor = "var(--agenda-border-strong)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--agenda-surface)"; e.currentTarget.style.borderColor = "var(--agenda-border)"; }}
+          >
+            <Rows3 className="h-3.5 w-3.5" />
+            {density === "compact" ? "Compact" : "Confort"}
+          </button>
         </div>
 
-        {/* Calendar view */}
-        <div className="flex-1 rounded-xl overflow-hidden ring-1 ring-foreground/10 bg-white min-h-0">
+        {/* Color legend — visible quand colorBy ≠ praticien */}
+        <ColorLegend colorBy={colorBy} />
+
+        {/* Pills praticiens cliquables — sur toutes les vues sauf Mois */}
+        {view !== "month" && (
+          <PractitionerPillsFilter
+            practitioners={practitioners}
+            selected={selectedPractitionerIds}
+            onChange={setSelectedPractitionerIds}
+            label={
+              view === "week" ? "Vue semaine de"
+              : view === "3day" ? "Vue 3 jours de"
+              : "Vue jour de"
+            }
+          />
+        )}
+
+        {/* Calendar view — flat, sans wrapper card (proto Claude Design) */}
+        <div
+          className="flex-1 overflow-hidden bg-white min-h-0"
+          style={{ borderTop: "1px solid var(--agenda-border)" }}
+        >
           {view === "day" && (
             <DayView
               bookings={visibleBookings}
               practitioners={practitioners}
               date={currentDate}
               onBookingClick={handleBookingClick}
+              onSlotClick={handleSlotClick}
               newClientIds={newClientIds}
               highlightedBookingId={highlightedBookingId}
+              colorBy={colorBy}
+              density={density}
+            />
+          )}
+          {view === "3day" && (
+            <WeekView
+              bookings={visibleBookings}
+              practitioners={practitioners}
+              weekStart={threeDayStart}
+              selectedPractitionerIds={selectedPractitionerIds}
+              onBookingClick={handleBookingClick}
+              onSlotClick={(d) => handleSlotClickByDay(d, true)}
+              newClientIds={newClientIds}
+              highlightedBookingId={highlightedBookingId}
+              colorBy={colorBy}
+              density={density}
+              daysCount={3}
             />
           )}
           {view === "week" && (
@@ -601,8 +760,11 @@ const AgendaContent = () => {
               weekStart={weekStart}
               selectedPractitionerIds={selectedPractitionerIds}
               onBookingClick={handleBookingClick}
+              onSlotClick={(d) => handleSlotClickByDay(d, false)}
               newClientIds={newClientIds}
               highlightedBookingId={highlightedBookingId}
+              colorBy={colorBy}
+              density={density}
             />
           )}
           {view === "month" && (
@@ -616,8 +778,43 @@ const AgendaContent = () => {
         </div>
       </div>
 
-      {/* Summary panel */}
-      <aside className="w-72 shrink-0 flex flex-col gap-3">
+      {/* Summary panel — collapsible */}
+      <aside
+        className={`shrink-0 flex flex-col gap-3 transition-[width] duration-200 ${
+          summaryCollapsed ? "w-10" : "w-72"
+        }`}
+      >
+        {/* Bouton collapse/expand — toujours visible */}
+        <div className="flex">
+          <button
+            type="button"
+            onClick={toggleSummary}
+            className={`group flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors ${
+              summaryCollapsed ? "w-full justify-center" : "ml-auto"
+            }`}
+            aria-label={summaryCollapsed ? "Afficher le résumé" : "Masquer le résumé"}
+            title={summaryCollapsed ? "Afficher le résumé" : "Masquer le résumé"}
+          >
+            {summaryCollapsed ? (
+              <ChevronLeft className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+            {!summaryCollapsed && <span>Réduire</span>}
+          </button>
+        </div>
+
+        {/* Label vertical en mode collapsed */}
+        {summaryCollapsed && (
+          <div className="flex flex-1 items-center justify-center">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 [writing-mode:vertical-rl] rotate-180 select-none">
+              Résumé du jour
+            </span>
+          </div>
+        )}
+
+        {/* Contenu — masqué en mode collapsed */}
+        {!summaryCollapsed && (<>
         {/* Stats du jour */}
         <Card size="sm">
           <CardHeader>
@@ -633,25 +830,25 @@ const AgendaContent = () => {
               const showPending = !merchantStatus?.autoConfirm;
               return (
                 <div>
-                  <div className={`grid gap-2 ${showPending ? "grid-cols-3" : "grid-cols-2"}`}>
-                    <div className="rounded-lg bg-indigo-50 px-2 py-2 text-center">
-                      <div className="text-2xl font-bold text-indigo-700">{todayBookings.length}</div>
-                      <div className="text-xs text-indigo-500">RDV total</div>
+                  <div className={`grid gap-1.5 ${showPending ? "grid-cols-3" : "grid-cols-2"}`}>
+                    <div className="rounded-md bg-indigo-50 px-2 py-1 text-center">
+                      <div className="text-base font-bold leading-tight text-indigo-700">{todayBookings.length}</div>
+                      <div className="text-[10px] text-indigo-500 leading-tight">RDV total</div>
                     </div>
-                    <div className="rounded-lg bg-green-50 px-2 py-2 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-2xl font-bold text-green-700">{confirmedCount}</span>
+                    <div className="rounded-md bg-green-50 px-2 py-1 text-center">
+                      <div className="flex items-center justify-center gap-1 leading-tight">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        <span className="text-base font-bold text-green-700">{confirmedCount}</span>
                       </div>
-                      <div className="text-xs text-green-500">Confirmés</div>
+                      <div className="text-[10px] text-green-500 leading-tight">Confirmés</div>
                     </div>
                     {showPending && (
-                      <div className="rounded-lg bg-amber-50 px-2 py-2 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-amber-500" />
-                          <span className="text-2xl font-bold text-amber-700">{pendingCount}</span>
+                      <div className="rounded-md bg-amber-50 px-2 py-1 text-center">
+                        <div className="flex items-center justify-center gap-1 leading-tight">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <span className="text-base font-bold text-amber-700">{pendingCount}</span>
                         </div>
-                        <div className="text-xs text-amber-500">À confirmer</div>
+                        <div className="text-[10px] text-amber-500 leading-tight">À confirmer</div>
                       </div>
                     )}
                   </div>
@@ -689,21 +886,28 @@ const AgendaContent = () => {
           </CardContent>
         </Card>
 
-        {/* Client actuel — toujours visible */}
+        {/* EN COURS — proto Claude Design */}
         {(() => {
           if (currentClients.length === 0) {
             return (
-              <Card size="sm" className="min-h-[200px]">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-indigo-600" />
-                    Client actuel
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center flex-1">
-                  <p className="text-xs text-gray-400 text-center">Aucun client en cours</p>
-                </CardContent>
-              </Card>
+              <div
+                className="rounded-[10px] p-4 flex flex-col items-center justify-center min-h-[120px]"
+                style={{
+                  background: "var(--agenda-surface)",
+                  border: "1px solid var(--agenda-border)",
+                }}
+              >
+                <div
+                  className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] mb-2"
+                  style={{ color: "var(--agenda-fg-subtle)" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--agenda-fg-subtle)" }} />
+                  En cours
+                </div>
+                <p className="text-xs text-center" style={{ color: "var(--agenda-fg-subtle)" }}>
+                  Aucun RDV en cours
+                </p>
+              </div>
             );
           }
           const idx = Math.min(currentClientIdx, currentClients.length - 1);
@@ -713,6 +917,17 @@ const AgendaContent = () => {
           const service = b.service;
           const price = service ? (service.price_cents / 100).toFixed(2) : null;
           const isNoShow = b.status === "no_show";
+
+          // Calcul du % écoulé et minutes restantes
+          const startMs = new Date(b.starts_at).getTime();
+          const endMs = new Date(b.ends_at).getTime();
+          const nowMs = Date.now();
+          const totalMs = Math.max(1, endMs - startMs);
+          const elapsedMs = Math.max(0, Math.min(totalMs, nowMs - startMs));
+          const elapsedPct = Math.round((elapsedMs / totalMs) * 100);
+          const minRemaining = Math.max(0, Math.round((endMs - nowMs) / 60_000));
+          const timeStart = new Date(b.starts_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+          const timeEnd = new Date(b.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
           const loyaltyBadge: Record<string, { label: string; cls: string }> = {
             gold: { label: "GOLD", cls: "bg-yellow-100 text-yellow-700 border-yellow-300" },
             silver: { label: "SILVER", cls: "bg-gray-100 text-gray-600 border-gray-300" },
@@ -721,13 +936,16 @@ const AgendaContent = () => {
           const badge = client?.loyalty_tier ? loyaltyBadge[client.loyalty_tier] : null;
 
           return (
-            <Card size="sm">
+            <Card size="sm" style={{ borderColor: practitioner?.color ?? "var(--agenda-border)" }}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-indigo-600" />
-                    Client actuel
-                  </CardTitle>
+                  <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--agenda-fg-muted)" }}>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                    </span>
+                    En cours
+                  </div>
                   <div className="flex items-center gap-1.5 text-xs text-gray-400">
                     <button
                       onClick={() => setCurrentClientIdx((i) => Math.max(0, i - 1))}
@@ -795,6 +1013,30 @@ const AgendaContent = () => {
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${badge.cls}`}>
                         {badge.label}
                       </span>
+                    </div>
+                  )}
+
+                  {/* Progress bar — % écoulé · min restantes (proto) */}
+                  {!isNoShow && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[10px] mb-1" style={{ color: "var(--agenda-fg-muted)" }}>
+                        <span>{timeStart} → {timeEnd}</span>
+                        <span>
+                          <span className="font-semibold" style={{ color: practitioner?.color ?? "var(--agenda-brand)" }}>{elapsedPct}%</span>
+                          {" écoulé · "}
+                          <span className="font-semibold">{minRemaining}</span>
+                          {" min restantes"}
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--agenda-surface-3)" }}>
+                        <div
+                          className="h-full transition-all duration-500"
+                          style={{
+                            width: `${elapsedPct}%`,
+                            background: practitioner?.color ?? "var(--agenda-brand)",
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -954,16 +1196,18 @@ const AgendaContent = () => {
             )}
           </CardContent>
         </Card>
+        </>)}
       </aside>
 
       {/* Booking form dialog — key forces re-mount on each open so initial state is fresh */}
       <BookingForm
-        key={`${formOpen ? "open" : "closed"}-${selectedBooking?.id ?? "new"}-${clients.length}`}
+        key={`${formOpen ? "open" : "closed"}-${selectedBooking?.id ?? slotPrefill?.practitionerId ?? "new"}-${slotPrefill?.date?.getTime() ?? ""}-${clients.length}`}
         open={formOpen}
         onClose={handleFormClose}
         onSubmit={handleFormSubmit}
         onClientCreated={refreshClients}
-        initialDate={currentDate}
+        initialDate={slotPrefill?.date ?? currentDate}
+        initialPractitionerId={slotPrefill?.practitionerId}
         editBooking={selectedBooking ?? undefined}
         practitioners={practitioners}
         services={services}

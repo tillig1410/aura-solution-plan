@@ -128,3 +128,86 @@
     @apply font-sans;
   }
 }
+
+/* ─────────────────────────────────────────────
+   Agenda — design tokens (proto Claude Design)
+   Préfixés --agenda-* pour ne pas écraser shadcn.
+   ───────────────────────────────────────────── */
+:root {
+  /* Brand proto — violet sombre + jaune Nora */
+  --agenda-brand: oklch(0.32 0.09 285);
+  --agenda-brand-2: oklch(0.42 0.12 285);
+  --agenda-brand-fg: oklch(0.99 0.005 270);
+  --agenda-brand-soft: oklch(0.95 0.03 285);
+  --agenda-accent: oklch(0.82 0.15 85);
+  --agenda-accent-fg: oklch(0.25 0.06 85);
+
+  /* Surfaces — neutres très claires (proto utilise un dégradé subtil de gris froid) */
+  --agenda-surface: oklch(1 0 0);
+  --agenda-surface-2: oklch(0.985 0.004 270);
+  --agenda-surface-3: oklch(0.97 0.006 270);
+  --agenda-border: oklch(0.92 0.008 270);
+  --agenda-border-strong: oklch(0.86 0.012 270);
+  --agenda-fg: oklch(0.22 0.02 270);
+  --agenda-fg-muted: oklch(0.5 0.02 270);
+  --agenda-fg-subtle: oklch(0.65 0.02 270);
+
+
+  /* Praticiens — palette 6 teintes vives + variantes soft */
+  --agenda-p1: oklch(0.65 0.16 270);
+  --agenda-p2: oklch(0.65 0.15 200);
+  --agenda-p3: oklch(0.65 0.14 30);
+  --agenda-p4: oklch(0.65 0.15 330);
+  --agenda-p5: oklch(0.65 0.14 145);
+  --agenda-p6: oklch(0.65 0.15 60);
+
+  --agenda-p1-soft: oklch(0.96 0.03 270);
+  --agenda-p2-soft: oklch(0.96 0.03 200);
+  --agenda-p3-soft: oklch(0.96 0.03 30);
+  --agenda-p4-soft: oklch(0.96 0.03 330);
+  --agenda-p5-soft: oklch(0.96 0.03 145);
+  --agenda-p6-soft: oklch(0.96 0.03 60);
+
+  /* Services — par catégorie */
+  --agenda-sv-coupe: oklch(0.7 0.13 270);
+  --agenda-sv-couleur: oklch(0.7 0.13 330);
+  --agenda-sv-barbe: oklch(0.7 0.13 30);
+  --agenda-sv-soin: oklch(0.7 0.13 145);
+  --agenda-sv-mech: oklch(0.7 0.13 60);
+
+  /* États RDV — vif (border) + soft (bg) */
+  --agenda-st-confirmed: oklch(0.62 0.14 165);
+  --agenda-st-confirmed-soft: oklch(0.94 0.05 165);
+  --agenda-st-pending: oklch(0.72 0.13 75);
+  --agenda-st-pending-soft: oklch(0.95 0.06 80);
+  --agenda-st-cancelled: oklch(0.65 0.02 270);
+  --agenda-st-cancelled-soft: oklch(0.94 0.005 270);
+  --agenda-st-noshow: oklch(0.58 0.18 25);
+  --agenda-st-noshow-soft: oklch(0.95 0.05 25);
+  --agenda-st-done: oklch(0.45 0.04 270);
+  --agenda-st-done-soft: oklch(0.93 0.008 270);
+  --agenda-st-blocked: oklch(0.7 0 0);
+  --agenda-st-pause: oklch(0.85 0.01 270);
+
+  /* Densité — variables de hauteur de slot/row */
+  --agenda-row-h: 28px;
+  --agenda-slot-min: 34px;
+  --agenda-pad-2: 8px;
+  --agenda-pad-3: 14px;
+}
+
+[data-agenda-density="compact"] {
+  --agenda-row-h: 22px;
+  --agenda-slot-min: 26px;
+  --agenda-pad-2: 6px;
+  --agenda-pad-3: 10px;
+}
+
+/* Hachure pour créneaux bloqués (pause / formation / indispo) */
+.agenda-hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    oklch(0.85 0.01 270 / 0.7) 0 6px,
+    oklch(0.92 0.005 270 / 0.7) 6px 12px
+  );
+}
