@@ -20,6 +20,7 @@ const baseMerchant = {
   ai_name: "Sofia", ai_tone: "friendly", ai_languages: ["fr", "en"],
   voice_enabled: false, telnyx_phone_number: null,
   cancellation_delay_minutes: 120,
+  max_booking_days_ahead: 60,
   // champs supplémentaires requis par le type
   email: "test@salon.fr", address: null, phone: null,
   opening_hours: null, stripe_account_id: null, stripe_subscription_id: null,

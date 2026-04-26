@@ -25,6 +25,7 @@ export interface Database {
           ai_tone: string | null;
           ai_languages: string[];
           cancellation_delay_minutes: number | null;
+          max_booking_days_ahead: number;
           voice_enabled: boolean;
           auto_confirm_bookings: boolean;
           telnyx_phone_number: string | null;
@@ -49,6 +50,7 @@ export interface Database {
           ai_tone?: string | null;
           ai_languages?: string[];
           cancellation_delay_minutes?: number | null;
+          max_booking_days_ahead?: number;
           voice_enabled?: boolean;
           auto_confirm_bookings?: boolean;
           telnyx_phone_number?: string | null;
@@ -73,6 +75,7 @@ export interface Database {
           ai_tone?: string | null;
           ai_languages?: string[];
           cancellation_delay_minutes?: number | null;
+          max_booking_days_ahead?: number;
           voice_enabled?: boolean;
           auto_confirm_bookings?: boolean;
           telnyx_phone_number?: string | null;

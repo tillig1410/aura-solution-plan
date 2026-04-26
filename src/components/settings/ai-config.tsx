@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Clock, Save, Phone, CalendarCheck } from "lucide-react";
+import { Bot, Clock, Save, Phone, CalendarCheck, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
   const aiLanguages = ["fr"];
   const [cancellationDelay, setCancellationDelay] = useState(merchant.cancellation_delay_minutes ?? 0);
   const [autoConfirm, setAutoConfirm] = useState(merchant.auto_confirm_bookings ?? false);
+  const [maxBookingDays, setMaxBookingDays] = useState(merchant.max_booking_days_ahead ?? 60);
   const [saving, setSaving] = useState(false);
 
 
@@ -54,6 +55,7 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
         ai_languages: aiLanguages,
         cancellation_delay_minutes: cancellationDelay || null,
         auto_confirm_bookings: autoConfirm,
+        max_booking_days_ahead: maxBookingDays,
       });
     } finally {
       setSaving(false);
@@ -274,6 +276,40 @@ const AiConfig = ({ merchant, onSave }: AiConfigProps) => {
               </option>
             ))}
           </select>
+        </CardContent>
+      </Card>
+
+      {/* Horizon de réservation */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarRange className="h-5 w-5 text-indigo-600" />
+            Horizon de réservation
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500 mb-3">
+            Nombre maximum de jours à l&apos;avance pendant lesquels les clients peuvent réserver via l&apos;IA.
+            Au-delà, l&apos;IA propose poliment une date plus proche.
+          </p>
+          <div className="flex items-center gap-3 max-w-md">
+            <Input
+              type="number"
+              min={7}
+              max={365}
+              step={1}
+              value={maxBookingDays}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) setMaxBookingDays(Math.max(7, Math.min(365, v)));
+              }}
+              className="w-24"
+            />
+            <span className="text-sm text-gray-600">jours à l&apos;avance</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Repère : Planity 90j · Treatwell 120j · Calendly 60j. Min 7, max 365.
+          </p>
         </CardContent>
       </Card>
 
